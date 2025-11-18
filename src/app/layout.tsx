@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Mandolin - Mandarin Flashcard Study Tool",
+  title: "Mangolin - Mandarin Flashcard Study Tool",
   description: "AI-powered flashcard application for Mandarin Chinese language learning"
 }
 

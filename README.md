@@ -1,4 +1,4 @@
-# Mandolin - Mandarin Flashcard Study Tool
+# Mangolin - Mandarin Flashcard Study Tool
 
 An AI-powered flashcard application for Mandarin Chinese language learning. Upload your lesson notes and let AI create personalized flashcards, then review them with flexible study modes.
 

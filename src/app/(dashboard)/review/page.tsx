@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { useRouter } from "next/navigation"
 import {
   useReviewCards,
@@ -66,6 +66,7 @@ export default function ReviewPage() {
   const [actualFaceMode, setActualFaceMode] = useState<FaceMode>("hanzi")
   const [streak, setStreak] = useState(0)
   const [level, setLevel] = useState(1)
+  const isProcessing = useRef(false)
 
   const {
     data: reviewData,
@@ -119,50 +120,73 @@ export default function ReviewPage() {
     refetch()
   }
 
-  const handleAnswer = async (quality: Quality) => {
-    if (!currentCard) return
+  const handleAnswer = (quality: Quality) => {
+    if (!currentCard || isProcessing.current) return
 
-    try {
-      const result = await submitReviewMutation.mutateAsync({
+    // Prevent rapid double-clicks
+    isProcessing.current = true
+    setTimeout(() => {
+      isProcessing.current = false
+    }, 100)
+
+    // Optimistically update UI immediately
+    const estimatedXp = quality === Quality.AGAIN ? 1 : quality === Quality.HARD ? 5 : quality === Quality.GOOD ? 10 : 15
+
+    setResults((prev) => ({
+      again: prev.again + (quality === Quality.AGAIN ? 1 : 0),
+      hard: prev.hard + (quality === Quality.HARD ? 1 : 0),
+      good: prev.good + (quality === Quality.GOOD ? 1 : 0),
+      easy: prev.easy + (quality === Quality.EASY ? 1 : 0),
+      totalXp: prev.totalXp + estimatedXp
+    }))
+
+    // Move to next card immediately
+    setCurrentIndex((prev) => prev + 1)
+
+    // Submit to API in background
+    submitReviewMutation.mutate(
+      {
         cardId: currentCard.id,
         quality
-      })
+      },
+      {
+        onSuccess: (result) => {
+          // Update with actual XP (may differ due to bonuses)
+          const xpDiff = result.xpEarned - estimatedXp
+          if (xpDiff !== 0) {
+            setResults((prev) => ({
+              ...prev,
+              totalXp: prev.totalXp + xpDiff
+            }))
+          }
 
-      // Update results based on quality
-      setResults((prev) => ({
-        again: prev.again + (quality === Quality.AGAIN ? 1 : 0),
-        hard: prev.hard + (quality === Quality.HARD ? 1 : 0),
-        good: prev.good + (quality === Quality.GOOD ? 1 : 0),
-        easy: prev.easy + (quality === Quality.EASY ? 1 : 0),
-        totalXp: prev.totalXp + result.xpEarned
-      }))
+          // Update streak and level
+          setStreak(result.stats.currentStreak)
+          setLevel(result.stats.level)
 
-      // Update streak and level
-      setStreak(result.stats.currentStreak)
-      setLevel(result.stats.level)
+          // Show XP toast
+          if (result.xpEarned > 0) {
+            toast.success(`+${result.xpEarned} XP`, {
+              duration: 1500,
+              position: "top-center"
+            })
+          }
 
-      // Show XP toast
-      if (result.xpEarned > 0) {
-        toast.success(`+${result.xpEarned} XP`, {
-          duration: 1500,
-          position: "top-center"
-        })
-      }
-
-      // Show achievement toast
-      if (result.newAchievements && result.newAchievements.length > 0) {
-        for (const achievement of result.newAchievements) {
-          toast.success(`Achievement Unlocked: ${achievement.name}!`, {
-            description: `+${achievement.xpReward} XP`,
-            duration: 3000
-          })
+          // Show achievement toast
+          if (result.newAchievements && result.newAchievements.length > 0) {
+            for (const achievement of result.newAchievements) {
+              toast.success(`Achievement Unlocked: ${achievement.name}!`, {
+                description: `+${achievement.xpReward} XP`,
+                duration: 3000
+              })
+            }
+          }
+        },
+        onError: () => {
+          toast.error("Failed to save result")
         }
       }
-
-      setCurrentIndex((prev) => prev + 1)
-    } catch {
-      toast.error("Failed to save result")
-    }
+    )
   }
 
   const handleGenerateExample = async () => {

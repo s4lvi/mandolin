@@ -22,6 +22,7 @@ interface FlashcardProps {
   onGenerateExample?: () => void
   exampleSentence?: ExampleSentence
   isGenerating?: boolean
+  isSubmitting?: boolean
 }
 
 export function Flashcard({
@@ -30,7 +31,8 @@ export function Flashcard({
   onAnswer,
   onGenerateExample,
   exampleSentence,
-  isGenerating
+  isGenerating,
+  isSubmitting
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
 
@@ -186,6 +188,7 @@ export function Flashcard({
           <Button
             variant="outline"
             className="border-red-500 text-red-500 hover:bg-red-50 text-sm px-2"
+            disabled={isSubmitting}
             onClick={(e) => {
               e.stopPropagation()
               onAnswer(Quality.AGAIN)
@@ -199,6 +202,7 @@ export function Flashcard({
           <Button
             variant="outline"
             className="border-orange-500 text-orange-500 hover:bg-orange-50 text-sm px-2"
+            disabled={isSubmitting}
             onClick={(e) => {
               e.stopPropagation()
               onAnswer(Quality.HARD)
@@ -212,6 +216,7 @@ export function Flashcard({
           <Button
             variant="outline"
             className="border-green-500 text-green-500 hover:bg-green-50 text-sm px-2"
+            disabled={isSubmitting}
             onClick={(e) => {
               e.stopPropagation()
               onAnswer(Quality.GOOD)
@@ -224,6 +229,7 @@ export function Flashcard({
           </Button>
           <Button
             className="bg-blue-600 hover:bg-blue-700 text-sm px-2"
+            disabled={isSubmitting}
             onClick={(e) => {
               e.stopPropagation()
               onAnswer(Quality.EASY)

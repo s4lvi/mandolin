@@ -18,8 +18,9 @@ export function Navbar() {
   return (
     <header className="border-b bg-white">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold text-primary">
-          Mandolin
+        <Link href="/" className="flex items-center gap-2">
+          <img src="/logo.png" alt="Mangolin" className="h-14 w-14" />
+          <span className="text-xl font-bold text-primary">Mangolin</span>
         </Link>
 
         {/* Mobile Navigation */}
