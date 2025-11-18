@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3 } from "lucide-react"
+import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers } from "lucide-react"
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -22,6 +22,71 @@ export function Navbar() {
           Mandolin
         </Link>
 
+        {/* Mobile Navigation */}
+        <div className="md:hidden">
+          {session ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem asChild>
+                  <Link href="/deck" className="flex items-center">
+                    <Layers className="h-4 w-4 mr-2" />
+                    My Deck
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/upload" className="flex items-center">
+                    <Upload className="h-4 w-4 mr-2" />
+                    Upload Notes
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/review" className="flex items-center">
+                    <GraduationCap className="h-4 w-4 mr-2" />
+                    Review
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/lessons" className="flex items-center">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    Lessons
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/stats" className="flex items-center">
+                    <BarChart3 className="h-4 w-4 mr-2" />
+                    Stats
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem disabled className="text-xs">
+                  {session.user?.email}
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Sign out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <div className="flex items-center gap-2">
+              <Link href="/login">
+                <Button variant="ghost" size="sm">
+                  Sign in
+                </Button>
+              </Link>
+              <Link href="/signup">
+                <Button size="sm">Get started</Button>
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center gap-6">
           {session ? (
             <>
