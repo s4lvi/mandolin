@@ -1,14 +1,49 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
-import { parseNotes } from "@/lib/ai"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
+import Anthropic from "@anthropic-ai/sdk"
+import type { ParsedCard } from "@/types"
+
+const anthropic = new Anthropic()
 
 const parseNotesSchema = z.object({
   notes: z.string().min(1, "Notes are required"),
   lessonNumber: z.number().int().positive().optional(),
   lessonTitle: z.string().optional()
 })
+
+const PARSE_NOTES_PROMPT = `You are a Mandarin Chinese language learning assistant.
+Parse the following lesson notes into structured flashcard data.
+
+For each vocabulary word, phrase, idiom, or grammar point, extract:
+- hanzi: Chinese characters
+- pinyin: Romanization with tone marks (e.g., nǐ hǎo, not ni3 hao3)
+- english: English translation/meaning
+- notes: Any additional context or usage notes from the lesson
+- type: One of VOCABULARY, GRAMMAR, PHRASE, or IDIOM
+- suggestedTags: Relevant tags (e.g., ["verb", "daily-life", "HSK-2", "food", "travel"])
+
+Rules:
+1. ALWAYS use tone marks in pinyin (ā, á, ǎ, à, ē, é, ě, è, ī, í, ǐ, ì, ō, ó, ǒ, ò, ū, ú, ǔ, ù, ǖ, ǘ, ǚ, ǜ), never tone numbers
+2. For grammar points, include the pattern/structure in the hanzi field
+3. Be thorough - extract ALL vocabulary and grammar points mentioned
+4. Provide clear, concise English definitions
+5. Add helpful usage notes where relevant
+6. For grammar patterns, explain when/how to use them in the notes
+7. Suggest 2-4 relevant tags per card
+
+Respond with ONLY a valid JSON array of cards, no other text. Example format:
+[
+  {
+    "hanzi": "你好",
+    "pinyin": "nǐ hǎo",
+    "english": "hello",
+    "notes": "Common greeting",
+    "type": "PHRASE",
+    "suggestedTags": ["greeting", "daily-life", "HSK-1"]
+  }
+]`
 
 export async function POST(req: Request) {
   try {
@@ -19,9 +54,6 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const data = parseNotesSchema.parse(body)
-
-    // Parse notes with AI
-    const parsedCards = await parseNotes(data.notes)
 
     // Get user's deck to check for existing cards
     const deck = await prisma.deck.findFirst({
@@ -37,20 +69,96 @@ export async function POST(req: Request) {
       where: { deckId: deck.id },
       select: { hanzi: true }
     })
-    const existingHanzi = new Set(existingCards.map((c) => c.hanzi))
+    const existingHanzi = new Set(existingCards.map((c: { hanzi: string }) => c.hanzi))
 
-    // Mark duplicates in the parsed cards
-    const cardsWithDuplicateInfo = parsedCards.map((card) => ({
-      ...card,
-      isDuplicate: existingHanzi.has(card.hanzi)
-    }))
+    // Use streaming to avoid Heroku's 30s timeout
+    const encoder = new TextEncoder()
 
-    return NextResponse.json({
-      cards: cardsWithDuplicateInfo,
-      lessonNumber: data.lessonNumber,
-      lessonTitle: data.lessonTitle,
-      totalParsed: parsedCards.length,
-      duplicatesFound: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          // Send initial heartbeat
+          controller.enqueue(encoder.encode('{"status":"processing"}\n'))
+
+          // Stream from Anthropic
+          const anthropicStream = await anthropic.messages.stream({
+            model: "claude-sonnet-4-5-20250929",
+            max_tokens: 16384,
+            messages: [
+              {
+                role: "user",
+                content: `${PARSE_NOTES_PROMPT}\n\nLesson Notes:\n${data.notes}`
+              }
+            ]
+          })
+
+          let fullText = ""
+
+          // Collect the streamed response
+          for await (const event of anthropicStream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              fullText += event.delta.text
+              // Send heartbeat every so often to keep connection alive
+              controller.enqueue(encoder.encode('{"status":"streaming"}\n'))
+            }
+          }
+
+          const finalMessage = await anthropicStream.finalMessage()
+
+          // Check if response was truncated
+          if (finalMessage.stop_reason === "max_tokens") {
+            controller.enqueue(encoder.encode(JSON.stringify({
+              error: "Response was too long and got truncated. Try with shorter notes."
+            }) + '\n'))
+            controller.close()
+            return
+          }
+
+          // Parse the response
+          let jsonText = fullText.trim()
+          const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+          if (codeBlockMatch) {
+            jsonText = codeBlockMatch[1].trim()
+          }
+
+          const parsedCards = JSON.parse(jsonText) as ParsedCard[]
+
+          if (!Array.isArray(parsedCards)) {
+            throw new Error("Response is not an array")
+          }
+
+          // Mark duplicates
+          const cardsWithDuplicateInfo = parsedCards.map((card) => ({
+            ...card,
+            isDuplicate: existingHanzi.has(card.hanzi)
+          }))
+
+          // Send final result
+          const result = {
+            cards: cardsWithDuplicateInfo,
+            lessonNumber: data.lessonNumber,
+            lessonTitle: data.lessonTitle,
+            totalParsed: parsedCards.length,
+            duplicatesFound: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
+          }
+
+          controller.enqueue(encoder.encode(JSON.stringify(result) + '\n'))
+          controller.close()
+        } catch (error) {
+          console.error("Streaming error:", error)
+          controller.enqueue(encoder.encode(JSON.stringify({
+            error: error instanceof Error ? error.message : "Failed to parse notes"
+          }) + '\n'))
+          controller.close()
+        }
+      }
+    })
+
+    return new Response(stream, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+        "Transfer-Encoding": "chunked"
+      }
     })
   } catch (error) {
     console.error("Error parsing notes:", error)

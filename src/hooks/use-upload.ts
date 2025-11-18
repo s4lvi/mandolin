@@ -29,7 +29,72 @@ async function parseNotes(input: ParseNotesInput): Promise<ParseNotesResponse> {
     throw new Error(error.error || "Failed to parse notes")
   }
 
-  return res.json()
+  // Handle streaming NDJSON response
+  const reader = res.body?.getReader()
+  if (!reader) {
+    throw new Error("No response body")
+  }
+
+  const decoder = new TextDecoder()
+  let result: ParseNotesResponse | null = null
+  let buffer = ""
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+
+    buffer += decoder.decode(value, { stream: true })
+
+    // Process complete lines
+    const lines = buffer.split("\n")
+    buffer = lines.pop() || "" // Keep incomplete line in buffer
+
+    for (const line of lines) {
+      if (!line.trim()) continue
+
+      try {
+        const data = JSON.parse(line)
+
+        // Check for errors
+        if (data.error) {
+          throw new Error(data.error)
+        }
+
+        // Check for final result (has cards array)
+        if (data.cards) {
+          result = data
+        }
+        // Otherwise it's a status update, ignore
+      } catch (e) {
+        if (e instanceof SyntaxError) {
+          // Ignore JSON parse errors for status updates
+          continue
+        }
+        throw e
+      }
+    }
+  }
+
+  // Process any remaining buffer
+  if (buffer.trim()) {
+    try {
+      const data = JSON.parse(buffer)
+      if (data.error) {
+        throw new Error(data.error)
+      }
+      if (data.cards) {
+        result = data
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  if (!result) {
+    throw new Error("No valid response received")
+  }
+
+  return result
 }
 
 export function useParseNotes() {
