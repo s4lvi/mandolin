@@ -18,6 +18,9 @@ model User {
   decks         Deck[]
   sessions      Session[]
   accounts      Account[]
+  stats         UserStats?
+  achievements  UserAchievement[]
+  reviewHistory ReviewHistory[]
 }
 
 model Account {
@@ -104,13 +107,22 @@ model Card {
   lastReviewed   DateTime?
   nextReview     DateTime?
 
+  // SM-2 algorithm fields
+  easeFactor     Float     @default(2.5)
+  interval       Int       @default(0)
+  repetitions    Int       @default(0)
+  state          CardState @default(NEW)
+
   deck           Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
   lesson         Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   tags           CardTag[]
+  reviewHistory  ReviewHistory[]
 
   @@unique([deckId, hanzi])
   @@index([deckId])
   @@index([lessonId])
+  @@index([nextReview])
+  @@index([state])
 }
 
 model Tag {
@@ -136,4 +148,73 @@ enum CardType {
   GRAMMAR
   PHRASE
   IDIOM
+}
+
+enum CardState {
+  NEW
+  LEARNING
+  REVIEW
+  LEARNED
+}
+
+model UserStats {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  totalXp         Int      @default(0)
+  level           Int      @default(1)
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastReviewDate  DateTime?
+  totalReviews    Int      @default(0)
+  totalCorrect    Int      @default(0)
+  dailyGoal       Int      @default(20)
+  dailyProgress   Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Achievement {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  name        String
+  description String
+  icon        String
+  xpReward    Int      @default(0)
+  requirement Int      @default(1)
+  category    String   @default("general")
+
+  users       UserAchievement[]
+}
+
+model UserAchievement {
+  id            String   @id @default(cuid())
+  userId        String
+  achievementId String
+  unlockedAt    DateTime @default(now())
+  progress      Int      @default(0)
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, achievementId])
+}
+
+model ReviewHistory {
+  id          String   @id @default(cuid())
+  userId      String
+  cardId      String
+  quality     Int
+  easeFactor  Float
+  interval    Int
+  xpEarned    Int      @default(0)
+  reviewedAt  DateTime @default(now())
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([cardId])
+  @@index([reviewedAt])
 }

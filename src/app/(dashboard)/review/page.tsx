@@ -7,7 +7,7 @@ import {
   useSubmitReview,
   useGenerateSentence
 } from "@/hooks/use-review"
-import { Flashcard } from "@/components/review/flashcard"
+import { Flashcard, Quality } from "@/components/review/flashcard"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { BookOpen, Trophy } from "lucide-react"
+import { BookOpen, Trophy, Flame, Star, Zap } from "lucide-react"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 
@@ -41,26 +41,42 @@ function ProgressBar({ value, className }: { value: number; className?: string }
   )
 }
 
+interface SessionResults {
+  again: number
+  hard: number
+  good: number
+  easy: number
+  totalXp: number
+}
+
 export default function ReviewPage() {
   const router = useRouter()
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>("hanzi")
   const [cardLimit, setCardLimit] = useState("20")
   const [currentIndex, setCurrentIndex] = useState(0)
-  const [results, setResults] = useState<{ correct: number; incorrect: number }>({
-    correct: 0,
-    incorrect: 0
+  const [results, setResults] = useState<SessionResults>({
+    again: 0,
+    hard: 0,
+    good: 0,
+    easy: 0,
+    totalXp: 0
   })
   const [examples, setExamples] = useState<Record<string, ExampleSentence>>({})
   const [actualFaceMode, setActualFaceMode] = useState<FaceMode>("hanzi")
+  const [streak, setStreak] = useState(0)
+  const [level, setLevel] = useState(1)
 
   const {
-    data: cards,
+    data: reviewData,
     isLoading,
     refetch
   } = useReviewCards({
     limit: parseInt(cardLimit)
   })
+
+  const cards = reviewData?.cards
+  const userStats = reviewData?.userStats
 
   const submitReviewMutation = useSubmitReview()
   const generateSentenceMutation = useGenerateSentence()
@@ -87,27 +103,61 @@ export default function ReviewPage() {
     }
   }, [faceMode, currentCard])
 
+  // Initialize streak and level from user stats
+  useEffect(() => {
+    if (userStats) {
+      setStreak(userStats.currentStreak)
+      setLevel(userStats.level)
+    }
+  }, [userStats])
+
   const handleStart = () => {
     setIsStarted(true)
     setCurrentIndex(0)
-    setResults({ correct: 0, incorrect: 0 })
+    setResults({ again: 0, hard: 0, good: 0, easy: 0, totalXp: 0 })
     setExamples({})
     refetch()
   }
 
-  const handleAnswer = async (correct: boolean) => {
+  const handleAnswer = async (quality: Quality) => {
     if (!currentCard) return
 
     try {
-      await submitReviewMutation.mutateAsync({
+      const result = await submitReviewMutation.mutateAsync({
         cardId: currentCard.id,
-        correct
+        quality
       })
 
+      // Update results based on quality
       setResults((prev) => ({
-        correct: prev.correct + (correct ? 1 : 0),
-        incorrect: prev.incorrect + (correct ? 0 : 1)
+        again: prev.again + (quality === Quality.AGAIN ? 1 : 0),
+        hard: prev.hard + (quality === Quality.HARD ? 1 : 0),
+        good: prev.good + (quality === Quality.GOOD ? 1 : 0),
+        easy: prev.easy + (quality === Quality.EASY ? 1 : 0),
+        totalXp: prev.totalXp + result.xpEarned
       }))
+
+      // Update streak and level
+      setStreak(result.stats.currentStreak)
+      setLevel(result.stats.level)
+
+      // Show XP toast
+      if (result.xpEarned > 0) {
+        toast.success(`+${result.xpEarned} XP`, {
+          duration: 1500,
+          position: "top-center"
+        })
+      }
+
+      // Show achievement toast
+      if (result.newAchievements && result.newAchievements.length > 0) {
+        for (const achievement of result.newAchievements) {
+          toast.success(`Achievement Unlocked: ${achievement.name}!`, {
+            description: `+${achievement.xpReward} XP`,
+            duration: 3000
+          })
+        }
+      }
 
       setCurrentIndex((prev) => prev + 1)
     } catch {
@@ -135,8 +185,9 @@ export default function ReviewPage() {
 
   // Session complete view
   if (isComplete) {
-    const total = results.correct + results.incorrect
-    const percentage = total > 0 ? Math.round((results.correct / total) * 100) : 0
+    const total = results.again + results.hard + results.good + results.easy
+    const correct = results.good + results.easy
+    const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
     return (
       <div className="max-w-md mx-auto">
@@ -147,24 +198,51 @@ export default function ReviewPage() {
             <CardDescription>Great work reviewing your cards</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* XP and Stats */}
+            <div className="grid grid-cols-3 gap-4 text-center">
+              <div className="p-3 bg-yellow-50 rounded-lg">
+                <Zap className="h-5 w-5 text-yellow-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-yellow-600">+{results.totalXp}</p>
+                <p className="text-xs text-muted-foreground">XP Earned</p>
+              </div>
+              <div className="p-3 bg-orange-50 rounded-lg">
+                <Flame className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-orange-600">{streak}</p>
+                <p className="text-xs text-muted-foreground">Day Streak</p>
+              </div>
+              <div className="p-3 bg-purple-50 rounded-lg">
+                <Star className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-purple-600">{level}</p>
+                <p className="text-xs text-muted-foreground">Level</p>
+              </div>
+            </div>
+
+            {/* Accuracy */}
             <div className="text-center">
               <p className="text-4xl font-bold text-primary">{percentage}%</p>
               <p className="text-muted-foreground">Accuracy</p>
             </div>
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div>
-                <p className="text-2xl font-bold text-green-600">
-                  {results.correct}
-                </p>
-                <p className="text-sm text-muted-foreground">Correct</p>
+
+            {/* Quality breakdown */}
+            <div className="grid grid-cols-4 gap-2 text-center">
+              <div className="p-2 bg-red-50 rounded">
+                <p className="text-lg font-bold text-red-500">{results.again}</p>
+                <p className="text-xs text-muted-foreground">Again</p>
               </div>
-              <div>
-                <p className="text-2xl font-bold text-red-500">
-                  {results.incorrect}
-                </p>
-                <p className="text-sm text-muted-foreground">Incorrect</p>
+              <div className="p-2 bg-orange-50 rounded">
+                <p className="text-lg font-bold text-orange-500">{results.hard}</p>
+                <p className="text-xs text-muted-foreground">Hard</p>
+              </div>
+              <div className="p-2 bg-green-50 rounded">
+                <p className="text-lg font-bold text-green-500">{results.good}</p>
+                <p className="text-xs text-muted-foreground">Good</p>
+              </div>
+              <div className="p-2 bg-blue-50 rounded">
+                <p className="text-lg font-bold text-blue-500">{results.easy}</p>
+                <p className="text-xs text-muted-foreground">Easy</p>
               </div>
             </div>
+
             <div className="flex gap-2">
               <Button
                 variant="outline"
@@ -173,8 +251,15 @@ export default function ReviewPage() {
               >
                 Back to Deck
               </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => router.push("/stats")}
+              >
+                View Stats
+              </Button>
               <Button className="flex-1" onClick={handleStart}>
-                Review Again
+                Again
               </Button>
             </div>
           </CardContent>
@@ -264,8 +349,11 @@ export default function ReviewPage() {
           <span>
             {currentIndex + 1} of {shuffledCards.length}
           </span>
-          <span>
-            {results.correct} correct, {results.incorrect} incorrect
+          <span className="flex items-center gap-2">
+            <span className="text-yellow-500">+{results.totalXp} XP</span>
+            <span className="text-green-500">{results.good + results.easy}</span>
+            <span>/</span>
+            <span className="text-red-500">{results.again + results.hard}</span>
           </span>
         </div>
         <ProgressBar value={progress} />
@@ -275,8 +363,7 @@ export default function ReviewPage() {
         <Flashcard
           card={currentCard}
           faceMode={actualFaceMode}
-          onCorrect={() => handleAnswer(true)}
-          onIncorrect={() => handleAnswer(false)}
+          onAnswer={handleAnswer}
           onGenerateExample={handleGenerateExample}
           exampleSentence={examples[currentCard.id]}
           isGenerating={generateSentenceMutation.isPending}

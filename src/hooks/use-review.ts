@@ -9,9 +9,39 @@ interface FetchReviewCardsParams {
   type?: string
 }
 
+interface UserStats {
+  totalXp: number
+  level: number
+  currentStreak: number
+  longestStreak: number
+  totalReviews: number
+  totalCorrect: number
+  dailyGoal: number
+  dailyProgress: number
+}
+
+interface ReviewResponse {
+  cards: Card[]
+  userStats: UserStats | null
+  dueCount: number
+  totalCards: number
+}
+
+interface ReviewResult {
+  card: Card
+  stats: UserStats
+  xpEarned: number
+  newAchievements: { name: string; icon: string; xpReward: number }[]
+  srsResult: {
+    nextReview: string
+    interval: number
+    state: string
+  }
+}
+
 async function fetchReviewCards(
   params?: FetchReviewCardsParams
-): Promise<Card[]> {
+): Promise<ReviewResponse> {
   const searchParams = new URLSearchParams()
   if (params?.limit) searchParams.set("limit", params.limit.toString())
   if (params?.lessonId) searchParams.set("lessonId", params.lessonId)
@@ -24,26 +54,24 @@ async function fetchReviewCards(
     throw new Error("Failed to fetch review cards")
   }
 
-  const data = await res.json()
-  return data.cards
+  return res.json()
 }
 
 async function submitReviewResult(
   cardId: string,
-  correct: boolean
-): Promise<Card> {
+  quality: number
+): Promise<ReviewResult> {
   const res = await fetch("/api/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cardId, correct })
+    body: JSON.stringify({ cardId, quality })
   })
 
   if (!res.ok) {
     throw new Error("Failed to submit review")
   }
 
-  const data = await res.json()
-  return data.card
+  return res.json()
 }
 
 async function generateSentence(
@@ -75,13 +103,16 @@ export function useSubmitReview() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: ({ cardId, correct }: { cardId: string; correct: boolean }) =>
-      submitReviewResult(cardId, correct),
+    mutationFn: ({ cardId, quality }: { cardId: string; quality: number }) =>
+      submitReviewResult(cardId, quality),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
+      queryClient.invalidateQueries({ queryKey: ["user-stats"] })
     }
   })
 }
+
+export type { UserStats, ReviewResult, ReviewResponse }
 
 export function useGenerateSentence() {
   return useMutation({

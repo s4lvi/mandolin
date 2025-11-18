@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut } from "lucide-react"
+import { User, LogOut, BarChart3 } from "lucide-react"
 
 export function Navbar() {
   const { data: session } = useSession()
@@ -48,6 +48,13 @@ export function Navbar() {
                 className="text-sm font-medium hover:text-primary"
               >
                 Lessons
+              </Link>
+              <Link
+                href="/stats"
+                className="text-sm font-medium hover:text-primary flex items-center"
+              >
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Stats
               </Link>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

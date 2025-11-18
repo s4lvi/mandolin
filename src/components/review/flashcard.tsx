@@ -1,17 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles } from "lucide-react"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 
+// Quality ratings for SM-2 algorithm
+export enum Quality {
+  AGAIN = 0,
+  HARD = 1,
+  GOOD = 2,
+  EASY = 3
+}
+
 interface FlashcardProps {
   card: CardType
   faceMode: FaceMode
-  onCorrect: () => void
-  onIncorrect: () => void
+  onAnswer: (quality: Quality) => void
   onGenerateExample?: () => void
   exampleSentence?: ExampleSentence
   isGenerating?: boolean
@@ -20,13 +27,17 @@ interface FlashcardProps {
 export function Flashcard({
   card,
   faceMode,
-  onCorrect,
-  onIncorrect,
+  onAnswer,
   onGenerateExample,
   exampleSentence,
   isGenerating
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
+
+  // Reset flip state when card changes
+  useEffect(() => {
+    setIsFlipped(false)
+  }, [card.id])
 
   // Determine what to show on the front based on faceMode
   const getFront = () => {
@@ -171,27 +182,57 @@ export function Flashcard({
 
       {/* Answer buttons */}
       {isFlipped && (
-        <div className="flex gap-4 mt-6">
+        <div className="grid grid-cols-4 gap-2 mt-6">
           <Button
             variant="outline"
-            className="flex-1 border-red-500 text-red-500 hover:bg-red-50"
+            className="border-red-500 text-red-500 hover:bg-red-50 text-sm px-2"
             onClick={(e) => {
               e.stopPropagation()
-              setIsFlipped(false)
-              onIncorrect()
+              onAnswer(Quality.AGAIN)
             }}
           >
-            Incorrect
+            <div className="flex flex-col items-center">
+              <span>Again</span>
+              <span className="text-xs opacity-70">&lt;1m</span>
+            </div>
           </Button>
           <Button
-            className="flex-1 bg-green-600 hover:bg-green-700"
+            variant="outline"
+            className="border-orange-500 text-orange-500 hover:bg-orange-50 text-sm px-2"
             onClick={(e) => {
               e.stopPropagation()
-              setIsFlipped(false)
-              onCorrect()
+              onAnswer(Quality.HARD)
             }}
           >
-            Correct
+            <div className="flex flex-col items-center">
+              <span>Hard</span>
+              <span className="text-xs opacity-70">1d</span>
+            </div>
+          </Button>
+          <Button
+            variant="outline"
+            className="border-green-500 text-green-500 hover:bg-green-50 text-sm px-2"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAnswer(Quality.GOOD)
+            }}
+          >
+            <div className="flex flex-col items-center">
+              <span>Good</span>
+              <span className="text-xs opacity-70">3d</span>
+            </div>
+          </Button>
+          <Button
+            className="bg-blue-600 hover:bg-blue-700 text-sm px-2"
+            onClick={(e) => {
+              e.stopPropagation()
+              onAnswer(Quality.EASY)
+            }}
+          >
+            <div className="flex flex-col items-center">
+              <span>Easy</span>
+              <span className="text-xs opacity-70">7d</span>
+            </div>
           </Button>
         </div>
       )}
