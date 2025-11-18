@@ -28,7 +28,7 @@ export async function POST(req: Request) {
       where: { deckId: deck.id },
       select: { hanzi: true }
     })
-    const existingHanzi = new Set(existingCards.map((c) => c.hanzi))
+    const existingHanzi = new Set(existingCards.map((c: { hanzi: string }) => c.hanzi))
 
     const createdCards = []
     const duplicates: string[] = []
