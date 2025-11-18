@@ -30,55 +30,77 @@ export async function POST(req: Request) {
     })
     const existingHanzi = new Set(existingCards.map((c: { hanzi: string }) => c.hanzi))
 
-    const createdCards = []
     const duplicates: string[] = []
+    const cardsToCreate: typeof data.cards = []
 
+    // Filter out duplicates first
     for (const cardData of data.cards) {
       if (existingHanzi.has(cardData.hanzi)) {
         duplicates.push(cardData.hanzi)
-        continue
+      } else {
+        cardsToCreate.push(cardData)
+        existingHanzi.add(cardData.hanzi)
       }
+    }
 
-      // Create card
-      const card = await prisma.card.create({
-        data: {
-          hanzi: cardData.hanzi,
-          pinyin: cardData.pinyin,
-          english: cardData.english,
-          notes: cardData.notes,
-          type: cardData.type,
-          lessonId: data.lessonId || cardData.lessonId,
-          deckId: deck.id,
-          tags: cardData.tags
-            ? {
-                create: await Promise.all(
-                  cardData.tags.map(async (tagName) => {
-                    const tag = await prisma.tag.upsert({
-                      where: { name: tagName },
-                      update: {},
-                      create: { name: tagName }
-                    })
-                    return { tagId: tag.id }
-                  })
-                )
-              }
-            : undefined
-        },
-        include: {
-          lesson: {
-            select: { number: true, title: true }
+    // Collect all unique tags
+    const allTags = new Set<string>()
+    for (const card of cardsToCreate) {
+      if (card.tags) {
+        for (const tag of card.tags) {
+          allTags.add(tag)
+        }
+      }
+    }
+
+    // Create/get all tags in parallel
+    const tagMap = new Map<string, string>()
+    if (allTags.size > 0) {
+      await Promise.all(
+        Array.from(allTags).map(async (tagName) => {
+          const tag = await prisma.tag.upsert({
+            where: { name: tagName },
+            update: {},
+            create: { name: tagName }
+          })
+          tagMap.set(tagName, tag.id)
+        })
+      )
+    }
+
+    // Create all cards in a transaction for speed
+    const createdCards = await prisma.$transaction(
+      cardsToCreate.map((cardData) =>
+        prisma.card.create({
+          data: {
+            hanzi: cardData.hanzi,
+            pinyin: cardData.pinyin,
+            english: cardData.english,
+            notes: cardData.notes,
+            type: cardData.type,
+            lessonId: data.lessonId || cardData.lessonId,
+            deckId: deck.id,
+            tags: cardData.tags
+              ? {
+                  create: cardData.tags.map((tagName) => ({
+                    tagId: tagMap.get(tagName)!
+                  }))
+                }
+              : undefined
           },
-          tags: {
-            include: {
-              tag: true
+          include: {
+            lesson: {
+              select: { number: true, title: true }
+            },
+            tags: {
+              include: {
+                tag: true
+              }
             }
           }
-        }
-      })
-
-      createdCards.push(card)
-      existingHanzi.add(cardData.hanzi)
-    }
+        })
+      )
+    )
 
     return NextResponse.json(
       {
