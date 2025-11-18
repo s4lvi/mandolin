@@ -57,7 +57,7 @@ Respond with ONLY valid JSON, no other text:
 export async function parseNotes(notes: string): Promise<ParsedCard[]> {
   const response = await anthropic.messages.create({
     model: "claude-sonnet-4-5-20250929",
-    max_tokens: 4096,
+    max_tokens: 8192,
     messages: [
       {
         role: "user",
@@ -69,6 +69,12 @@ export async function parseNotes(notes: string): Promise<ParsedCard[]> {
   const content = response.content[0]
   if (content.type !== "text") {
     throw new Error("Unexpected response type")
+  }
+
+  // Check if response was truncated
+  if (response.stop_reason === "max_tokens") {
+    console.error("AI response was truncated due to max_tokens limit")
+    throw new Error("Response was too long and got truncated. Try with shorter notes.")
   }
 
   try {
