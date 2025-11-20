@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles } from "lucide-react"
+import { Loader2, Sparkles, Volume2 } from "lucide-react"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 
 // Quality ratings for SM-2 algorithm
@@ -35,11 +35,25 @@ export function Flashcard({
   isSubmitting
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   // Reset flip state when card changes
   useEffect(() => {
     setIsFlipped(false)
   }, [card.id])
+
+  const playAudio = (e: React.MouseEvent) => {
+    e.stopPropagation() // Prevent card flip
+    if (isPlaying) return
+
+    setIsPlaying(true)
+    const utterance = new SpeechSynthesisUtterance(card.hanzi)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 0.8 // Slower for learning
+    utterance.onend = () => setIsPlaying(false)
+    utterance.onerror = () => setIsPlaying(false)
+    window.speechSynthesis.speak(utterance)
+  }
 
   // Determine what to show on the front based on faceMode
   const getFront = () => {
@@ -89,13 +103,27 @@ export function Flashcard({
             }}
           >
             <CardContent className="text-center p-8">
-              <p
-                className={`font-bold ${
-                  faceMode === "english" ? "text-2xl" : "text-4xl"
-                }`}
-              >
-                {front.main}
-              </p>
+              <div className="flex items-center justify-center gap-3">
+                <p
+                  className={`font-bold ${
+                    faceMode === "english" ? "text-2xl" : "text-4xl"
+                  }`}
+                >
+                  {front.main}
+                </p>
+                {(faceMode === "both" || faceMode === "pinyin" || faceMode === "random") && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    onClick={playAudio}
+                    disabled={isPlaying}
+                    title="Play pronunciation"
+                  >
+                    <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} />
+                  </Button>
+                )}
+              </div>
               {front.sub && (
                 <p className="text-lg text-muted-foreground mt-2">{front.sub}</p>
               )}
@@ -118,7 +146,19 @@ export function Flashcard({
             <CardContent className="p-6 h-full flex flex-col overflow-hidden">
               <div className="flex-1 overflow-y-auto">
                 <div className="text-center mb-4">
-                  <p className="text-3xl font-bold break-words">{card.hanzi}</p>
+                  <div className="flex items-center justify-center gap-2">
+                    <p className="text-3xl font-bold break-words">{card.hanzi}</p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={playAudio}
+                      disabled={isPlaying}
+                      title="Play pronunciation"
+                    >
+                      <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
+                    </Button>
+                  </div>
                   <p className="text-lg text-muted-foreground break-words">{card.pinyin}</p>
                 </div>
                 <div className="text-center mb-4">

@@ -1,10 +1,11 @@
 "use client"
 
+import { useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2 } from "lucide-react"
+import { Pencil, Trash2, Volume2 } from "lucide-react"
 import type { Card as CardType } from "@/types"
 
 interface CardItemProps {
@@ -21,7 +22,20 @@ const typeColors = {
 }
 
 export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
+  const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
+
+  const playAudio = () => {
+    if (isPlaying) return
+
+    setIsPlaying(true)
+    const utterance = new SpeechSynthesisUtterance(card.hanzi)
+    utterance.lang = 'zh-CN'
+    utterance.rate = 0.8 // Slower for learning
+    utterance.onend = () => setIsPlaying(false)
+    utterance.onerror = () => setIsPlaying(false)
+    window.speechSynthesis.speak(utterance)
+  }
 
   return (
     <Card className={`hover:shadow-md transition-shadow ${colorClass}`}>
@@ -30,6 +44,16 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{card.hanzi}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={playAudio}
+                disabled={isPlaying}
+                title="Play pronunciation"
+              >
+                <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
+              </Button>
               <span className="text-sm text-muted-foreground">{card.pinyin}</span>
             </div>
             <p className="text-sm mb-2">{card.english}</p>
