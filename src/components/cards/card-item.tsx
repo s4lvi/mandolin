@@ -10,9 +10,10 @@ import type { Card as CardType } from "@/types"
 interface CardItemProps {
   card: CardType
   onDelete?: (cardId: string) => void
+  onTagClick?: (tagId: string, tagName: string) => void
 }
 
-export function CardItem({ card, onDelete }: CardItemProps) {
+export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
@@ -36,7 +37,17 @@ export function CardItem({ card, onDelete }: CardItemProps) {
                 </Badge>
               )}
               {card.tags.map((cardTag) => (
-                <Badge key={cardTag.tagId} variant="secondary" className="text-xs">
+                <Badge
+                  key={cardTag.tagId}
+                  variant="secondary"
+                  className={`text-xs ${onTagClick ? "cursor-pointer hover:bg-primary hover:text-primary-foreground" : ""}`}
+                  onClick={(e) => {
+                    if (onTagClick) {
+                      e.stopPropagation()
+                      onTagClick(cardTag.tagId, cardTag.tag.name)
+                    }
+                  }}
+                >
                   {cardTag.tag.name}
                 </Badge>
               ))}

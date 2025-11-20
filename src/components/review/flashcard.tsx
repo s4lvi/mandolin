@@ -107,7 +107,7 @@ export function Flashcard({
 
           {/* Back */}
           <Card
-            className={`min-h-[300px] absolute inset-0 ${
+            className={`min-h-[300px] max-h-[400px] absolute inset-0 ${
               isFlipped ? "" : "invisible"
             }`}
             style={{
@@ -115,17 +115,17 @@ export function Flashcard({
               transform: "rotateY(180deg)"
             }}
           >
-            <CardContent className="p-6 h-full flex flex-col">
-              <div className="flex-1">
+            <CardContent className="p-6 h-full flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto">
                 <div className="text-center mb-4">
-                  <p className="text-3xl font-bold">{card.hanzi}</p>
-                  <p className="text-lg text-muted-foreground">{card.pinyin}</p>
+                  <p className="text-3xl font-bold break-words">{card.hanzi}</p>
+                  <p className="text-lg text-muted-foreground break-words">{card.pinyin}</p>
                 </div>
                 <div className="text-center mb-4">
-                  <p className="text-xl">{card.english}</p>
+                  <p className="text-xl break-words">{card.english}</p>
                 </div>
                 {card.notes && (
-                  <p className="text-sm text-muted-foreground text-center mb-4">
+                  <p className="text-sm text-muted-foreground text-center mb-4 break-words">
                     {card.notes}
                   </p>
                 )}
@@ -135,13 +135,13 @@ export function Flashcard({
                   <div className="mt-4 pt-4 border-t">
                     {exampleSentence ? (
                       <div className="text-center space-y-1">
-                        <p className="text-lg font-medium">
+                        <p className="text-base font-medium break-words">
                           {exampleSentence.sentence}
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-xs text-muted-foreground break-words">
                           {exampleSentence.pinyin}
                         </p>
-                        <p className="text-sm">{exampleSentence.translation}</p>
+                        <p className="text-xs break-words">{exampleSentence.translation}</p>
                       </div>
                     ) : (
                       <Button

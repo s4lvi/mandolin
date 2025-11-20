@@ -25,7 +25,9 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { BookOpen, Trophy, Flame, Star, Zap } from "lucide-react"
+import { BookOpen, Trophy, Flame, Star, Zap, Tags } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 
@@ -54,6 +56,9 @@ export default function ReviewPage() {
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>("hanzi")
   const [cardLimit, setCardLimit] = useState("20")
+  const [allCards, setAllCards] = useState(false)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [selectedTypes, setSelectedTypes] = useState<string[]>([])
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResults>({
     again: 0,
@@ -73,8 +78,14 @@ export default function ReviewPage() {
     isLoading,
     refetch
   } = useReviewCards({
-    limit: parseInt(cardLimit)
+    limit: parseInt(cardLimit),
+    allCards,
+    tagIds: selectedTags,
+    types: selectedTypes
   })
+
+  const availableTags = reviewData?.availableTags || []
+  const cardTypes = ["VOCABULARY", "GRAMMAR", "PHRASE", "IDIOM"]
 
   const cards = reviewData?.cards
   const userStats = reviewData?.userStats
@@ -337,6 +348,109 @@ export default function ReviewPage() {
                 max="100"
               />
             </div>
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor="all-cards">Include All Cards</Label>
+                <p className="text-xs text-muted-foreground">
+                  Review cards even if not due
+                </p>
+              </div>
+              <Switch
+                id="all-cards"
+                checked={allCards}
+                onCheckedChange={setAllCards}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Filter by Type</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {cardTypes.map((type) => (
+                  <div key={type} className="flex items-center space-x-2">
+                    <Checkbox
+                      id={`type-${type}`}
+                      checked={selectedTypes.includes(type)}
+                      onCheckedChange={(checked) => {
+                        if (checked) {
+                          setSelectedTypes([...selectedTypes, type])
+                        } else {
+                          setSelectedTypes(selectedTypes.filter((t) => t !== type))
+                        }
+                      }}
+                    />
+                    <label
+                      htmlFor={`type-${type}`}
+                      className="text-sm cursor-pointer capitalize"
+                    >
+                      {type.toLowerCase()}
+                    </label>
+                  </div>
+                ))}
+              </div>
+              {selectedTypes.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedTypes([])}
+                  className="text-xs"
+                >
+                  Clear type filter
+                </Button>
+              )}
+            </div>
+
+            {availableTags.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Tags className="h-4 w-4" />
+                  Filter by Tags
+                </Label>
+                <div className="max-h-32 overflow-y-auto border rounded p-2 space-y-2">
+                  {availableTags.map((tag) => (
+                    <div key={tag.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`tag-${tag.id}`}
+                        checked={selectedTags.includes(tag.id)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setSelectedTags([...selectedTags, tag.id])
+                          } else {
+                            setSelectedTags(selectedTags.filter((id) => id !== tag.id))
+                          }
+                        }}
+                      />
+                      <label
+                        htmlFor={`tag-${tag.id}`}
+                        className="text-sm cursor-pointer"
+                      >
+                        {tag.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                {selectedTags.length > 0 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedTags([])}
+                    className="text-xs"
+                  >
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {reviewData && (
+              <div className="text-sm text-muted-foreground text-center p-2 bg-muted rounded">
+                {allCards ? (
+                  <span>{reviewData.totalCards} total cards available</span>
+                ) : (
+                  <span>{reviewData.dueCount} cards due for review</span>
+                )}
+              </div>
+            )}
 
             <Button
               className="w-full"

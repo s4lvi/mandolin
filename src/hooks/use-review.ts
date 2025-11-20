@@ -6,7 +6,9 @@ import type { Card, ExampleSentence } from "@/types"
 interface FetchReviewCardsParams {
   limit?: number
   lessonId?: string
-  type?: string
+  types?: string[]
+  allCards?: boolean
+  tagIds?: string[]
 }
 
 interface UserStats {
@@ -20,11 +22,17 @@ interface UserStats {
   dailyProgress: number
 }
 
+interface Tag {
+  id: string
+  name: string
+}
+
 interface ReviewResponse {
   cards: Card[]
   userStats: UserStats | null
   dueCount: number
   totalCards: number
+  availableTags: Tag[]
 }
 
 interface ReviewResult {
@@ -45,7 +53,13 @@ async function fetchReviewCards(
   const searchParams = new URLSearchParams()
   if (params?.limit) searchParams.set("limit", params.limit.toString())
   if (params?.lessonId) searchParams.set("lessonId", params.lessonId)
-  if (params?.type) searchParams.set("type", params.type)
+  if (params?.types && params.types.length > 0) {
+    searchParams.set("types", params.types.join(","))
+  }
+  if (params?.allCards) searchParams.set("allCards", "true")
+  if (params?.tagIds && params.tagIds.length > 0) {
+    searchParams.set("tagIds", params.tagIds.join(","))
+  }
 
   const url = `/api/review${searchParams.toString() ? `?${searchParams}` : ""}`
   const res = await fetch(url)

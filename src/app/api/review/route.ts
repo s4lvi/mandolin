@@ -28,7 +28,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url)
     const limit = parseInt(searchParams.get("limit") || "20")
     const lessonId = searchParams.get("lessonId")
-    const type = searchParams.get("type")
+    const types = searchParams.get("types")?.split(",").filter(Boolean) || []
+    const allCards = searchParams.get("allCards") === "true"
+    const tagIds = searchParams.get("tagIds")?.split(",").filter(Boolean) || []
 
     // Get user's deck
     const deck = await prisma.deck.findFirst({
@@ -43,29 +45,41 @@ export async function GET(req: Request) {
     const where: {
       deckId: string
       lessonId?: string
-      type?: CardType
+      type?: CardType | { in: CardType[] }
+      tags?: { some: { tagId: { in: string[] } } }
     } = { deckId: deck.id }
 
     if (lessonId) {
       where.lessonId = lessonId
     }
 
-    if (type && Object.values(CardType).includes(type as CardType)) {
-      where.type = type as CardType
+    if (types.length > 0) {
+      const validTypes = types.filter((t) => Object.values(CardType).includes(t as CardType)) as CardType[]
+      if (validTypes.length === 1) {
+        where.type = validTypes[0]
+      } else if (validTypes.length > 1) {
+        where.type = { in: validTypes }
+      }
+    }
+
+    if (tagIds.length > 0) {
+      where.tags = { some: { tagId: { in: tagIds } } }
     }
 
     const now = new Date()
 
-    // Get cards due for review (nextReview <= now or never reviewed)
+    // Get cards - either all cards or just due cards
     const cards = await prisma.card.findMany({
-      where: {
-        ...where,
-        OR: [
-          { nextReview: null }, // Never reviewed
-          { nextReview: { lte: now } }, // Due for review
-          { state: "NEW" } // New cards
-        ]
-      },
+      where: allCards
+        ? where
+        : {
+            ...where,
+            OR: [
+              { nextReview: null }, // Never reviewed
+              { nextReview: { lte: now } }, // Due for review
+              { state: "NEW" } // New cards
+            ]
+          },
       include: {
         lesson: {
           select: { number: true, title: true }
@@ -76,11 +90,16 @@ export async function GET(req: Request) {
           }
         }
       },
-      orderBy: [
-        { state: "asc" }, // NEW cards first
-        { nextReview: "asc" }, // Then by due date (oldest first)
-        { easeFactor: "asc" } // Then hardest cards (lowest ease factor)
-      ],
+      orderBy: allCards
+        ? [
+            { lastReviewed: "asc" }, // Oldest reviewed first
+            { createdAt: "asc" }
+          ]
+        : [
+            { state: "asc" }, // NEW cards first
+            { nextReview: "asc" }, // Then by due date (oldest first)
+            { easeFactor: "asc" } // Then hardest cards (lowest ease factor)
+          ],
       take: limit
     })
 
@@ -101,11 +120,26 @@ export async function GET(req: Request) {
       }
     })
 
+    // Get all tags used by user's cards
+    const availableTags = await prisma.tag.findMany({
+      where: {
+        cards: {
+          some: {
+            card: {
+              deckId: deck.id
+            }
+          }
+        }
+      },
+      orderBy: { name: "asc" }
+    })
+
     return NextResponse.json({
       cards,
       userStats,
       dueCount,
-      totalCards: await prisma.card.count({ where })
+      totalCards: await prisma.card.count({ where }),
+      availableTags
     })
   } catch (error) {
     console.error("Error fetching review cards:", error)

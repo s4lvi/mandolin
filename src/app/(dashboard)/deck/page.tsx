@@ -21,12 +21,14 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Plus, Search, Upload, BookOpen } from "lucide-react"
+import { Plus, Search, Upload, BookOpen, X } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 
 export default function DeckPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null)
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null)
 
   const { data: cards, isLoading } = useCards()
@@ -36,12 +38,19 @@ export default function DeckPage() {
     const matchesSearch =
       card.hanzi.includes(search) ||
       card.pinyin.toLowerCase().includes(search.toLowerCase()) ||
-      card.english.toLowerCase().includes(search.toLowerCase())
+      card.english.toLowerCase().includes(search.toLowerCase()) ||
+      card.tags.some((t) => t.tag.name.toLowerCase().includes(search.toLowerCase()))
 
     const matchesType = typeFilter === "all" || card.type === typeFilter
 
-    return matchesSearch && matchesType
+    const matchesTag = !tagFilter || card.tags.some((t) => t.tagId === tagFilter.id)
+
+    return matchesSearch && matchesType && matchesTag
   })
+
+  const handleTagClick = (tagId: string, tagName: string) => {
+    setTagFilter({ id: tagId, name: tagName })
+  }
 
   const handleDelete = async () => {
     if (!deleteCardId) return
@@ -79,7 +88,7 @@ export default function DeckPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search cards..."
+            placeholder="Search cards or tags..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -99,6 +108,20 @@ export default function DeckPage() {
         </Select>
       </div>
 
+      {tagFilter && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground">Filtered by tag:</span>
+          <Badge
+            variant="secondary"
+            className="flex items-center gap-1 cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
+            onClick={() => setTagFilter(null)}
+          >
+            {tagFilter.name}
+            <X className="h-3 w-3" />
+          </Badge>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="text-center py-12">
           <p className="text-muted-foreground">Loading cards...</p>
@@ -108,11 +131,11 @@ export default function DeckPage() {
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No cards yet</h3>
           <p className="text-muted-foreground mb-4">
-            {search || typeFilter !== "all"
+            {search || typeFilter !== "all" || tagFilter
               ? "No cards match your filters"
               : "Start by adding cards or uploading your lesson notes"}
           </p>
-          {!search && typeFilter === "all" && (
+          {!search && typeFilter === "all" && !tagFilter && (
             <div className="flex gap-2 justify-center">
               <Link href="/deck/add">
                 <Button variant="outline">Add Cards</Button>
@@ -130,6 +153,7 @@ export default function DeckPage() {
               key={card.id}
               card={card}
               onDelete={(id) => setDeleteCardId(id)}
+              onTagClick={handleTagClick}
             />
           ))}
         </div>

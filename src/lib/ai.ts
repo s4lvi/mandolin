@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard, ExampleSentence } from "@/types"
+import { PREDEFINED_TAGS } from "@/lib/constants"
 
 const anthropic = new Anthropic()
 
@@ -12,7 +13,10 @@ For each vocabulary word, phrase, idiom, or grammar point, extract:
 - english: English translation/meaning
 - notes: Any additional context or usage notes from the lesson
 - type: One of VOCABULARY, GRAMMAR, PHRASE, or IDIOM
-- suggestedTags: Relevant tags (e.g., ["verb", "daily-life", "HSK-2", "food", "travel"])
+- suggestedTags: 2-4 tags from the allowed list below
+
+ALLOWED TAGS (only use these exact tags):
+${PREDEFINED_TAGS.join(", ")}
 
 Rules:
 1. ALWAYS use tone marks in pinyin (ā, á, ǎ, à, ē, é, ě, è, ī, í, ǐ, ì, ō, ó, ǒ, ò, ū, ú, ǔ, ù, ǖ, ǘ, ǚ, ǜ), never tone numbers
@@ -21,7 +25,8 @@ Rules:
 4. Provide clear, concise English definitions
 5. Add helpful usage notes where relevant
 6. For grammar patterns, explain when/how to use them in the notes
-7. Suggest 2-4 relevant tags per card
+7. ONLY use tags from the allowed list above - do not create new tags
+8. IMPORTANT: Prefer VOCABULARY over PHRASE. Only use PHRASE for very common fixed expressions (greetings, farewells, idiom-like phrases). Most 2-3 character combinations should be VOCABULARY. If it's primarily teaching a word's meaning, use VOCABULARY even if shown in a short phrase context.
 
 Respond with ONLY a valid JSON array of cards, no other text. Example format:
 [
