@@ -36,12 +36,12 @@ function ProgressBar({
     <div className={`relative ${className}`}>
       <div className="h-3 w-full bg-secondary rounded-full overflow-hidden">
         <div
-          className="h-full bg-primary transition-all"
+          className="h-full bg-gradient-to-r from-orange-500 via-yellow-500 to-green-500 transition-all shadow-sm"
           style={{ width: `${Math.min(100, value)}%` }}
         />
       </div>
       {showLabel && (
-        <span className="absolute right-0 -top-5 text-xs text-muted-foreground">
+        <span className="absolute right-0 -top-5 text-xs font-medium text-muted-foreground">
           {Math.round(value)}%
         </span>
       )}
@@ -118,30 +118,30 @@ export default function StatsPage() {
 
       {/* Main Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-900/30">
           <CardContent className="p-4 text-center">
-            <Zap className="h-8 w-8 text-yellow-500 mx-auto mb-2" />
+            <Zap className="h-8 w-8 text-yellow-600 dark:text-yellow-500 mx-auto mb-2" />
             <p className="text-2xl font-bold">{stats.totalXp}</p>
             <p className="text-sm text-muted-foreground">Total XP</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-900/30">
           <CardContent className="p-4 text-center">
-            <Star className="h-8 w-8 text-purple-500 mx-auto mb-2" />
+            <Star className="h-8 w-8 text-orange-600 dark:text-orange-500 mx-auto mb-2" />
             <p className="text-2xl font-bold">{stats.level}</p>
             <p className="text-sm text-muted-foreground">Level</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-red-200 dark:border-red-900/30">
           <CardContent className="p-4 text-center">
-            <Flame className="h-8 w-8 text-orange-500 mx-auto mb-2" />
+            <Flame className="h-8 w-8 text-red-600 dark:text-red-500 mx-auto mb-2" />
             <p className="text-2xl font-bold">{stats.currentStreak}</p>
             <p className="text-sm text-muted-foreground">Day Streak</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-green-50 to-yellow-50 dark:from-green-950/20 dark:to-yellow-950/20 border-green-200 dark:border-green-900/30">
           <CardContent className="p-4 text-center">
-            <Trophy className="h-8 w-8 text-yellow-600 mx-auto mb-2" />
+            <Trophy className="h-8 w-8 text-green-600 dark:text-green-500 mx-auto mb-2" />
             <p className="text-2xl font-bold">{stats.longestStreak}</p>
             <p className="text-sm text-muted-foreground">Best Streak</p>
           </CardContent>

@@ -52,12 +52,13 @@ export async function GET() {
     if (deck) {
       const now = new Date()
 
-      const [total, newCards, learning, review, learned, dueToday] = await Promise.all([
-        prisma.card.count({ where: { deckId: deck.id } }),
-        prisma.card.count({ where: { deckId: deck.id, state: "NEW" } }),
-        prisma.card.count({ where: { deckId: deck.id, state: "LEARNING" } }),
-        prisma.card.count({ where: { deckId: deck.id, state: "REVIEW" } }),
-        prisma.card.count({ where: { deckId: deck.id, state: "LEARNED" } }),
+      // Use groupBy to get all state counts in a single query
+      const [stateCounts, dueToday] = await Promise.all([
+        prisma.card.groupBy({
+          by: ["state"],
+          where: { deckId: deck.id },
+          _count: true
+        }),
         prisma.card.count({
           where: {
             deckId: deck.id,
@@ -69,6 +70,13 @@ export async function GET() {
           }
         })
       ])
+
+      // Extract counts by state (defaults to 0 if state doesn't exist)
+      const total = stateCounts.reduce((sum, s) => sum + s._count, 0)
+      const newCards = stateCounts.find((s) => s.state === "NEW")?._count || 0
+      const learning = stateCounts.find((s) => s.state === "LEARNING")?._count || 0
+      const review = stateCounts.find((s) => s.state === "REVIEW")?._count || 0
+      const learned = stateCounts.find((s) => s.state === "LEARNED")?._count || 0
 
       cardStats = { total, new: newCards, learning, review, learned, dueToday }
     }

@@ -13,9 +13,18 @@ interface CardItemProps {
   onTagClick?: (tagId: string, tagName: string) => void
 }
 
+const typeColors = {
+  VOCABULARY: "bg-orange-50 border-orange-200 dark:bg-orange-950/30 dark:border-orange-900/50",
+  GRAMMAR: "bg-green-50 border-green-200 dark:bg-green-950/30 dark:border-green-900/50",
+  PHRASE: "bg-yellow-50 border-yellow-200 dark:bg-yellow-950/30 dark:border-yellow-900/50",
+  IDIOM: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/50"
+}
+
 export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
+  const colorClass = typeColors[card.type] || "bg-white"
+
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={`hover:shadow-md transition-shadow ${colorClass}`}>
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
           <div className="flex-1">

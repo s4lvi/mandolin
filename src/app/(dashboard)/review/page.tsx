@@ -71,6 +71,7 @@ export default function ReviewPage() {
   const [actualFaceMode, setActualFaceMode] = useState<FaceMode>("hanzi")
   const [streak, setStreak] = useState(0)
   const [level, setLevel] = useState(1)
+  const [sessionCards, setSessionCards] = useState<CardType[]>([])
   const isProcessing = useRef(false)
 
   const {
@@ -93,11 +94,11 @@ export default function ReviewPage() {
   const submitReviewMutation = useSubmitReview()
   const generateSentenceMutation = useGenerateSentence()
 
-  // Shuffle cards when starting
+  // Shuffle cards from session snapshot (frozen at session start)
   const shuffledCards = useMemo(() => {
-    if (!cards) return []
-    return [...cards].sort(() => Math.random() - 0.5)
-  }, [cards])
+    if (sessionCards.length === 0) return []
+    return [...sessionCards].sort(() => Math.random() - 0.5)
+  }, [sessionCards])
 
   const currentCard = shuffledCards[currentIndex]
   const progress = shuffledCards.length
@@ -124,6 +125,10 @@ export default function ReviewPage() {
   }, [userStats])
 
   const handleStart = () => {
+    // Snapshot the current cards for this session
+    if (cards && cards.length > 0) {
+      setSessionCards(cards)
+    }
     setIsStarted(true)
     setCurrentIndex(0)
     setResults({ again: 0, hard: 0, good: 0, easy: 0, totalXp: 0 })
@@ -515,6 +520,7 @@ export default function ReviewPage() {
           onClick={() => {
             setIsStarted(false)
             setCurrentIndex(0)
+            setSessionCards([])
           }}
         >
           End Session

@@ -1,7 +1,20 @@
 import { PrismaClient } from "@prisma/client"
-import { PREDEFINED_TAGS } from "../src/lib/constants"
 
 const prisma = new PrismaClient()
+
+// Predefined tags (copied from src/lib/constants.ts)
+const PREDEFINED_TAGS = [
+  // HSK Levels
+  "HSK-1", "HSK-2", "HSK-3", "HSK-4", "HSK-5", "HSK-6",
+  // Parts of Speech
+  "noun", "verb", "adjective", "adverb", "conjunction", "preposition", "particle", "measure-word", "pronoun",
+  // Topics
+  "food", "travel", "business", "family", "health", "weather", "time", "numbers", "colors", "animals", "clothing", "home", "school", "work", "shopping", "transportation", "sports", "emotions", "body", "nature",
+  // Usage
+  "formal", "informal", "spoken", "written", "polite", "casual",
+  // Other
+  "common", "essential", "advanced"
+] as const
 
 async function main() {
   console.log("Starting tag cleanup...")

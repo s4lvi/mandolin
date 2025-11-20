@@ -8,19 +8,21 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  passwordHash  String
-  name          String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  id             String    @id @default(cuid())
+  email          String    @unique
+  passwordHash   String
+  name           String?
+  hasSeenWelcome Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
-  decks         Deck[]
-  sessions      Session[]
-  accounts      Account[]
-  stats         UserStats?
-  achievements  UserAchievement[]
-  reviewHistory ReviewHistory[]
+  decks          Deck[]
+  sessions       Session[]
+  accounts       Account[]
+  stats          UserStats?
+  achievements   UserAchievement[]
+  reviewHistory  ReviewHistory[]
+  feedback       Feedback[]
 }
 
 model Account {
@@ -217,4 +219,24 @@ model ReviewHistory {
   @@index([userId])
   @@index([cardId])
   @@index([reviewedAt])
+}
+
+model Feedback {
+  id          String       @id @default(cuid())
+  userId      String
+  type        FeedbackType
+  message     String       @db.Text
+  email       String?
+  createdAt   DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+enum FeedbackType {
+  BUG
+  FEATURE
+  GENERAL
 }

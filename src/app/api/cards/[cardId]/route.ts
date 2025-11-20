@@ -111,15 +111,34 @@ export async function PUT(
         where: { cardId }
       })
 
-      // Create new tags
-      for (const tagName of data.tags) {
-        const tag = await prisma.tag.upsert({
-          where: { name: tagName },
-          update: {},
-          create: { name: tagName }
+      // Batch create/get tags
+      if (data.tags.length > 0) {
+        // Find existing tags
+        const existingTags = await prisma.tag.findMany({
+          where: { name: { in: data.tags } }
         })
-        await prisma.cardTag.create({
-          data: { cardId, tagId: tag.id }
+        const existingTagNames = new Set(existingTags.map((t) => t.name))
+
+        // Create missing tags in batch
+        const newTagNames = data.tags.filter((name) => !existingTagNames.has(name))
+        if (newTagNames.length > 0) {
+          await prisma.tag.createMany({
+            data: newTagNames.map((name) => ({ name })),
+            skipDuplicates: true
+          })
+        }
+
+        // Get all tags (existing + newly created)
+        const allTags = await prisma.tag.findMany({
+          where: { name: { in: data.tags } }
+        })
+
+        // Create CardTag relationships in batch
+        await prisma.cardTag.createMany({
+          data: allTags.map((tag) => ({
+            cardId,
+            tagId: tag.id
+          }))
         })
       }
     }

@@ -2,17 +2,19 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
+import { PREDEFINED_TAGS } from "@/lib/constants"
 
 const anthropic = new Anthropic()
 
 const autofillSchema = z.object({
-  field: z.enum(["hanzi", "pinyin", "english", "notes", "type"]),
+  field: z.enum(["hanzi", "pinyin", "english", "notes", "type", "tags"]),
   context: z.object({
     hanzi: z.string().optional(),
     pinyin: z.string().optional(),
     english: z.string().optional(),
     notes: z.string().optional(),
-    type: z.string().optional()
+    type: z.string().optional(),
+    tags: z.array(z.string()).optional()
   })
 })
 
@@ -37,7 +39,13 @@ Return ONLY one of: VOCABULARY, GRAMMAR, PHRASE, or IDIOM
 - VOCABULARY: Single words or common 2-character compounds
 - GRAMMAR: Grammar patterns or structures
 - PHRASE: Common expressions or greetings
-- IDIOM: Chinese idioms (成语) or proverbs`
+- IDIOM: Chinese idioms (成语) or proverbs`,
+
+  tags: `Given the context about a Mandarin Chinese word/phrase, suggest 2-4 relevant tags.
+Choose ONLY from these allowed tags:
+${PREDEFINED_TAGS.join(", ")}
+
+Return a JSON array of tag names. Example: ["HSK-1", "noun", "common"]`
 }
 
 export async function POST(req: Request) {
@@ -57,6 +65,9 @@ export async function POST(req: Request) {
     if (context.english) contextParts.push(`English: ${context.english}`)
     if (context.notes) contextParts.push(`Notes: ${context.notes}`)
     if (context.type) contextParts.push(`Type: ${context.type}`)
+    if (context.tags && context.tags.length > 0) {
+      contextParts.push(`Tags: ${context.tags.join(", ")}`)
+    }
 
     if (contextParts.length === 0) {
       return NextResponse.json(
@@ -88,7 +99,27 @@ Your response:`
       throw new Error("Unexpected response type")
     }
 
-    const result = content.text.trim()
+    let result = content.text.trim()
+
+    // For tags field, parse as JSON array
+    if (field === "tags") {
+      try {
+        // Try to extract JSON if wrapped in code blocks
+        const jsonMatch = result.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+        if (jsonMatch) {
+          result = jsonMatch[1]
+        }
+        const tags = JSON.parse(result)
+        if (!Array.isArray(tags)) {
+          throw new Error("Tags response is not an array")
+        }
+        // Filter to only allowed tags
+        const validTags = tags.filter((tag) => PREDEFINED_TAGS.includes(tag as any))
+        return NextResponse.json({ value: validTags })
+      } catch {
+        return NextResponse.json({ error: "Failed to parse tags" }, { status: 500 })
+      }
+    }
 
     return NextResponse.json({ value: result })
   } catch (error) {

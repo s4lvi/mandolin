@@ -112,6 +112,31 @@ export async function POST(req: Request) {
       )
     }
 
+    // Batch create/get tags first
+    let tagIds: string[] = []
+    if (data.tags && data.tags.length > 0) {
+      // Find existing tags
+      const existingTags = await prisma.tag.findMany({
+        where: { name: { in: data.tags } }
+      })
+      const existingTagNames = new Set(existingTags.map((t) => t.name))
+
+      // Create missing tags in batch
+      const newTagNames = data.tags.filter((name) => !existingTagNames.has(name))
+      if (newTagNames.length > 0) {
+        await prisma.tag.createMany({
+          data: newTagNames.map((name) => ({ name })),
+          skipDuplicates: true
+        })
+      }
+
+      // Get all tags (existing + newly created)
+      const allTags = await prisma.tag.findMany({
+        where: { name: { in: data.tags } }
+      })
+      tagIds = allTags.map((tag) => tag.id)
+    }
+
     // Create card
     const card = await prisma.card.create({
       data: {
@@ -122,18 +147,9 @@ export async function POST(req: Request) {
         type: data.type,
         lessonId: data.lessonId,
         deckId: deck.id,
-        tags: data.tags
+        tags: tagIds.length > 0
           ? {
-              create: await Promise.all(
-                data.tags.map(async (tagName) => {
-                  const tag = await prisma.tag.upsert({
-                    where: { name: tagName },
-                    update: {},
-                    create: { name: tagName }
-                  })
-                  return { tagId: tag.id }
-                })
-              )
+              create: tagIds.map((tagId) => ({ tagId }))
             }
           : undefined
       },

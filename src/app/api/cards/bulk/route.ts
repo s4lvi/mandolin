@@ -44,28 +44,42 @@ export async function POST(req: Request) {
     }
 
     // Collect all unique tags
-    const allTags = new Set<string>()
+    const allTagNames = new Set<string>()
     for (const card of cardsToCreate) {
       if (card.tags) {
         for (const tag of card.tags) {
-          allTags.add(tag)
+          allTagNames.add(tag)
         }
       }
     }
 
-    // Create/get all tags in parallel
+    // Batch create/get all tags
     const tagMap = new Map<string, string>()
-    if (allTags.size > 0) {
-      await Promise.all(
-        Array.from(allTags).map(async (tagName) => {
-          const tag = await prisma.tag.upsert({
-            where: { name: tagName },
-            update: {},
-            create: { name: tagName }
-          })
-          tagMap.set(tagName, tag.id)
+    if (allTagNames.size > 0) {
+      const tagNamesArray = Array.from(allTagNames)
+
+      // Find existing tags
+      const existingTags = await prisma.tag.findMany({
+        where: { name: { in: tagNamesArray } }
+      })
+      const existingTagNames = new Set(existingTags.map((t) => t.name))
+
+      // Create missing tags in batch
+      const newTagNames = tagNamesArray.filter((name) => !existingTagNames.has(name))
+      if (newTagNames.length > 0) {
+        await prisma.tag.createMany({
+          data: newTagNames.map((name) => ({ name })),
+          skipDuplicates: true
         })
-      )
+      }
+
+      // Get all tags (existing + newly created)
+      const allTags = await prisma.tag.findMany({
+        where: { name: { in: tagNamesArray } }
+      })
+
+      // Build tag map for quick lookup
+      allTags.forEach((tag) => tagMap.set(tag.name, tag.id))
     }
 
     // Create all cards in a transaction for speed

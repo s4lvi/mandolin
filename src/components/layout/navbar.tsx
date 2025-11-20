@@ -16,11 +16,11 @@ export function Navbar() {
   const { data: session } = useSession()
 
   return (
-    <header className="border-b bg-white">
+    <header className="border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
+        <Link href="/" className="flex items-center gap-2 transition-transform hover:scale-105">
           <img src="/logo.png" alt="Mangolin" className="h-14 w-14" />
-          <span className="text-xl font-bold text-primary">Mangolin</span>
+          <span className="text-xl font-bold bg-gradient-to-r from-orange-600 to-red-500 bg-clip-text text-transparent">Mangolin</span>
         </Link>
 
         {/* Mobile Navigation */}

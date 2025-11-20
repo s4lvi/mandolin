@@ -122,6 +122,7 @@ export function useSubmitReview() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
       queryClient.invalidateQueries({ queryKey: ["user-stats"] })
+      queryClient.invalidateQueries({ queryKey: ["review-cards"] })
     }
   })
 }

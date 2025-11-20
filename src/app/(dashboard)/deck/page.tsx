@@ -21,15 +21,18 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Plus, Search, Upload, BookOpen, X } from "lucide-react"
+import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+
+const CARDS_PER_PAGE = 12
 
 export default function DeckPage() {
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null)
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const { data: cards, isLoading } = useCards()
   const deleteCardMutation = useDeleteCard()
@@ -48,8 +51,31 @@ export default function DeckPage() {
     return matchesSearch && matchesType && matchesTag
   })
 
+  // Pagination calculations
+  const totalPages = Math.ceil((filteredCards?.length || 0) / CARDS_PER_PAGE)
+  const startIndex = (currentPage - 1) * CARDS_PER_PAGE
+  const endIndex = startIndex + CARDS_PER_PAGE
+  const paginatedCards = filteredCards?.slice(startIndex, endIndex)
+
+  // Reset to page 1 when filters change
+  const handleSearchChange = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
+
+  const handleTypeFilterChange = (value: string) => {
+    setTypeFilter(value)
+    setCurrentPage(1)
+  }
+
   const handleTagClick = (tagId: string, tagName: string) => {
     setTagFilter({ id: tagId, name: tagName })
+    setCurrentPage(1)
+  }
+
+  const handleClearTagFilter = () => {
+    setTagFilter(null)
+    setCurrentPage(1)
   }
 
   const handleDelete = async () => {
@@ -59,6 +85,11 @@ export default function DeckPage() {
       await deleteCardMutation.mutateAsync(deleteCardId)
       toast.success("Card deleted")
       setDeleteCardId(null)
+
+      // If we deleted the last card on the current page, go to previous page
+      if (paginatedCards?.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1)
+      }
     } catch {
       toast.error("Failed to delete card")
     }
@@ -90,11 +121,11 @@ export default function DeckPage() {
           <Input
             placeholder="Search cards or tags..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="pl-10"
           />
         </div>
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
+        <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
@@ -114,7 +145,7 @@ export default function DeckPage() {
           <Badge
             variant="secondary"
             className="flex items-center gap-1 cursor-pointer hover:bg-destructive hover:text-destructive-foreground"
-            onClick={() => setTagFilter(null)}
+            onClick={handleClearTagFilter}
           >
             {tagFilter.name}
             <X className="h-3 w-3" />
@@ -147,16 +178,86 @@ export default function DeckPage() {
           )}
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCards?.map((card) => (
-            <CardItem
-              key={card.id}
-              card={card}
-              onDelete={(id) => setDeleteCardId(id)}
-              onTagClick={handleTagClick}
-            />
-          ))}
-        </div>
+        <>
+          <div className="flex justify-between items-center text-sm text-muted-foreground">
+            <span>
+              Showing {startIndex + 1}-{Math.min(endIndex, filteredCards?.length || 0)} of {filteredCards?.length || 0} cards
+            </span>
+            {totalPages > 1 && (
+              <span>
+                Page {currentPage} of {totalPages}
+              </span>
+            )}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {paginatedCards?.map((card) => (
+              <CardItem
+                key={card.id}
+                card={card}
+                onDelete={(id) => setDeleteCardId(id)}
+                onTagClick={handleTagClick}
+              />
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Previous
+              </Button>
+
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                  .filter((page) => {
+                    // Show first page, last page, current page, and pages around current
+                    return (
+                      page === 1 ||
+                      page === totalPages ||
+                      (page >= currentPage - 1 && page <= currentPage + 1)
+                    )
+                  })
+                  .map((page, index, array) => {
+                    // Add ellipsis if there's a gap
+                    const prevPage = array[index - 1]
+                    const showEllipsis = prevPage && page - prevPage > 1
+
+                    return (
+                      <div key={page} className="flex items-center gap-1">
+                        {showEllipsis && (
+                          <span className="px-2 text-muted-foreground">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => setCurrentPage(page)}
+                          className="w-9 h-9 p-0"
+                        >
+                          {page}
+                        </Button>
+                      </div>
+                    )
+                  })}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       <Dialog open={!!deleteCardId} onOpenChange={() => setDeleteCardId(null)}>
