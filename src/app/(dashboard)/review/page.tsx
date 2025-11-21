@@ -364,12 +364,14 @@ export default function ReviewPage() {
           </CardContent>
         </Card>
       </div>
+      </ErrorBoundary>
     )
   }
 
   // Settings view
   if (!isStarted) {
     return (
+      <ErrorBoundary>
       <div className="max-w-md mx-auto space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Review Session</h1>
@@ -563,12 +565,14 @@ export default function ReviewPage() {
           </CardContent>
         </Card>
       </div>
+      </ErrorBoundary>
     )
   }
 
   // No cards available
   if (!isLoading && shuffledCards.length === 0) {
     return (
+      <ErrorBoundary>
       <div className="max-w-md mx-auto text-center py-12">
         <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
         <h2 className="text-xl font-bold mb-2">No Cards to Review</h2>
@@ -577,11 +581,13 @@ export default function ReviewPage() {
         </p>
         <Button onClick={() => router.push("/deck")}>Go to Deck</Button>
       </div>
+      </ErrorBoundary>
     )
   }
 
   // Review session view
   return (
+    <ErrorBoundary>
     <div className="max-w-md mx-auto space-y-6">
       <div className="space-y-2">
         <div className="flex justify-between text-sm text-muted-foreground">

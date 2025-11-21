@@ -92,7 +92,7 @@ export function getTagsByCategory(category: keyof typeof TAG_CATEGORIES): readon
  */
 export function getTagCategory(tag: PredefinedTag): keyof typeof TAG_CATEGORIES | null {
   for (const [category, tags] of Object.entries(TAG_CATEGORIES)) {
-    if (tags.includes(tag as any)) {
+    if ((tags as readonly string[]).includes(tag)) {
       return category as keyof typeof TAG_CATEGORIES
     }
   }
