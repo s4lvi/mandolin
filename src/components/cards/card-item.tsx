@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Pencil, Trash2, Volume2 } from "lucide-react"
 import type { Card as CardType } from "@/types"
+import { speakChinese, preloadVoices } from "@/lib/speech"
 
 interface CardItemProps {
   card: CardType
@@ -25,16 +26,21 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
 
-  const playAudio = () => {
+  // Preload voices on mount (important for iOS)
+  useEffect(() => {
+    preloadVoices()
+  }, [])
+
+  const playAudio = async () => {
     if (isPlaying) return
 
     setIsPlaying(true)
-    const utterance = new SpeechSynthesisUtterance(card.hanzi)
-    utterance.lang = 'zh-CN'
-    utterance.rate = 0.8 // Slower for learning
-    utterance.onend = () => setIsPlaying(false)
-    utterance.onerror = () => setIsPlaying(false)
-    window.speechSynthesis.speak(utterance)
+    await speakChinese(
+      card.hanzi,
+      undefined, // onStart
+      () => setIsPlaying(false), // onEnd
+      () => setIsPlaying(false) // onError
+    )
   }
 
   return (
