@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles, Volume2 } from "lucide-react"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
+import { speakChinese, preloadVoices } from "@/lib/speech"
 
 // Quality ratings for SM-2 algorithm
 export enum Quality {
@@ -37,22 +38,27 @@ export function Flashcard({
   const [isFlipped, setIsFlipped] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
 
+  // Preload voices on mount (important for iOS)
+  useEffect(() => {
+    preloadVoices()
+  }, [])
+
   // Reset flip state when card changes
   useEffect(() => {
     setIsFlipped(false)
   }, [card.id])
 
-  const playAudio = (e: React.MouseEvent) => {
+  const playAudio = async (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card flip
     if (isPlaying) return
 
     setIsPlaying(true)
-    const utterance = new SpeechSynthesisUtterance(card.hanzi)
-    utterance.lang = 'zh-CN'
-    utterance.rate = 0.8 // Slower for learning
-    utterance.onend = () => setIsPlaying(false)
-    utterance.onerror = () => setIsPlaying(false)
-    window.speechSynthesis.speak(utterance)
+    await speakChinese(
+      card.hanzi,
+      undefined, // onStart
+      () => setIsPlaying(false), // onEnd
+      () => setIsPlaying(false) // onError
+    )
   }
 
   // Determine what to show on the front based on faceMode
