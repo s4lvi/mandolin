@@ -119,6 +119,7 @@ model Card {
   lesson         Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
   tags           CardTag[]
   reviewHistory  ReviewHistory[]
+  testQuestions  TestQuestion[]
 
   @@unique([deckId, hanzi])
   @@index([deckId])
@@ -222,21 +223,52 @@ model ReviewHistory {
 }
 
 model Feedback {
-  id          String       @id @default(cuid())
-  userId      String
-  type        FeedbackType
-  message     String       @db.Text
-  email       String?
-  createdAt   DateTime     @default(now())
+  id              String       @id @default(cuid())
+  userId          String
+  type            FeedbackType
+  message         String       @db.Text
+  email           String?
+  testQuestionId  String?      // Optional: for reporting test question issues
+  createdAt       DateTime     @default(now())
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testQuestion    TestQuestion? @relation(fields: [testQuestionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([testQuestionId])
 }
 
 enum FeedbackType {
   BUG
   FEATURE
   GENERAL
+}
+
+model TestQuestion {
+  id                String        @id @default(cuid())
+  cardId            String
+  direction         TestDirection
+
+  // AI-generated content
+  questionText      String        // "What does 你好 (nǐ hǎo) mean?"
+  correctAnswer     String        // "hello"
+  acceptableAnswers String[]      // ["hello", "hi", "greetings"]
+  distractors       String[]      // 12-15 plausible wrong answers
+
+  // Metadata
+  generatedAt       DateTime      @default(now())
+  timesUsed         Int           @default(0)
+
+  card              Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  feedback          Feedback[]    // User-reported issues with this question
+
+  @@unique([cardId, direction])
+  @@index([cardId])
+}
+
+enum TestDirection {
+  HANZI_TO_MEANING  // Show Chinese → answer meaning (English/Pinyin)
+  MEANING_TO_HANZI  // Show English → answer Chinese (Hanzi)
+  PINYIN_TO_HANZI   // Show Pinyin → answer Hanzi
 }
