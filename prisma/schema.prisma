@@ -223,17 +223,20 @@ model ReviewHistory {
 }
 
 model Feedback {
-  id          String       @id @default(cuid())
-  userId      String
-  type        FeedbackType
-  message     String       @db.Text
-  email       String?
-  createdAt   DateTime     @default(now())
+  id              String       @id @default(cuid())
+  userId          String
+  type            FeedbackType
+  message         String       @db.Text
+  email           String?
+  testQuestionId  String?      // Optional: for reporting test question issues
+  createdAt       DateTime     @default(now())
 
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  testQuestion    TestQuestion? @relation(fields: [testQuestionId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([createdAt])
+  @@index([testQuestionId])
 }
 
 enum FeedbackType {
@@ -258,6 +261,7 @@ model TestQuestion {
   timesUsed         Int           @default(0)
 
   card              Card          @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  feedback          Feedback[]    // User-reported issues with this question
 
   @@unique([cardId, direction])
   @@index([cardId])

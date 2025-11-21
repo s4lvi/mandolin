@@ -4,9 +4,10 @@ import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, X, Volume2 } from "lucide-react"
+import { Check, X, Volume2, AlertCircle } from "lucide-react"
 import { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
+import { toast } from "sonner"
 
 interface MultipleChoiceQuestionProps {
   questionText: string
@@ -14,6 +15,7 @@ interface MultipleChoiceQuestionProps {
   distractors: string[]
   onAnswer: (isCorrect: boolean, userAnswer: string) => void
   card: CardType
+  questionId: string
 }
 
 export function MultipleChoiceQuestion({
@@ -21,11 +23,13 @@ export function MultipleChoiceQuestion({
   correctAnswer,
   distractors,
   onAnswer,
-  card
+  card,
+  questionId
 }: MultipleChoiceQuestionProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isReporting, setIsReporting] = useState(false)
 
   // Preload voices on mount (important for iOS)
   useEffect(() => {
@@ -64,6 +68,35 @@ export function MultipleChoiceQuestion({
       setSelectedAnswer(null)
       setShowFeedback(false)
     }, 2000)
+  }
+
+  const handleReportProblem = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isReporting) return
+
+    setIsReporting(true)
+
+    try {
+      const response = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "BUG",
+          message: `Problem with test question:\nQuestion: ${questionText}\nCorrect Answer: ${correctAnswer}\nCard: ${card.hanzi} (${card.pinyin}) - ${card.english}`,
+          testQuestionId: questionId
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to submit report")
+      }
+
+      toast.success("Problem reported. Thank you!")
+    } catch (error) {
+      toast.error("Failed to report problem")
+    } finally {
+      setIsReporting(false)
+    }
   }
 
   // If showing feedback, display result with card info
@@ -127,6 +160,19 @@ export function MultipleChoiceQuestion({
               {card.lesson && (
                 <Badge variant="secondary">Lesson {card.lesson.number}</Badge>
               )}
+            </div>
+
+            <div className="mt-4 text-center">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReportProblem}
+                disabled={isReporting}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {isReporting ? "Reporting..." : "Report problem with this question"}
+              </Button>
             </div>
           </div>
         </CardContent>

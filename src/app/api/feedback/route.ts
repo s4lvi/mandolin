@@ -6,7 +6,8 @@ import { z } from "zod"
 const feedbackSchema = z.object({
   type: z.enum(["BUG", "FEATURE", "GENERAL"]),
   message: z.string().min(10, "Message must be at least 10 characters").max(2000),
-  email: z.string().email().or(z.literal("")).optional()
+  email: z.string().email().or(z.literal("")).optional(),
+  testQuestionId: z.string().optional() // Optional: for reporting test question issues
 })
 
 // POST /api/feedback - Submit feedback
@@ -25,7 +26,8 @@ export async function POST(req: Request) {
         userId: session.user.id,
         type: data.type,
         message: data.message,
-        email: data.email && data.email !== "" ? data.email : null
+        email: data.email && data.email !== "" ? data.email : null,
+        testQuestionId: data.testQuestionId || null
       }
     })
 

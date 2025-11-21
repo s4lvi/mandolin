@@ -60,6 +60,7 @@ export function TestCard({ card, mode, direction, onAnswer }: TestCardProps) {
         distractors={selectedDistractors}
         onAnswer={onAnswer}
         card={card}
+        questionId={question.id}
       />
     )
   }
