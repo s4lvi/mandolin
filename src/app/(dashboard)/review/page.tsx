@@ -8,6 +8,7 @@ import {
   useGenerateSentence
 } from "@/hooks/use-review"
 import { Flashcard, Quality } from "@/components/review/flashcard"
+import { TestCard } from "@/components/review/test-card"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -29,7 +30,7 @@ import { BookOpen, Trophy, Flame, Star, Zap, Tags } from "lucide-react"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "sonner"
-import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
+import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
 
 // Add Progress component since we need it
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -55,6 +56,8 @@ export default function ReviewPage() {
   const router = useRouter()
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>("hanzi")
+  const [reviewMode, setReviewMode] = useState<ReviewMode>("classic")
+  const [testDirection, setTestDirection] = useState<TestDirection>("HANZI_TO_MEANING")
   const [cardLimit, setCardLimit] = useState("20")
   const [allCards, setAllCards] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -205,6 +208,18 @@ export default function ReviewPage() {
     )
   }
 
+  const handleTestAnswer = (isCorrect: boolean, userAnswer: string) => {
+    // Map test result to Quality
+    // Easy mode (multiple choice): correct = HARD (1), incorrect = AGAIN (0)
+    // Hard mode (text input): correct = GOOD (2), incorrect = AGAIN (0)
+    const quality = isCorrect
+      ? (reviewMode === "test_hard" ? Quality.GOOD : Quality.HARD)
+      : Quality.AGAIN
+
+    // Use existing handleAnswer logic
+    handleAnswer(quality)
+  }
+
   const handleGenerateExample = async () => {
     if (!currentCard) return
 
@@ -325,23 +340,61 @@ export default function ReviewPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Card Face Display</Label>
+              <Label>Review Mode</Label>
               <Select
-                value={faceMode}
-                onValueChange={(v) => setFaceMode(v as FaceMode)}
+                value={reviewMode}
+                onValueChange={(v) => setReviewMode(v as ReviewMode)}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="hanzi">Hanzi Only</SelectItem>
-                  <SelectItem value="pinyin">Pinyin Only</SelectItem>
-                  <SelectItem value="both">Hanzi + Pinyin</SelectItem>
-                  <SelectItem value="english">English Only</SelectItem>
-                  <SelectItem value="random">Random</SelectItem>
+                  <SelectItem value="classic">Classic (Self-Rating)</SelectItem>
+                  <SelectItem value="test_easy">Test - Easy (Multiple Choice)</SelectItem>
+                  <SelectItem value="test_hard">Test - Hard (Text Input)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
+
+            {reviewMode !== "classic" && (
+              <div className="space-y-2">
+                <Label>Test Direction</Label>
+                <Select
+                  value={testDirection}
+                  onValueChange={(v) => setTestDirection(v as TestDirection)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="HANZI_TO_MEANING">Chinese → Meaning</SelectItem>
+                    <SelectItem value="MEANING_TO_HANZI">Meaning → Chinese</SelectItem>
+                    <SelectItem value="PINYIN_TO_HANZI">Pinyin → Chinese</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
+            {reviewMode === "classic" && (
+              <div className="space-y-2">
+                <Label>Card Face Display</Label>
+                <Select
+                  value={faceMode}
+                  onValueChange={(v) => setFaceMode(v as FaceMode)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="hanzi">Hanzi Only</SelectItem>
+                    <SelectItem value="pinyin">Pinyin Only</SelectItem>
+                    <SelectItem value="both">Hanzi + Pinyin</SelectItem>
+                    <SelectItem value="english">English Only</SelectItem>
+                    <SelectItem value="random">Random</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label>Number of Cards</Label>
@@ -503,14 +556,25 @@ export default function ReviewPage() {
       </div>
 
       {currentCard && (
-        <Flashcard
-          card={currentCard}
-          faceMode={actualFaceMode}
-          onAnswer={handleAnswer}
-          onGenerateExample={handleGenerateExample}
-          exampleSentence={examples[currentCard.id]}
-          isGenerating={generateSentenceMutation.isPending}
-        />
+        <>
+          {reviewMode === "classic" ? (
+            <Flashcard
+              card={currentCard}
+              faceMode={actualFaceMode}
+              onAnswer={handleAnswer}
+              onGenerateExample={handleGenerateExample}
+              exampleSentence={examples[currentCard.id]}
+              isGenerating={generateSentenceMutation.isPending}
+            />
+          ) : (
+            <TestCard
+              card={currentCard}
+              mode={reviewMode === "test_easy" ? "multiple_choice" : "text_input"}
+              direction={testDirection}
+              onAnswer={handleTestAnswer}
+            />
+          )}
+        </>
       )}
 
       <div className="text-center">
