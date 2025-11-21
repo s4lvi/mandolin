@@ -13,7 +13,7 @@ function ProgressBar({ value, className }: { value: number; className?: string }
   return (
     <div className={`h-2 w-full bg-secondary rounded-full overflow-hidden ${className}`}>
       <div
-        className="h-full bg-primary transition-all"
+        className="h-full bg-gradient-to-r from-orange-500 via-yellow-500 to-green-500 transition-all shadow-sm"
         style={{ width: `${Math.min(100, value)}%` }}
       />
     </div>
@@ -73,30 +73,30 @@ function Dashboard() {
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
+        <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-900/30">
           <CardContent className="p-4 text-center">
-            <Zap className="h-6 w-6 text-yellow-500 mx-auto mb-1" />
+            <Zap className="h-6 w-6 text-yellow-600 dark:text-yellow-500 mx-auto mb-1" />
             <p className="text-2xl font-bold">{stats?.totalXp || 0}</p>
             <p className="text-xs text-muted-foreground">Total XP</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-900/30">
           <CardContent className="p-4 text-center">
-            <Star className="h-6 w-6 text-purple-500 mx-auto mb-1" />
+            <Star className="h-6 w-6 text-orange-600 dark:text-orange-500 mx-auto mb-1" />
             <p className="text-2xl font-bold">{stats?.level || 1}</p>
             <p className="text-xs text-muted-foreground">Level</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-red-200 dark:border-red-900/30">
           <CardContent className="p-4 text-center">
-            <Flame className="h-6 w-6 text-orange-500 mx-auto mb-1" />
+            <Flame className="h-6 w-6 text-red-600 dark:text-red-500 mx-auto mb-1" />
             <p className="text-2xl font-bold">{stats?.currentStreak || 0}</p>
             <p className="text-xs text-muted-foreground">Day Streak</p>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-green-50 to-yellow-50 dark:from-green-950/20 dark:to-yellow-950/20 border-green-200 dark:border-green-900/30">
           <CardContent className="p-4 text-center">
-            <Target className="h-6 w-6 text-green-500 mx-auto mb-1" />
+            <Target className="h-6 w-6 text-green-600 dark:text-green-500 mx-auto mb-1" />
             <p className="text-2xl font-bold">{cardStats?.learned || 0}</p>
             <p className="text-xs text-muted-foreground">Learned</p>
           </CardContent>
@@ -155,7 +155,7 @@ function Dashboard() {
       {/* Quick Links */}
       <div className="grid md:grid-cols-3 gap-4">
         <Link href="/deck">
-          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <Layers className="h-8 w-8 text-primary" />
               <div>
@@ -166,7 +166,7 @@ function Dashboard() {
           </Card>
         </Link>
         <Link href="/lessons">
-          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <BookOpen className="h-8 w-8 text-primary" />
               <div>
@@ -177,7 +177,7 @@ function Dashboard() {
           </Card>
         </Link>
         <Link href="/stats">
-          <Card className="hover:bg-gray-50 transition-colors cursor-pointer h-full">
+          <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <Star className="h-8 w-8 text-primary" />
               <div>
@@ -219,7 +219,7 @@ function MarketingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="py-16 px-4 bg-white">
+      <section className="py-16 px-4 bg-gradient-to-br from-orange-50/20 via-white to-green-50/20">
         <div className="container mx-auto">
           <h2 className="text-3xl font-bold text-center mb-12">
             Everything you need to learn Mandarin
@@ -302,7 +302,7 @@ export default function HomePage() {
   const { data: session, status } = useSession()
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gradient-to-br from-orange-50/30 via-yellow-50/20 to-green-50/30 dark:from-orange-950/10 dark:via-yellow-950/5 dark:to-green-950/10">
       <Navbar />
 
       {status === "loading" ? (
