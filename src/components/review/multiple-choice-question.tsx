@@ -162,16 +162,16 @@ export function MultipleChoiceQuestion({
               )}
             </div>
 
-            <div className="mt-4 text-center">
+            <div className="mt-6 pt-4 border-t text-center">
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={handleReportProblem}
                 disabled={isReporting}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="text-xs"
               >
-                <AlertCircle className="h-3 w-3 mr-1" />
-                {isReporting ? "Reporting..." : "Report problem with this question"}
+                <AlertCircle className="h-4 w-4 mr-2" />
+                {isReporting ? "Reporting..." : "Report Problem"}
               </Button>
             </div>
           </div>

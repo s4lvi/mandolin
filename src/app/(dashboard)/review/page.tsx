@@ -368,8 +368,7 @@ export default function ReviewPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="classic">Classic (Self-Rating)</SelectItem>
-                  <SelectItem value="test_easy">Test - Easy (Multiple Choice)</SelectItem>
-                  <SelectItem value="test_hard">Test - Hard (Text Input)</SelectItem>
+                  <SelectItem value="test_easy">Test Mode (Multiple Choice)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
