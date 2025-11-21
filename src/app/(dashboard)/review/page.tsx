@@ -10,6 +10,7 @@ import {
 import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -274,7 +275,8 @@ export default function ReviewPage() {
     const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
     return (
-      <div className="max-w-md mx-auto">
+      <ErrorBoundary>
+        <div className="max-w-md mx-auto">
         <Card>
           <CardHeader className="text-center">
             <Trophy className="h-12 w-12 text-yellow-500 mx-auto mb-2" />
@@ -632,5 +634,6 @@ export default function ReviewPage() {
         </Button>
       </div>
     </div>
+      </ErrorBoundary>
   )
 }
