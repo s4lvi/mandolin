@@ -43,11 +43,11 @@ export async function POST(req: Request) {
     let testQuestion = card.testQuestions[0]
 
     if (testQuestion) {
-      // Update usage count
-      await prisma.testQuestion.update({
+      // Update usage count (async, don't await to reduce latency)
+      prisma.testQuestion.update({
         where: { id: testQuestion.id },
         data: { timesUsed: { increment: 1 } }
-      })
+      }).catch(err => console.error("Failed to update usage count:", err))
 
       return NextResponse.json({
         cached: true,
@@ -67,9 +67,19 @@ export async function POST(req: Request) {
       direction
     })
 
-    // Cache in database
-    testQuestion = await prisma.testQuestion.create({
-      data: {
+    // Use upsert to handle race conditions (multiple requests generating same question)
+    testQuestion = await prisma.testQuestion.upsert({
+      where: {
+        cardId_direction: {
+          cardId,
+          direction
+        }
+      },
+      update: {
+        // If it exists (race condition), just increment usage
+        timesUsed: { increment: 1 }
+      },
+      create: {
         cardId,
         direction,
         questionText: generated.questionText,
@@ -86,6 +96,15 @@ export async function POST(req: Request) {
     })
 
   } catch (error) {
+    // Handle aborted requests (from prefetch cancellations) gracefully
+    if (error instanceof Error && (error.message === 'aborted' || (error as any).code === 'ECONNRESET')) {
+      console.log("Request aborted (prefetch cancelled)")
+      return NextResponse.json(
+        { error: "Request cancelled" },
+        { status: 499 } // Client Closed Request
+      )
+    }
+
     console.error("Error generating test question:", error)
     if (error instanceof z.ZodError) {
       return NextResponse.json(

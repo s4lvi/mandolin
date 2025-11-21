@@ -7,6 +7,7 @@ import {
   useSubmitReview,
   useGenerateSentence
 } from "@/hooks/use-review"
+import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
 import { Button } from "@/components/ui/button"
@@ -96,6 +97,7 @@ export default function ReviewPage() {
 
   const submitReviewMutation = useSubmitReview()
   const generateSentenceMutation = useGenerateSentence()
+  const prefetchMutation = usePrefetchTestQuestions()
 
   // Shuffle cards from session snapshot (frozen at session start)
   const shuffledCards = useMemo(() => {
@@ -126,6 +128,28 @@ export default function ReviewPage() {
       setLevel(userStats.level)
     }
   }, [userStats])
+
+  // Prefetch next 3 test questions when index changes
+  useEffect(() => {
+    if (reviewMode !== "classic" && shuffledCards.length > 0 && isStarted) {
+      const nextCards = []
+      for (let i = 1; i <= 3; i++) {
+        const nextIndex = currentIndex + i
+        if (nextIndex < shuffledCards.length) {
+          nextCards.push(shuffledCards[nextIndex].id)
+        }
+      }
+
+      if (nextCards.length > 0) {
+        prefetchMutation.mutate({
+          cardIds: nextCards,
+          direction: testDirection
+        })
+      }
+    }
+    // Don't include prefetchMutation in deps - it's a stable mutation function
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, reviewMode, testDirection, shuffledCards, isStarted])
 
   const handleStart = () => {
     // Snapshot the current cards for this session
