@@ -241,7 +241,12 @@ export default function ReviewPage() {
   // Session complete view
   if (isComplete) {
     const total = results.again + results.hard + results.good + results.easy
-    const correct = results.good + results.easy
+
+    // Calculate correct answers based on review mode
+    const correct = reviewMode === "classic"
+      ? results.good + results.easy  // Classic: good and easy are correct
+      : total - results.again         // Test: everything except "again" is correct
+
     const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
     return (
@@ -278,25 +283,38 @@ export default function ReviewPage() {
               <p className="text-muted-foreground">Accuracy</p>
             </div>
 
-            {/* Quality breakdown */}
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="p-2 bg-red-50 rounded">
-                <p className="text-lg font-bold text-red-500">{results.again}</p>
-                <p className="text-xs text-muted-foreground">Again</p>
+            {/* Quality breakdown - conditional display based on mode */}
+            {reviewMode === "classic" ? (
+              <div className="grid grid-cols-4 gap-2 text-center">
+                <div className="p-2 bg-red-50 rounded">
+                  <p className="text-lg font-bold text-red-500">{results.again}</p>
+                  <p className="text-xs text-muted-foreground">Again</p>
+                </div>
+                <div className="p-2 bg-orange-50 rounded">
+                  <p className="text-lg font-bold text-orange-500">{results.hard}</p>
+                  <p className="text-xs text-muted-foreground">Hard</p>
+                </div>
+                <div className="p-2 bg-green-50 rounded">
+                  <p className="text-lg font-bold text-green-500">{results.good}</p>
+                  <p className="text-xs text-muted-foreground">Good</p>
+                </div>
+                <div className="p-2 bg-blue-50 rounded">
+                  <p className="text-lg font-bold text-blue-500">{results.easy}</p>
+                  <p className="text-xs text-muted-foreground">Easy</p>
+                </div>
               </div>
-              <div className="p-2 bg-orange-50 rounded">
-                <p className="text-lg font-bold text-orange-500">{results.hard}</p>
-                <p className="text-xs text-muted-foreground">Hard</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-4 text-center">
+                <div className="p-3 bg-red-50 rounded-lg">
+                  <p className="text-2xl font-bold text-red-500">{results.again}</p>
+                  <p className="text-sm text-muted-foreground">Incorrect</p>
+                </div>
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <p className="text-2xl font-bold text-green-500">{correct}</p>
+                  <p className="text-sm text-muted-foreground">Correct</p>
+                </div>
               </div>
-              <div className="p-2 bg-green-50 rounded">
-                <p className="text-lg font-bold text-green-500">{results.good}</p>
-                <p className="text-xs text-muted-foreground">Good</p>
-              </div>
-              <div className="p-2 bg-blue-50 rounded">
-                <p className="text-lg font-bold text-blue-500">{results.easy}</p>
-                <p className="text-xs text-muted-foreground">Easy</p>
-              </div>
-            </div>
+            )}
 
             <div className="flex gap-2">
               <Button
