@@ -157,18 +157,27 @@ function buildTestQuestionPrompt(
       Ask the user to provide the English meaning.
       Question example: "What does ${card.hanzi} (${card.pinyin}) mean?"
       Correct answer: "${card.english}"
+
+      IMPORTANT: All distractors must be in ENGLISH only (no Chinese characters or pinyin).
+      Distractors should be plausible English translations that are similar in meaning or context.
     `,
     MEANING_TO_HANZI: `
       Show the English meaning.
       Ask the user to provide the Chinese characters (hanzi).
       Question example: "How do you write '${card.english}' in Chinese characters?"
       Correct answer: "${card.hanzi}"
+
+      IMPORTANT: All distractors must be in CHINESE CHARACTERS (hanzi) only (no English or pinyin).
+      Distractors should be real Chinese characters with similar meaning or pronunciation.
     `,
     PINYIN_TO_HANZI: `
       Show only the pinyin romanization.
       Ask the user to provide the Chinese characters (hanzi).
       Question example: "What are the Chinese characters for '${card.pinyin}'?"
       Correct answer: "${card.hanzi}"
+
+      IMPORTANT: All distractors must be in CHINESE CHARACTERS (hanzi) only (no English or pinyin).
+      Distractors should be real Chinese characters with similar pronunciation or appearance.
     `
   }
 
