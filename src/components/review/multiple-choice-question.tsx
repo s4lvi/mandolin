@@ -162,16 +162,16 @@ export function MultipleChoiceQuestion({
               )}
             </div>
 
-            <div className="mt-6 pt-4 border-t text-center">
+            <div className="mt-4 text-center">
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={handleReportProblem}
                 disabled={isReporting}
-                className="text-xs"
+                className="text-xs text-muted-foreground hover:text-foreground"
               >
-                <AlertCircle className="h-4 w-4 mr-2" />
-                {isReporting ? "Reporting..." : "Report Problem"}
+                <AlertCircle className="h-3 w-3 mr-1" />
+                {isReporting ? "Reporting..." : "Report problem"}
               </Button>
             </div>
           </div>
@@ -212,9 +212,18 @@ export function MultipleChoiceQuestion({
           Submit Answer
         </Button>
 
-        <p className="text-xs text-muted-foreground text-center mt-4">
-          Select your answer and click submit
-        </p>
+        <div className="mt-6 text-center">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleReportProblem}
+            disabled={isReporting}
+            className="text-xs text-muted-foreground hover:text-foreground"
+          >
+            <AlertCircle className="h-3 w-3 mr-1" />
+            {isReporting ? "Reporting..." : "Report problem"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
