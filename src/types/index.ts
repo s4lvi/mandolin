@@ -66,4 +66,4 @@ export type FaceMode = "pinyin" | "hanzi" | "both" | "english" | "random"
 
 export type TestDirection = "HANZI_TO_MEANING" | "MEANING_TO_HANZI" | "PINYIN_TO_HANZI"
 
-export type ReviewMode = "classic" | "test_easy" | "test_hard"
+export type ReviewMode = "classic" | "test_easy"

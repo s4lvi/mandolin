@@ -2,50 +2,15 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { Card, ExampleSentence } from "@/types"
-
-interface FetchReviewCardsParams {
-  limit?: number
-  lessonId?: string
-  types?: string[]
-  allCards?: boolean
-  tagIds?: string[]
-}
-
-interface UserStats {
-  totalXp: number
-  level: number
-  currentStreak: number
-  longestStreak: number
-  totalReviews: number
-  totalCorrect: number
-  dailyGoal: number
-  dailyProgress: number
-}
-
-interface Tag {
-  id: string
-  name: string
-}
-
-interface ReviewResponse {
-  cards: Card[]
-  userStats: UserStats | null
-  dueCount: number
-  totalCards: number
-  availableTags: Tag[]
-}
-
-interface ReviewResult {
-  card: Card
-  stats: UserStats
-  xpEarned: number
-  newAchievements: { name: string; icon: string; xpReward: number }[]
-  srsResult: {
-    nextReview: string
-    interval: number
-    state: string
-  }
-}
+import type {
+  FetchReviewCardsParams,
+  ReviewResponse,
+  SubmitReviewRequest,
+  ReviewResult,
+  GenerateSentenceRequest,
+  GenerateSentenceResponse,
+  UserStats
+} from "@/types/api-responses"
 
 async function fetchReviewCards(
   params?: FetchReviewCardsParams

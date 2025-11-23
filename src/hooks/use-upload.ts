@@ -1,23 +1,9 @@
 "use client"
 
 import { useMutation } from "@tanstack/react-query"
-import type { ParsedCard } from "@/types"
+import type { ParseNotesRequest, ParseNotesResponse } from "@/types/api-responses"
 
-interface ParseNotesInput {
-  notes: string
-  lessonNumber?: number
-  lessonTitle?: string
-}
-
-interface ParseNotesResponse {
-  cards: (ParsedCard & { isDuplicate: boolean })[]
-  lessonNumber?: number
-  lessonTitle?: string
-  totalParsed: number
-  duplicatesFound: number
-}
-
-async function parseNotes(input: ParseNotesInput): Promise<ParseNotesResponse> {
+async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse> {
   const res = await fetch("/api/parse-notes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

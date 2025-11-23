@@ -235,11 +235,8 @@ export default function ReviewPage() {
 
   const handleTestAnswer = (isCorrect: boolean, userAnswer: string) => {
     // Map test result to Quality
-    // Easy mode (multiple choice): correct = HARD (1), incorrect = AGAIN (0)
-    // Hard mode (text input): correct = GOOD (2), incorrect = AGAIN (0)
-    const quality = isCorrect
-      ? (reviewMode === "test_hard" ? Quality.GOOD : Quality.HARD)
-      : Quality.AGAIN
+    // Multiple choice test mode: correct = HARD (1), incorrect = AGAIN (0)
+    const quality = isCorrect ? Quality.HARD : Quality.AGAIN
 
     // Use existing handleAnswer logic
     handleAnswer(quality)
@@ -618,7 +615,7 @@ export default function ReviewPage() {
           ) : (
             <TestCard
               card={currentCard}
-              mode={reviewMode === "test_easy" ? "multiple_choice" : "text_input"}
+              mode="multiple_choice"
               direction={testDirection}
               onAnswer={handleTestAnswer}
             />
