@@ -2,16 +2,17 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
-interface AuthenticatedUserDeckResult {
-  error: NextResponse | null
-  deck: {
-    id: string
-    userId: string
-    name: string
-    createdAt: Date
-  } | null
-  userId: string | null
+type Deck = {
+  id: string
+  userId: string
+  name: string
+  createdAt: Date
 }
+
+type AuthenticatedUserDeckResult =
+  | { error: NextResponse; deck: null; userId: null }
+  | { error: NextResponse; deck: null; userId: string }
+  | { error: null; deck: Deck; userId: string }
 
 /**
  * Authenticate user and get their deck
@@ -25,7 +26,7 @@ interface AuthenticatedUserDeckResult {
  *   const { error, deck, userId } = await getAuthenticatedUserDeck()
  *   if (error) return error
  *
- *   // Continue with authenticated user's deck
+ *   // Continue with authenticated user's deck (both guaranteed non-null)
  * }
  */
 export async function getAuthenticatedUserDeck(): Promise<AuthenticatedUserDeckResult> {
@@ -96,13 +97,13 @@ export async function verifyCardOwnership(
  * export async function POST(req: Request) {
  *   const { error, userId } = await getAuthenticatedUser()
  *   if (error) return error
- *   // Continue with userId
+ *   // Continue with userId (guaranteed to be string here)
  * }
  */
-export async function getAuthenticatedUser(): Promise<{
-  error: NextResponse | null
-  userId: string | null
-}> {
+export async function getAuthenticatedUser(): Promise<
+  | { error: NextResponse; userId: null }
+  | { error: null; userId: string }
+> {
   const session = await auth()
 
   if (!session?.user?.id) {

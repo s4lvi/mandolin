@@ -71,6 +71,10 @@ export async function PUT(
       select: { hanzi: true, deckId: true }
     })
 
+    if (!existingCard) {
+      return NextResponse.json({ error: "Card not found" }, { status: 404 })
+    }
+
     // If hanzi is being changed, check for duplicates
     if (data.hanzi && data.hanzi !== existingCard.hanzi) {
       const duplicate = await prisma.card.findUnique({
@@ -155,7 +159,7 @@ export async function PUT(
     logger.info("Updated card", { cardId, hanzi: card.hanzi })
     return NextResponse.json({ card })
   } catch (error) {
-    logger.error("Failed to update card", { error, cardId })
+    logger.error("Failed to update card", { error })
     return handleRouteError(error)
   }
 }
@@ -184,7 +188,7 @@ export async function DELETE(
     logger.info("Deleted card", { cardId })
     return NextResponse.json({ success: true })
   } catch (error) {
-    logger.error("Failed to delete card", { error, cardId })
+    logger.error("Failed to delete card", { error })
     return handleRouteError(error)
   }
 }
