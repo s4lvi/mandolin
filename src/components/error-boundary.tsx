@@ -1,6 +1,7 @@
 "use client"
 
 import { Component, ReactNode } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { AlertTriangle } from "lucide-react"
@@ -9,6 +10,7 @@ interface Props {
   children: ReactNode
   fallback?: ReactNode
   onReset?: () => void
+  onGoHome?: () => void
 }
 
 interface State {
@@ -73,7 +75,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => window.location.href = "/"}
+                  onClick={this.props.onGoHome || (() => window.location.href = "/")}
                   className="flex-1"
                 >
                   Go home
@@ -87,4 +89,21 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return this.props.children
   }
+}
+
+/**
+ * Wrapper component that provides Next.js router to ErrorBoundary
+ * Use this instead of ErrorBoundary directly to get proper Next.js navigation
+ */
+export function ErrorBoundaryWithRouter({ children, ...props }: Omit<Props, "onGoHome">) {
+  const router = useRouter()
+
+  return (
+    <ErrorBoundary
+      {...props}
+      onGoHome={() => router.push("/")}
+    >
+      {children}
+    </ErrorBoundary>
+  )
 }

@@ -54,20 +54,40 @@ function validateEnv(): Env {
   }
 }
 
-// Validate on module load
-export const env = validateEnv()
+// Validate on module load, but skip during build phase
+// During Next.js build, process.env.NEXT_PHASE will be 'phase-production-build'
+const isBuildTime = process.env.NEXT_PHASE === "phase-production-build"
+
+// Skip validation during build, but validate at runtime
+let _env: Env
+
+function getEnv(): Env {
+  if (!_env) {
+    _env = isBuildTime
+      ? (process.env as any) // Skip validation during build
+      : validateEnv()        // Validate at runtime
+  }
+  return _env
+}
+
+// Export a getter that validates on first access
+export const env = new Proxy({} as Env, {
+  get(_, prop) {
+    return getEnv()[prop as keyof Env]
+  }
+})
 
 /**
  * Helper to check if we're in development mode
  */
-export const isDevelopment = env.NODE_ENV === "development"
+export const isDevelopment = process.env.NODE_ENV === "development"
 
 /**
  * Helper to check if we're in production mode
  */
-export const isProduction = env.NODE_ENV === "production"
+export const isProduction = process.env.NODE_ENV === "production"
 
 /**
  * Helper to check if we're in test mode
  */
-export const isTest = env.NODE_ENV === "test"
+export const isTest = process.env.NODE_ENV === "test"

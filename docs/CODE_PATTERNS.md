@@ -354,7 +354,7 @@ export function cards() { } // Not a hook pattern
 
 ```typescript
 // app/(dashboard)/review/page.tsx
-import { ErrorBoundary } from "@/components/error-boundary"
+import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 
 export default function ReviewPage() {
   return (
@@ -364,6 +364,8 @@ export default function ReviewPage() {
   )
 }
 ```
+
+**Note:** Use `ErrorBoundaryWithRouter` which provides Next.js router integration for proper client-side navigation.
 
 ---
 

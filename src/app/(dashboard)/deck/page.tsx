@@ -4,7 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useCards, useDeleteCard } from "@/hooks/use-cards"
 import { CardItem } from "@/components/cards/card-item"
-import { ErrorBoundary } from "@/components/error-boundary"
+import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
