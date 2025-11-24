@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { useParseNotes } from "@/hooks/use-upload"
 import { useCreateCardsBulk } from "@/hooks/use-cards"
+import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -210,7 +211,8 @@ export default function UploadPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <ErrorBoundary>
+      <div className="max-w-2xl mx-auto space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Upload Lesson Notes</h1>
         <p className="text-muted-foreground">
@@ -293,5 +295,6 @@ Phrases:
         </CardContent>
       </Card>
     </div>
+    </ErrorBoundary>
   )
 }

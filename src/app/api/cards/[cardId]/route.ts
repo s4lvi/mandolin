@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { updateCardSchema } from "@/lib/validations/card"
+import { getAuthenticatedUser, verifyCardOwnership } from "@/lib/api-helpers"
+import { handleRouteError } from "@/lib/error-handler"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("api/cards/[cardId]")
 
 // GET /api/cards/[cardId] - Get a single card
 export async function GET(
@@ -9,19 +13,20 @@ export async function GET(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, userId } = await getAuthenticatedUser()
+    if (error) return error
 
     const { cardId } = await params
+
+    // Verify ownership
+    const hasAccess = await verifyCardOwnership(cardId, userId)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Card not found" }, { status: 404 })
+    }
 
     const card = await prisma.card.findUnique({
       where: { id: cardId },
       include: {
-        deck: {
-          select: { userId: true }
-        },
         lesson: {
           select: { number: true, title: true }
         },
@@ -33,22 +38,10 @@ export async function GET(
       }
     })
 
-    if (!card) {
-      return NextResponse.json({ error: "Card not found" }, { status: 404 })
-    }
-
-    // Check ownership
-    if (card.deck.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
     return NextResponse.json({ card })
   } catch (error) {
-    console.error("Error fetching card:", error)
-    return NextResponse.json(
-      { error: "Failed to fetch card" },
-      { status: 500 }
-    )
+    logger.error("Failed to fetch card", { error })
+    return handleRouteError(error)
   }
 }
 
@@ -58,31 +51,28 @@ export async function PUT(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, userId } = await getAuthenticatedUser()
+    if (error) return error
 
     const { cardId } = await params
+
+    // Verify ownership
+    const hasAccess = await verifyCardOwnership(cardId, userId)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Card not found" }, { status: 404 })
+    }
+
     const body = await req.json()
     const data = updateCardSchema.parse(body)
 
-    // Check card exists and user owns it
+    // Get existing card for duplicate check
     const existingCard = await prisma.card.findUnique({
       where: { id: cardId },
-      include: {
-        deck: {
-          select: { userId: true }
-        }
-      }
+      select: { hanzi: true, deckId: true }
     })
 
     if (!existingCard) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 })
-    }
-
-    if (existingCard.deck.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // If hanzi is being changed, check for duplicates
@@ -166,16 +156,11 @@ export async function PUT(
       }
     })
 
+    logger.info("Updated card", { cardId, hanzi: card.hanzi })
     return NextResponse.json({ card })
   } catch (error) {
-    console.error("Error updating card:", error)
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    return NextResponse.json(
-      { error: "Failed to update card" },
-      { status: 500 }
-    )
+    logger.error("Failed to update card", { error })
+    return handleRouteError(error)
   }
 }
 
@@ -185,41 +170,25 @@ export async function DELETE(
   { params }: { params: Promise<{ cardId: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, userId } = await getAuthenticatedUser()
+    if (error) return error
 
     const { cardId } = await params
 
-    // Check card exists and user owns it
-    const card = await prisma.card.findUnique({
-      where: { id: cardId },
-      include: {
-        deck: {
-          select: { userId: true }
-        }
-      }
-    })
-
-    if (!card) {
+    // Verify ownership
+    const hasAccess = await verifyCardOwnership(cardId, userId)
+    if (!hasAccess) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 })
-    }
-
-    if (card.deck.userId !== session.user.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     await prisma.card.delete({
       where: { id: cardId }
     })
 
+    logger.info("Deleted card", { cardId })
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error("Error deleting card:", error)
-    return NextResponse.json(
-      { error: "Failed to delete card" },
-      { status: 500 }
-    )
+    logger.error("Failed to delete card", { error })
+    return handleRouteError(error)
   }
 }

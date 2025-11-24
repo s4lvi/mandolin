@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card"
 
 interface TestCardProps {
   card: CardType
-  mode: "multiple_choice" | "text_input"
+  mode: "multiple_choice"
   direction: string
   onAnswer: (isCorrect: boolean, userAnswer: string) => void
 }
@@ -52,27 +52,14 @@ export function TestCard({ card, mode, direction, onAnswer }: TestCardProps) {
 
   const { question } = data
 
-  if (mode === "multiple_choice") {
-    return (
-      <MultipleChoiceQuestion
-        questionText={question.questionText}
-        correctAnswer={question.correctAnswer}
-        distractors={selectedDistractors}
-        onAnswer={onAnswer}
-        card={card}
-        questionId={question.id}
-      />
-    )
-  }
-
-  // Text input mode - to be implemented in Phase 3
   return (
-    <Card className="min-h-[300px]">
-      <CardContent className="flex flex-col items-center justify-center min-h-[300px] p-8">
-        <p className="text-center text-muted-foreground">
-          Text input mode coming soon
-        </p>
-      </CardContent>
-    </Card>
+    <MultipleChoiceQuestion
+      questionText={question.questionText}
+      correctAnswer={question.correctAnswer}
+      distractors={selectedDistractors}
+      onAnswer={onAnswer}
+      card={card}
+      questionId={question.id}
+    />
   )
 }

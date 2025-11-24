@@ -1,27 +1,20 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { bulkCreateCardsSchema } from "@/lib/validations/card"
+import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { handleRouteError } from "@/lib/error-handler"
+import { createLogger } from "@/lib/logger"
+
+const logger = createLogger("api/cards/bulk")
 
 // POST /api/cards/bulk - Create multiple cards at once
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, deck } = await getAuthenticatedUserDeck()
+    if (error) return error
 
     const body = await req.json()
     const data = bulkCreateCardsSchema.parse(body)
-
-    // Get user's deck
-    const deck = await prisma.deck.findFirst({
-      where: { userId: session.user.id }
-    })
-
-    if (!deck) {
-      return NextResponse.json({ error: "No deck found" }, { status: 404 })
-    }
 
     // Get existing cards to check for duplicates
     const existingCards = await prisma.card.findMany({
@@ -116,6 +109,12 @@ export async function POST(req: Request) {
       )
     )
 
+    logger.info("Created cards in bulk", {
+      deckId: deck.id,
+      created: createdCards.length,
+      skipped: duplicates.length
+    })
+
     return NextResponse.json(
       {
         cards: createdCards,
@@ -126,13 +125,7 @@ export async function POST(req: Request) {
       { status: 201 }
     )
   } catch (error) {
-    console.error("Error creating cards:", error)
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-    return NextResponse.json(
-      { error: "Failed to create cards" },
-      { status: 500 }
-    )
+    logger.error("Failed to create cards in bulk", { error })
+    return handleRouteError(error)
   }
 }

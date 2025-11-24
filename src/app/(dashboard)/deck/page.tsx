@@ -4,6 +4,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { useCards, useDeleteCard } from "@/hooks/use-cards"
 import { CardItem } from "@/components/cards/card-item"
+import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -96,7 +97,8 @@ export default function DeckPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <ErrorBoundary>
+      <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold">My Deck</h1>
         <div className="flex gap-2">
@@ -283,5 +285,6 @@ export default function DeckPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </ErrorBoundary>
   )
 }

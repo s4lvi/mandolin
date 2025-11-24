@@ -124,6 +124,9 @@ model Card {
   @@unique([deckId, hanzi])
   @@index([deckId])
   @@index([lessonId])
+  @@index([deckId, nextReview, state]) // For fetching due cards efficiently
+  @@index([deckId, state]) // For filtering by card state
+  @@index([deckId, type]) // For filtering by card type
   @@index([nextReview])
   @@index([state])
 }

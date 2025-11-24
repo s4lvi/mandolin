@@ -1,11 +1,14 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { handleRouteError } from "@/lib/error-handler"
+import { createLogger } from "@/lib/logger"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard } from "@/types"
 import { PARSE_NOTES_PROMPT } from "@/lib/constants"
 
+const logger = createLogger("api/parse-notes")
 const anthropic = new Anthropic()
 
 const parseNotesSchema = z.object({
@@ -16,22 +19,11 @@ const parseNotesSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, deck } = await getAuthenticatedUserDeck()
+    if (error) return error
 
     const body = await req.json()
     const data = parseNotesSchema.parse(body)
-
-    // Get user's deck to check for existing cards
-    const deck = await prisma.deck.findFirst({
-      where: { userId: session.user.id }
-    })
-
-    if (!deck) {
-      return NextResponse.json({ error: "No deck found" }, { status: 404 })
-    }
 
     // Get existing cards to mark duplicates
     const existingCards = await prisma.card.findMany({
@@ -111,10 +103,16 @@ export async function POST(req: Request) {
             duplicatesFound: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
           }
 
+          logger.info("Notes parsed successfully", {
+            deckId: deck.id,
+            totalParsed: parsedCards.length,
+            duplicates: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
+          })
+
           controller.enqueue(encoder.encode(JSON.stringify(result) + '\n'))
           controller.close()
         } catch (error) {
-          console.error("Streaming error:", error)
+          logger.error("Streaming error during note parsing", { error, deckId: deck.id })
           controller.enqueue(encoder.encode(JSON.stringify({
             error: error instanceof Error ? error.message : "Failed to parse notes"
           }) + '\n'))
@@ -130,19 +128,7 @@ export async function POST(req: Request) {
       }
     })
   } catch (error) {
-    console.error("Error parsing notes:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      )
-    }
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    return NextResponse.json(
-      { error: "Failed to parse notes" },
-      { status: 500 }
-    )
+    logger.error("Failed to parse notes", { error })
+    return handleRouteError(error)
   }
 }

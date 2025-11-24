@@ -1,20 +1,11 @@
 "use client"
 
 import { useQuery, useMutation } from "@tanstack/react-query"
-
-export interface TestQuestion {
-  id: string
-  questionText: string
-  correctAnswer: string
-  acceptableAnswers: string[]
-  distractors: string[]
-  timesUsed: number
-}
-
-interface TestQuestionResponse {
-  cached: boolean
-  question: TestQuestion
-}
+import type {
+  TestQuestion,
+  TestQuestionResponse,
+  PrefetchTestQuestionsRequest
+} from "@/types/api-responses"
 
 async function fetchTestQuestion(
   cardId: string,
@@ -45,13 +36,7 @@ export function useTestQuestion(cardId: string, direction: string) {
 // Prefetch questions for entire session
 export function usePrefetchTestQuestions() {
   return useMutation({
-    mutationFn: async ({
-      cardIds,
-      direction
-    }: {
-      cardIds: string[]
-      direction: string
-    }) => {
+    mutationFn: async ({ cardIds, direction }: PrefetchTestQuestionsRequest) => {
       // Trigger fetches in parallel (will use cache if available)
       await Promise.all(
         cardIds.map(cardId => fetchTestQuestion(cardId, direction))

@@ -1,17 +1,8 @@
 "use client"
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Card, CardType } from "@/types"
-
-interface CreateCardInput {
-  hanzi: string
-  pinyin: string
-  english: string
-  notes?: string
-  type?: CardType
-  lessonId?: string
-  tags?: string[]
-}
+import type { Card } from "@/types"
+import type { CreateCardInput, CreateCardsBulkResponse } from "@/types/api-responses"
 
 interface FetchCardsParams {
   lessonId?: string
@@ -66,7 +57,7 @@ async function createCard(input: CreateCardInput): Promise<Card> {
 async function createCardsBulk(
   input: CreateCardInput[],
   lessonId?: string
-): Promise<{ cards: Card[]; duplicates: string[]; created: number; skipped: number }> {
+): Promise<CreateCardsBulkResponse> {
   const res = await fetch("/api/cards/bulk", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

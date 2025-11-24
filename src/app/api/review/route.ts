@@ -313,21 +313,32 @@ async function checkAndAwardAchievements(
 ) {
   const newAchievements: { name: string; icon: string; xpReward: number }[] = []
 
-  // Get all achievements
-  const achievements = await prisma.achievement.findMany()
-
-  for (const achievement of achievements) {
-    // Check if user already has this achievement
-    const existing = await prisma.userAchievement.findUnique({
-      where: {
-        userId_achievementId: {
-          userId,
-          achievementId: achievement.id
-        }
-      }
+  // Fetch all achievements and user's achievements in parallel (2 queries instead of N+1)
+  const [achievements, userAchievements] = await Promise.all([
+    prisma.achievement.findMany(),
+    prisma.userAchievement.findMany({
+      where: { userId },
+      select: { achievementId: true }
     })
+  ])
 
-    if (existing) continue
+  // Create a Set of achievement IDs user already has for O(1) lookup
+  const earnedAchievementIds = new Set(
+    userAchievements.map(ua => ua.achievementId)
+  )
+
+  // Track newly earned achievements to batch create
+  const achievementsToCreate: Array<{
+    userId: string
+    achievementId: string
+    progress: number
+  }> = []
+  let totalXpToAward = 0
+
+  // Check each achievement (in memory, no database queries)
+  for (const achievement of achievements) {
+    // Skip if user already has this achievement
+    if (earnedAchievementIds.has(achievement.id)) continue
 
     // Check if requirement is met
     let earned = false
@@ -371,21 +382,13 @@ async function checkAndAwardAchievements(
     }
 
     if (earned) {
-      await prisma.userAchievement.create({
-        data: {
-          userId,
-          achievementId: achievement.id,
-          progress: achievement.requirement
-        }
+      achievementsToCreate.push({
+        userId,
+        achievementId: achievement.id,
+        progress: achievement.requirement
       })
 
-      // Award XP for achievement
-      if (achievement.xpReward > 0) {
-        await prisma.userStats.update({
-          where: { userId },
-          data: { totalXp: { increment: achievement.xpReward } }
-        })
-      }
+      totalXpToAward += achievement.xpReward
 
       newAchievements.push({
         name: achievement.name,
@@ -393,6 +396,23 @@ async function checkAndAwardAchievements(
         xpReward: achievement.xpReward
       })
     }
+  }
+
+  // Batch create all newly earned achievements and update XP in a transaction
+  if (achievementsToCreate.length > 0) {
+    await prisma.$transaction([
+      // Create all new achievements at once
+      prisma.userAchievement.createMany({
+        data: achievementsToCreate
+      }),
+      // Update total XP once with total from all achievements
+      ...(totalXpToAward > 0
+        ? [prisma.userStats.update({
+            where: { userId },
+            data: { totalXp: { increment: totalXpToAward } }
+          })]
+        : [])
+    ])
   }
 
   return newAchievements

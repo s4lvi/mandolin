@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { generateExampleSentence } from "@/lib/ai"
+import { getAuthenticatedUser } from "@/lib/api-helpers"
+import { handleRouteError } from "@/lib/error-handler"
+import { createLogger } from "@/lib/logger"
 import { z } from "zod"
+
+const logger = createLogger("api/generate-sentence")
 
 const generateSentenceSchema = z.object({
   grammarPoint: z.string().min(1, "Grammar point is required"),
@@ -10,10 +14,8 @@ const generateSentenceSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const session = await auth()
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error } = await getAuthenticatedUser()
+    if (error) return error
 
     const body = await req.json()
     const data = generateSentenceSchema.parse(body)
@@ -23,21 +25,10 @@ export async function POST(req: Request) {
       data.context
     )
 
+    logger.info("Generated example sentence", { grammarPoint: data.grammarPoint })
     return NextResponse.json(sentence)
   } catch (error) {
-    console.error("Error generating sentence:", error)
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        { error: error.issues[0].message },
-        { status: 400 }
-      )
-    }
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-    return NextResponse.json(
-      { error: "Failed to generate sentence" },
-      { status: 500 }
-    )
+    logger.error("Failed to generate sentence", { error })
+    return handleRouteError(error)
   }
 }
