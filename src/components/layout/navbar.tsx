@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers } from "lucide-react"
+import packageJson from "../../../package.json"
 
 // Navigation link with flip animation to Chinese
 function NavLink({ href, english, chinese, icon: Icon }: { href: string; english: string; chinese: string; icon?: any }) {
@@ -43,9 +44,14 @@ export function Navbar() {
             <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-orange-600 via-red-500 to-orange-600 bg-clip-text text-transparent group-hover:from-orange-500 group-hover:via-red-400 group-hover:to-orange-500 transition-all">
               Mangolin
             </span>
-            <span className="text-sm font-medium text-muted-foreground tracking-wider">
-              芒果林
-            </span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-sm font-medium text-muted-foreground tracking-wider">
+                芒果林
+              </span>
+              <span className="text-xs text-muted-foreground/50">
+                v{packageJson.version}
+              </span>
+            </div>
           </div>
         </Link>
 

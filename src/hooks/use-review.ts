@@ -71,10 +71,21 @@ async function generateSentence(
 }
 
 export function useReviewCards(params?: FetchReviewCardsParams) {
+  // Only include filters in query key, NOT limit
+  // This prevents refetching tags/cards when only limit changes
+  // The limit is still sent to the API, it just doesn't trigger a refetch
+  const filterKey = {
+    allCards: params?.allCards,
+    types: params?.types,
+    tagIds: params?.tagIds,
+    lessonId: params?.lessonId
+  }
+
   return useQuery({
-    queryKey: ["review-cards", params],
+    queryKey: ["review-cards", filterKey],
     queryFn: () => fetchReviewCards(params),
-    staleTime: 0 // Always fetch fresh for review
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    gcTime: 10 * 60 * 1000    // Keep in cache for 10 minutes
   })
 }
 
