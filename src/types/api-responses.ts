@@ -210,3 +210,20 @@ export interface PrefetchTestQuestionsRequest {
   cardIds: string[]
   direction: string
 }
+
+/**
+ * Changelog/versioning endpoints
+ */
+
+export interface Changelog {
+  id: string
+  version: string
+  title: string
+  changes: string[]
+  releaseDate: Date
+  createdAt: Date
+}
+
+export interface ChangelogResponse {
+  changelog: Changelog | null
+}
