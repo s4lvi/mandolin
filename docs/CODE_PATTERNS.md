@@ -1,7 +1,7 @@
 # Mandolin Code Patterns & Guidelines
 
-**Last Updated**: 2025-11-21
-**Version**: 1.0.0
+**Last Updated**: 2025-11-24
+**Version**: 1.1.0
 
 This living document defines coding standards, patterns, and best practices for the Mandolin Mandarin flashcard learning application. All contributors should follow these guidelines to maintain consistency and code quality.
 
@@ -23,7 +23,8 @@ This living document defines coding standards, patterns, and best practices for 
 12. [Styling Patterns](#styling-patterns)
 13. [Security Best Practices](#security-best-practices)
 14. [Performance Best Practices](#performance-best-practices)
-15. [Code Review Checklist](#code-review-checklist)
+15. [Changelog & Versioning System](#changelog--versioning-system)
+16. [Code Review Checklist](#code-review-checklist)
 
 ---
 
@@ -1242,6 +1243,322 @@ import Image from "next/image"
 
 ---
 
+## Changelog & Versioning System
+
+Mandolin uses an automated changelog system to notify users about new features and improvements through a "What's New" modal.
+
+### Overview
+
+The versioning system consists of:
+1. **Version tracking** in `package.json` (source of truth)
+2. **Changelog files** in `changelogs/` directory (version-controlled)
+3. **Database storage** (`Changelog` table) for runtime access
+4. **GitHub Action** to automatically insert changelogs on merge to main
+5. **What's New modal** shown to users on first load after version update
+
+### Workflow
+
+#### 1. Preparing a Release
+
+When ready to release a new version:
+
+```bash
+# 1. Update version in package.json
+{
+  "name": "mangolin",
+  "version": "0.2.0",  // Bump version
+  ...
+}
+
+# 2. Create changelog file: changelogs/0.2.0.json
+{
+  "version": "0.2.0",
+  "title": "Enhanced Review Experience",
+  "changes": [
+    "Added manual Next button in test mode for better control",
+    "Fixed tag list reloading when changing card count",
+    "Personalized welcome message with user name",
+    "Improved performance with optimized database queries"
+  ]
+}
+
+# 3. Commit both files together
+git add package.json changelogs/0.2.0.json
+git commit -m "Release v0.2.0"
+
+# 4. Merge PR to main
+# GitHub Action automatically inserts changelog into database
+```
+
+#### 2. Changelog File Format
+
+Each changelog must be a JSON file matching this structure:
+
+```typescript
+interface ChangelogFile {
+  version: string      // Must match package.json (e.g., "0.2.0")
+  title: string        // Short release title (e.g., "Enhanced Review")
+  changes: string[]    // Array of user-facing changes
+}
+```
+
+**Best Practices**:
+- Keep changes concise and user-focused (not technical implementation details)
+- Use clear, action-oriented language ("Added", "Fixed", "Improved")
+- Aim for 3-6 changes per release
+- Order by importance (most impactful first)
+
+```json
+// ✅ GOOD - Clear, user-focused
+{
+  "version": "0.2.0",
+  "title": "Better Review Experience",
+  "changes": [
+    "Added pause button during review sessions",
+    "Fixed cards not saving progress correctly",
+    "Improved loading speed by 50%"
+  ]
+}
+
+// ❌ BAD - Too technical, vague
+{
+  "version": "0.2.0",
+  "title": "Updates",
+  "changes": [
+    "Refactored ReviewCard component",
+    "Updated dependencies",
+    "Bug fixes"
+  ]
+}
+```
+
+#### 3. GitHub Action
+
+The `.github/workflows/insert-changelog.yml` workflow:
+
+```yaml
+name: Insert Changelog
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'package.json'
+      - 'changelogs/**'
+
+jobs:
+  insert-changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+      - name: Setup Node.js
+      - name: Install dependencies
+      - name: Generate Prisma Client
+      - name: Get version from package.json
+      - name: Insert changelog into database
+```
+
+**Required GitHub Secrets**:
+- `DATABASE_URL`: PostgreSQL connection string (with pooler)
+- `DIRECT_URL`: Direct PostgreSQL connection (bypasses pooler for migrations)
+
+#### 4. Manual Changelog Insertion
+
+To manually insert a changelog (for testing or backfilling):
+
+```bash
+# Insert changelog for specific version
+npx ts-node --compiler-options '{"module":"CommonJS"}' \
+  scripts/insert-changelog.ts 0.2.0
+```
+
+The script:
+- Reads `changelogs/0.2.0.json`
+- Validates structure
+- Upserts into database (insert or update if exists)
+- Gracefully handles missing files
+
+### Implementation Details
+
+#### Database Schema
+
+```prisma
+model User {
+  id              String    @id @default(cuid())
+  email           String    @unique
+  lastSeenVersion String?   // Track which version user has seen
+  // ...
+}
+
+model Changelog {
+  id          String   @id @default(cuid())
+  version     String   @unique
+  title       String
+  changes     String[]
+  releaseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([releaseDate])
+}
+```
+
+#### API Endpoints
+
+**GET /api/changelog**
+```typescript
+// Checks if user has seen current version
+// Returns changelog if new version exists
+
+const response = await fetch("/api/changelog")
+const { changelog } = await response.json()
+// changelog is null if user has seen this version
+```
+
+**POST /api/user/version**
+```typescript
+// Marks current version as seen by user
+
+await fetch("/api/user/version", { method: "POST" })
+// Updates user.lastSeenVersion to current package.json version
+```
+
+#### What's New Modal
+
+Location: `src/components/changelog/whats-new-modal.tsx`
+
+```typescript
+interface WhatsNewModalProps {
+  open: boolean
+  changelog: Changelog | null
+  onComplete: () => void
+}
+
+export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProps)
+```
+
+**Integration** in `DashboardProvider`:
+```typescript
+// On app load:
+// 1. Check if user has seen welcome modal
+// 2. If yes, check for new version
+// 3. If new version exists, fetch changelog
+// 4. Show What's New modal
+// 5. On dismiss, update user.lastSeenVersion
+```
+
+#### Version Check Logic
+
+```typescript
+// src/components/providers/dashboard-provider.tsx
+
+const checkForNewVersion = async () => {
+  try {
+    const response = await fetch("/api/changelog")
+    const data = await response.json()
+
+    if (data.changelog) {
+      setChangelog(data.changelog)
+      setShowWhatsNew(true)
+    }
+  } catch (error) {
+    console.error("Failed to check for new version:", error)
+  }
+}
+```
+
+### User Experience Flow
+
+1. **New User**:
+   - Sees welcome modal first
+   - After dismissing, checks for changelog
+   - Sees What's New modal if changelog exists
+
+2. **Returning User (no version change)**:
+   - No modals shown
+   - Normal app experience
+
+3. **Returning User (new version)**:
+   - Sees What's New modal on app load
+   - Modal shows version, title, and list of changes
+   - Clicks "Got it!" to dismiss
+   - Won't see modal again for this version
+
+### Directory Structure
+
+```
+changelogs/
+├── README.md           # Usage instructions
+├── 0.1.0.json         # Initial release
+└── 0.2.0.json         # Next release
+
+scripts/
+└── insert-changelog.ts # Insertion script
+
+.github/workflows/
+└── insert-changelog.yml # GitHub Action
+
+src/
+├── components/
+│   └── changelog/
+│       └── whats-new-modal.tsx
+├── app/api/
+│   ├── changelog/route.ts
+│   └── user/version/route.ts
+└── types/
+    └── api-responses.ts  # Changelog types
+```
+
+### Testing
+
+#### Local Testing
+
+```bash
+# 1. Create test changelog
+echo '{
+  "version": "0.2.0-test",
+  "title": "Test Release",
+  "changes": ["Test change 1", "Test change 2"]
+}' > changelogs/0.2.0-test.json
+
+# 2. Insert into database
+npx ts-node --compiler-options '{"module":"CommonJS"}' \
+  scripts/insert-changelog.ts 0.2.0-test
+
+# 3. Update package.json to 0.2.0-test temporarily
+# 4. Reload app to see What's New modal
+# 5. Revert package.json
+```
+
+#### Verifying GitHub Action
+
+After merging to main:
+1. Check Actions tab in GitHub
+2. Look for "Insert Changelog" workflow
+3. Verify it completed successfully
+4. Check Summary for version info
+
+### Troubleshooting
+
+**Changelog not showing?**
+- Verify changelog file exists for current `package.json` version
+- Check database: `SELECT * FROM "Changelog" WHERE version = '0.2.0'`
+- Verify user.lastSeenVersion doesn't match current version
+- Check browser console for API errors
+
+**GitHub Action failing?**
+- Verify `DATABASE_URL` and `DIRECT_URL` secrets are set
+- Check Action logs for specific error
+- Ensure changelog JSON is valid
+- Verify database is accessible from GitHub Actions
+
+**Modal showing repeatedly?**
+- Check if POST to `/api/user/version` is succeeding
+- Verify user.lastSeenVersion is being updated
+- Check browser console for errors
+
+---
+
 ## Code Review Checklist
 
 Before submitting a PR, ensure:
@@ -1291,6 +1608,12 @@ Before submitting a PR, ensure:
 ---
 
 ## Changelog
+
+### Version 1.1.0 (2025-11-24)
+- Added comprehensive Changelog & Versioning System section
+- Documented automated changelog workflow with GitHub Actions
+- Included examples and best practices for release management
+- Added troubleshooting guide for changelog system
 
 ### Version 1.0.0 (2025-11-21)
 - Initial document creation

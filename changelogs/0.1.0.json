@@ -1,0 +1,12 @@
+{
+  "version": "0.1.0",
+  "title": "Initial Release",
+  "changes": [
+    "AI-powered note parsing to create flashcards automatically",
+    "Smart spaced repetition system using SM-2 algorithm",
+    "Multiple review modes: flashcard and multiple choice test",
+    "Organize cards by lessons and tags",
+    "Track your progress with XP, levels, and achievements",
+    "Generate AI example sentences for grammar points"
+  ]
+}
