@@ -220,8 +220,8 @@ export interface Changelog {
   version: string
   title: string
   changes: string[]
-  releaseDate: Date
-  createdAt: Date
+  releaseDate: string  // ISO date string
+  createdAt: string    // ISO date string
 }
 
 export interface ChangelogResponse {
