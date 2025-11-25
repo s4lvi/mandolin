@@ -1,0 +1,12 @@
+{
+  "version": "0.2.0",
+  "title": "Priority Cards, User Profiles & Changelog History",
+  "changes": [
+    "Added priority flag system to mark cards for more frequent review",
+    "Quick-toggle priority stars in deck view - click to mark/unmark cards instantly",
+    "New user profile page with bio, password change, and account info",
+    "Changelog history page to see all past updates and features",
+    "Review sessions now prioritize flagged cards (70% priority, 30% regular mix)",
+    "Profile and What's New links added to navigation menu"
+  ]
+}
