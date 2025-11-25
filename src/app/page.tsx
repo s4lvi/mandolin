@@ -29,6 +29,7 @@ async function fetchStats() {
 
 // Dashboard for logged-in users
 function Dashboard() {
+  const { data: session } = useSession()
   const { data, isLoading } = useQuery({
     queryKey: ["user-stats"],
     queryFn: fetchStats
@@ -44,13 +45,16 @@ function Dashboard() {
 
   const stats = data?.stats
   const cardStats = data?.cardStats
+  const userName = session?.user?.name?.trim()
 
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">
       {/* Welcome and Quick Actions */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Welcome back!</h1>
+          <h1 className="text-3xl font-bold">
+            Welcome back{userName ? `, ${userName}` : ''}!
+          </h1>
           <p className="text-muted-foreground">
             {cardStats?.dueToday || 0} cards due for review
           </p>

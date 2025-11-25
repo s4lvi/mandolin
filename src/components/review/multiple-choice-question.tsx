@@ -60,14 +60,14 @@ export function MultipleChoiceQuestion({
 
     const isCorrect = selectedAnswer === correctAnswer
     setShowFeedback(true)
+  }
 
-    // After 2 seconds, call onAnswer and move to next card
-    setTimeout(() => {
-      onAnswer(isCorrect, selectedAnswer)
-      // Reset state for next card
-      setSelectedAnswer(null)
-      setShowFeedback(false)
-    }, 2000)
+  const handleNext = () => {
+    const isCorrect = selectedAnswer === correctAnswer
+    onAnswer(isCorrect, selectedAnswer!)
+    // Reset state for next card
+    setSelectedAnswer(null)
+    setShowFeedback(false)
   }
 
   const handleReportProblem = async (e: React.MouseEvent) => {
@@ -162,17 +162,25 @@ export function MultipleChoiceQuestion({
               )}
             </div>
 
-            <div className="mt-4 text-center">
+            <div className="mt-4 space-y-2">
               <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleReportProblem}
-                disabled={isReporting}
-                className="text-xs text-muted-foreground hover:text-foreground"
+                className="w-full"
+                onClick={handleNext}
               >
-                <AlertCircle className="h-3 w-3 mr-1" />
-                {isReporting ? "Reporting..." : "Report problem"}
+                Next
               </Button>
+              <div className="text-center">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleReportProblem}
+                  disabled={isReporting}
+                  className="text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <AlertCircle className="h-3 w-3 mr-1" />
+                  {isReporting ? "Reporting..." : "Report problem"}
+                </Button>
+              </div>
             </div>
           </div>
         </CardContent>
