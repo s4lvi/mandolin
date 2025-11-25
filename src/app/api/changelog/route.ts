@@ -14,11 +14,18 @@ export async function GET() {
     if (error) return error
 
     const currentVersion = packageJson.version
+    logger.info("Checking changelog", { currentVersion, userId })
 
     // Get user's last seen version
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { lastSeenVersion: true }
+    })
+
+    logger.info("User version status", {
+      lastSeenVersion: user?.lastSeenVersion,
+      currentVersion,
+      shouldShow: user?.lastSeenVersion !== currentVersion
     })
 
     // If user has already seen this version, return null
@@ -27,9 +34,11 @@ export async function GET() {
     }
 
     // Get changelog for current version
+    logger.info("Fetching changelog from database", { version: currentVersion })
     const changelog = await prisma.changelog.findUnique({
       where: { version: currentVersion }
     })
+    logger.info("Changelog query result", { found: !!changelog })
 
     // If no changelog exists for this version, return null
     if (!changelog) {
@@ -38,7 +47,18 @@ export async function GET() {
     }
 
     logger.info("Changelog fetched", { userId, version: currentVersion })
-    return NextResponse.json({ changelog })
+
+    // Serialize dates to ISO strings for JSON response
+    return NextResponse.json({
+      changelog: {
+        id: changelog.id,
+        version: changelog.version,
+        title: changelog.title,
+        changes: changelog.changes,
+        releaseDate: changelog.releaseDate.toISOString(),
+        createdAt: changelog.createdAt.toISOString()
+      }
+    })
   } catch (error) {
     logger.error("Failed to fetch changelog", { error })
     return handleRouteError(error)
