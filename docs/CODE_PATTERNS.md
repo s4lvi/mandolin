@@ -521,6 +521,56 @@ catch (error) {
 }
 ```
 
+### Date Serialization
+
+**Always serialize Date objects to ISO strings in API responses**:
+
+```typescript
+// ✅ GOOD - Explicit date serialization
+const changelog = await prisma.changelog.findUnique({
+  where: { version: currentVersion }
+})
+
+return NextResponse.json({
+  changelog: {
+    id: changelog.id,
+    version: changelog.version,
+    title: changelog.title,
+    changes: changelog.changes,
+    releaseDate: changelog.releaseDate.toISOString(),
+    createdAt: changelog.createdAt.toISOString()
+  }
+})
+
+// ❌ BAD - Direct return causes serialization errors
+return NextResponse.json({ changelog }) // PrismaClientValidationError
+
+// ❌ BAD - Trying to use Date objects in JSON
+const response = {
+  date: new Date() // Will not serialize properly
+}
+return NextResponse.json(response)
+```
+
+**Why**: `NextResponse.json()` cannot serialize Prisma's `Date` objects directly. This causes a `PrismaClientValidationError` with the message "Invalid data format". Always explicitly convert `Date` objects to ISO strings using `.toISOString()`.
+
+**TypeScript Tip**: Define API response types with `string` for date fields, not `Date`:
+
+```typescript
+// ✅ GOOD - API response type uses strings for dates
+export interface Changelog {
+  id: string
+  version: string
+  releaseDate: string  // ISO date string
+  createdAt: string    // ISO date string
+}
+
+// ❌ BAD - Using Date type for API responses
+export interface Changelog {
+  releaseDate: Date  // This is the Prisma model type, not API response
+}
+```
+
 ---
 
 ## Database Patterns

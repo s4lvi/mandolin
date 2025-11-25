@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { Wand2, Loader2, X } from "lucide-react"
+import { Wand2, Loader2, X, Star } from "lucide-react"
 import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -55,6 +55,7 @@ export function CardForm({
       english: initialData?.english || "",
       notes: initialData?.notes || "",
       type: initialData?.type || "VOCABULARY",
+      isPriority: initialData?.isPriority || false,
       tags: initialData?.tags.map((t) => t.tag.name) || []
     }
   })
@@ -224,29 +225,58 @@ export function CardForm({
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="type"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Type</FormLabel>
-              <Select onValueChange={field.onChange} defaultValue={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select type" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="VOCABULARY">Vocabulary</SelectItem>
-                  <SelectItem value="GRAMMAR">Grammar</SelectItem>
-                  <SelectItem value="PHRASE">Phrase</SelectItem>
-                  <SelectItem value="IDIOM">Idiom</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="type"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Type</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="VOCABULARY">Vocabulary</SelectItem>
+                    <SelectItem value="GRAMMAR">Grammar</SelectItem>
+                    <SelectItem value="PHRASE">Phrase</SelectItem>
+                    <SelectItem value="IDIOM">Idiom</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="isPriority"
+            render={({ field }) => (
+              <FormItem className="flex flex-col justify-end">
+                <div className="flex items-center space-x-2 h-10">
+                  <Checkbox
+                    id="isPriority"
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                  <Label
+                    htmlFor="isPriority"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer flex items-center gap-1"
+                  >
+                    <Star className="h-4 w-4" />
+                    Priority Card
+                  </Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Review this card more often
+                </p>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
 
         <FormField
           control={form.control}

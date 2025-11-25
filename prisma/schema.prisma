@@ -13,6 +13,7 @@ model User {
   email           String    @unique
   passwordHash    String
   name            String?
+  bio             String?   @db.Text
   hasSeenWelcome  Boolean   @default(false)
   lastSeenVersion String?   // Track which app version user has seen
   createdAt       DateTime  @default(now())
@@ -100,6 +101,7 @@ model Card {
   english        String
   notes          String?   @db.Text
   type           CardType  @default(VOCABULARY)
+  isPriority     Boolean   @default(false)
   lessonId       String?
   deckId         String
   createdAt      DateTime  @default(now())
@@ -129,6 +131,7 @@ model Card {
   @@index([deckId, nextReview, state]) // For fetching due cards efficiently
   @@index([deckId, state]) // For filtering by card state
   @@index([deckId, type]) // For filtering by card type
+  @@index([deckId, isPriority]) // For filtering by priority
   @@index([nextReview])
   @@index([state])
 }

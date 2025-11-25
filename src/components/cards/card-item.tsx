@@ -5,9 +5,11 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, Volume2 } from "lucide-react"
+import { Pencil, Trash2, Volume2, Star } from "lucide-react"
 import type { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
+import { toast } from "sonner"
+import { useToggleCardPriority } from "@/hooks/use-cards"
 
 interface CardItemProps {
   card: CardType
@@ -25,6 +27,7 @@ const typeColors = {
 export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
+  const togglePriorityMutation = useToggleCardPriority()
 
   // Preload voices on mount (important for iOS)
   useEffect(() => {
@@ -43,6 +46,25 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
     )
   }
 
+  const togglePriority = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (togglePriorityMutation.isPending) return
+
+    const newPriority = !card.isPriority
+
+    try {
+      await togglePriorityMutation.mutateAsync({
+        cardId: card.id,
+        isPriority: newPriority
+      })
+      toast.success(newPriority ? "Marked as priority" : "Removed from priority")
+    } catch (error) {
+      toast.error("Failed to update priority")
+    }
+  }
+
   return (
     <Card className={`hover:shadow-md transition-shadow ${colorClass}`}>
       <CardContent className="p-4">
@@ -50,6 +72,22 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{card.hanzi}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={togglePriority}
+                disabled={togglePriorityMutation.isPending}
+                title={card.isPriority ? "Remove from priority" : "Mark as priority"}
+              >
+                <Star
+                  className={`h-4 w-4 transition-colors ${
+                    card.isPriority
+                      ? 'fill-yellow-500 text-yellow-500'
+                      : 'text-muted-foreground hover:text-yellow-500'
+                  } ${togglePriorityMutation.isPending ? 'opacity-50' : ''}`}
+                />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

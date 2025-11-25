@@ -32,6 +32,7 @@ export interface Card {
   english: string
   notes?: string
   type: CardType
+  isPriority: boolean
   lessonId?: string
   deckId: string
   createdAt: string

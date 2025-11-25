@@ -295,6 +295,23 @@ npm run build       # Production build
 npm run start       # Start production server
 ```
 
+### Pulling Updates
+
+When pulling changes that include database schema updates:
+
+```bash
+# Pull latest changes
+git pull
+
+# Regenerate Prisma Client (IMPORTANT!)
+npx prisma generate
+
+# Restart dev server
+npm run dev
+```
+
+> **Note**: Always run `npx prisma generate` after pulling schema changes, or you'll get "Unknown field" errors from Prisma.
+
 ## Contributing
 
 Contributions are welcome! Please:
