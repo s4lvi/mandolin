@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers } from "lucide-react"
+import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
 import packageJson from "../../../package.json"
 
 // Navigation link with flip animation to Chinese
@@ -101,6 +101,21 @@ export function Navbar() {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/profile" className="flex items-center group">
+                    <Settings className="h-4 w-4 mr-2" />
+                    <span className="group-hover:hidden">Profile</span>
+                    <span className="hidden group-hover:inline text-primary font-semibold">个人资料</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/changelog" className="flex items-center group">
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    <span className="group-hover:hidden">What's New</span>
+                    <span className="hidden group-hover:inline text-primary font-semibold">更新日志</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem disabled className="text-xs">
                   {session.user?.email}
                 </DropdownMenuItem>
@@ -141,6 +156,19 @@ export function Navbar() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href="/profile" className="flex items-center">
+                      <Settings className="h-4 w-4 mr-2" />
+                      Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/changelog" className="flex items-center">
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      What's New
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem disabled>
                     {session.user?.email}
                   </DropdownMenuItem>

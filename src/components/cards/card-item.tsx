@@ -5,14 +5,16 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, Volume2 } from "lucide-react"
+import { Pencil, Trash2, Volume2, Star } from "lucide-react"
 import type { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
+import { toast } from "sonner"
 
 interface CardItemProps {
   card: CardType
   onDelete?: (cardId: string) => void
   onTagClick?: (tagId: string, tagName: string) => void
+  onPriorityToggle?: (cardId: string, isPriority: boolean) => void
 }
 
 const typeColors = {
@@ -22,14 +24,21 @@ const typeColors = {
   IDIOM: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/50"
 }
 
-export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
+export function CardItem({ card, onDelete, onTagClick, onPriorityToggle }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const [isPriority, setIsPriority] = useState(card.isPriority)
+  const [isTogglingPriority, setIsTogglingPriority] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
 
   // Preload voices on mount (important for iOS)
   useEffect(() => {
     preloadVoices()
   }, [])
+
+  // Update local state when card prop changes
+  useEffect(() => {
+    setIsPriority(card.isPriority)
+  }, [card.isPriority])
 
   const playAudio = async () => {
     if (isPlaying) return
@@ -43,6 +52,36 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
     )
   }
 
+  const togglePriority = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+
+    if (isTogglingPriority) return
+
+    const newPriority = !isPriority
+    setIsTogglingPriority(true)
+
+    try {
+      const res = await fetch(`/api/cards/${card.id}/priority`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isPriority: newPriority })
+      })
+
+      if (!res.ok) {
+        throw new Error("Failed to update priority")
+      }
+
+      setIsPriority(newPriority)
+      onPriorityToggle?.(card.id, newPriority)
+      toast.success(newPriority ? "Marked as priority" : "Removed from priority")
+    } catch (error) {
+      toast.error("Failed to update priority")
+    } finally {
+      setIsTogglingPriority(false)
+    }
+  }
+
   return (
     <Card className={`hover:shadow-md transition-shadow ${colorClass}`}>
       <CardContent className="p-4">
@@ -50,6 +89,22 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{card.hanzi}</span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 shrink-0"
+                onClick={togglePriority}
+                disabled={isTogglingPriority}
+                title={isPriority ? "Remove from priority" : "Mark as priority"}
+              >
+                <Star
+                  className={`h-4 w-4 transition-colors ${
+                    isPriority
+                      ? 'fill-yellow-500 text-yellow-500'
+                      : 'text-muted-foreground hover:text-yellow-500'
+                  } ${isTogglingPriority ? 'opacity-50' : ''}`}
+                />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"

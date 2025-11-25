@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
-import { CardType } from "@prisma/client"
+import { CardType, CardState } from "@prisma/client"
 import {
   calculateSRS,
   calculateXP,
@@ -68,40 +68,86 @@ export async function GET(req: Request) {
 
     const now = new Date()
 
-    // Get cards - either all cards or just due cards
-    const cards = await prisma.card.findMany({
-      where: allCards
-        ? where
-        : {
-            ...where,
-            OR: [
-              { nextReview: null }, // Never reviewed
-              { nextReview: { lte: now } }, // Due for review
-              { state: "NEW" } // New cards
-            ]
-          },
-      include: {
-        lesson: {
-          select: { number: true, title: true }
-        },
-        tags: {
-          include: {
-            tag: true
-          }
-        }
-      },
-      orderBy: allCards
-        ? [
-            { lastReviewed: "asc" }, // Oldest reviewed first
-            { createdAt: "asc" }
+    // Build the full where clause for due/all cards
+    const fullWhere = allCards
+      ? where
+      : {
+          ...where,
+          OR: [
+            { nextReview: null }, // Never reviewed
+            { nextReview: { lte: now } }, // Due for review
+            { state: CardState.NEW } // New cards
           ]
-        : [
-            { state: "asc" }, // NEW cards first
-            { nextReview: "asc" }, // Then by due date (oldest first)
-            { easeFactor: "asc" } // Then hardest cards (lowest ease factor)
-          ],
-      take: limit
-    })
+        }
+
+    const orderBy = allCards
+      ? [
+          { lastReviewed: "asc" as const }, // Oldest reviewed first
+          { createdAt: "asc" as const }
+        ]
+      : [
+          { state: "asc" as const }, // NEW cards first
+          { nextReview: "asc" as const }, // Then by due date (oldest first)
+          { easeFactor: "asc" as const } // Then hardest cards (lowest ease factor)
+        ]
+
+    const includeClause = {
+      lesson: {
+        select: { number: true, title: true }
+      },
+      tags: {
+        include: {
+          tag: true
+        }
+      }
+    }
+
+    // Fetch priority and non-priority cards separately
+    // Aim for ~70% priority cards if available
+    const priorityLimit = Math.ceil(limit * 0.7)
+    const nonPriorityLimit = limit - priorityLimit
+
+    const [priorityCards, nonPriorityCards] = await Promise.all([
+      // Fetch priority cards
+      prisma.card.findMany({
+        where: {
+          ...fullWhere,
+          isPriority: true
+        },
+        include: includeClause,
+        orderBy,
+        take: priorityLimit
+      }),
+      // Fetch non-priority cards
+      prisma.card.findMany({
+        where: {
+          ...fullWhere,
+          isPriority: false
+        },
+        include: includeClause,
+        orderBy,
+        take: nonPriorityLimit
+      })
+    ])
+
+    // If we don't have enough priority cards, fill with more non-priority cards
+    let cards = priorityCards
+    const remainingSlots = limit - priorityCards.length
+
+    if (remainingSlots > 0) {
+      const extraNonPriority = await prisma.card.findMany({
+        where: {
+          ...fullWhere,
+          isPriority: false
+        },
+        include: includeClause,
+        orderBy,
+        take: remainingSlots
+      })
+      cards = [...priorityCards, ...extraNonPriority]
+    } else {
+      cards = [...priorityCards.slice(0, limit), ...nonPriorityCards]
+    }
 
     // Get user stats for context
     const userStats = await prisma.userStats.findUnique({

@@ -8,6 +8,7 @@ export const createCardSchema = z.object({
   english: z.string().min(1, "English is required"),
   notes: z.string().optional(),
   type: cardTypeEnum.optional().default("VOCABULARY"),
+  isPriority: z.boolean().optional().default(false),
   lessonId: z.string().optional(),
   tags: z.array(z.string()).optional()
 })

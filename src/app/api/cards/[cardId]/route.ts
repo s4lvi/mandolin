@@ -142,6 +142,7 @@ export async function PUT(
         english: data.english,
         notes: data.notes,
         type: data.type,
+        isPriority: data.isPriority,
         lessonId: data.lessonId
       },
       include: {
