@@ -102,6 +102,24 @@ async function deleteCard(cardId: string): Promise<void> {
   }
 }
 
+async function toggleCardPriority(
+  cardId: string,
+  isPriority: boolean
+): Promise<{ card: { id: string; hanzi: string; isPriority: boolean } }> {
+  const res = await fetch(`/api/cards/${cardId}/priority`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ isPriority })
+  })
+
+  if (!res.ok) {
+    const error = await res.json()
+    throw new Error(error.error || "Failed to update priority")
+  }
+
+  return res.json()
+}
+
 export function useCards(params?: FetchCardsParams) {
   return useQuery({
     queryKey: ["cards", params],
@@ -167,6 +185,18 @@ export function useDeleteCard() {
 
   return useMutation({
     mutationFn: deleteCard,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cards"] })
+    }
+  })
+}
+
+export function useToggleCardPriority() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: ({ cardId, isPriority }: { cardId: string; isPriority: boolean }) =>
+      toggleCardPriority(cardId, isPriority),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
     }

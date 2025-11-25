@@ -55,7 +55,10 @@ export async function GET(req: Request) {
           }
         }
       },
-      orderBy: { createdAt: "desc" }
+      orderBy: [
+        { isPriority: "desc" as const }, // Priority cards first
+        { createdAt: "desc" as const }   // Then newest first
+      ]
     })
 
     logger.info("Fetched cards", { deckId: deck.id, count: cards.length })
