@@ -45,7 +45,7 @@ function Dashboard() {
 
   const stats = data?.stats
   const cardStats = data?.cardStats
-  const userName = session?.user?.name
+  const userName = session?.user?.name?.trim()
 
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">

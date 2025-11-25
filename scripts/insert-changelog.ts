@@ -38,6 +38,22 @@ async function insertChangelog(version: string) {
     process.exit(1)
   }
 
+  // Validate changes array is not empty
+  if (changelogData.changes.length === 0) {
+    console.error("❌ Invalid changelog format")
+    console.error("   changes array must contain at least one item")
+    process.exit(1)
+  }
+
+  // Validate version matches the requested version
+  if (changelogData.version !== version) {
+    console.error("❌ Version mismatch")
+    console.error(`   Requested version: ${version}`)
+    console.error(`   Changelog file version: ${changelogData.version}`)
+    console.error("   The version in the JSON file must match the filename")
+    process.exit(1)
+  }
+
   console.log(`📝 Inserting changelog for v${changelogData.version}...`)
 
   try {
