@@ -118,7 +118,7 @@ export async function GET(req: Request) {
         orderBy,
         take: priorityLimit
       }),
-      // Fetch non-priority cards
+      // Fetch non-priority cards - get the full limit in case we need more
       prisma.card.findMany({
         where: {
           ...fullWhere,
@@ -126,27 +126,19 @@ export async function GET(req: Request) {
         },
         include: includeClause,
         orderBy,
-        take: nonPriorityLimit
+        take: limit // Fetch up to limit, we'll slice later
       })
     ])
 
-    // If we don't have enough priority cards, fill with more non-priority cards
-    let cards = priorityCards
-    const remainingSlots = limit - priorityCards.length
-
-    if (remainingSlots > 0) {
-      const extraNonPriority = await prisma.card.findMany({
-        where: {
-          ...fullWhere,
-          isPriority: false
-        },
-        include: includeClause,
-        orderBy,
-        take: remainingSlots
-      })
-      cards = [...priorityCards, ...extraNonPriority]
+    // Combine cards based on how many priority cards we got
+    let cards: typeof priorityCards
+    if (priorityCards.length >= limit) {
+      // We have enough priority cards to fill the entire limit
+      cards = priorityCards.slice(0, limit)
     } else {
-      cards = [...priorityCards.slice(0, limit), ...nonPriorityCards]
+      // Combine priority cards with non-priority cards to reach the limit
+      const remainingSlots = limit - priorityCards.length
+      cards = [...priorityCards, ...nonPriorityCards.slice(0, remainingSlots)]
     }
 
     // Get user stats for context

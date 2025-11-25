@@ -110,10 +110,13 @@ export default function ChangelogPage() {
           <button
             className="text-primary hover:underline"
             onClick={() => {
-              // Trigger feedback modal if available
+              // Try to trigger feedback modal if available
+              // Falls back to console log if button not found (which is fine - feedback is also in navbar)
               const feedbackButton = document.querySelector('[data-feedback-button]') as HTMLButtonElement
               if (feedbackButton) {
                 feedbackButton.click()
+              } else {
+                console.info('Feedback button not found. Use the feedback button in the bottom-right corner.')
               }
             }}
           >

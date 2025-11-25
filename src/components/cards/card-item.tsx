@@ -59,7 +59,11 @@ export function CardItem({ card, onDelete, onTagClick, onPriorityToggle }: CardI
     if (isTogglingPriority) return
 
     const newPriority = !isPriority
+    const previousPriority = isPriority
     setIsTogglingPriority(true)
+
+    // Optimistic update
+    setIsPriority(newPriority)
 
     try {
       const res = await fetch(`/api/cards/${card.id}/priority`, {
@@ -72,10 +76,11 @@ export function CardItem({ card, onDelete, onTagClick, onPriorityToggle }: CardI
         throw new Error("Failed to update priority")
       }
 
-      setIsPriority(newPriority)
       onPriorityToggle?.(card.id, newPriority)
       toast.success(newPriority ? "Marked as priority" : "Removed from priority")
     } catch (error) {
+      // Rollback optimistic update on error
+      setIsPriority(previousPriority)
       toast.error("Failed to update priority")
     } finally {
       setIsTogglingPriority(false)

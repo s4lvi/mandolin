@@ -8,8 +8,11 @@ import { z } from "zod"
 const logger = createLogger("api/user/profile")
 
 const updateProfileSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100).optional(),
+  name: z.string().min(1, "Name cannot be empty").max(100).optional(),
   bio: z.string().max(500, "Bio must be less than 500 characters").optional()
+}).refine(data => !data.name || data.name.trim().length > 0, {
+  message: "Name cannot be empty or just whitespace",
+  path: ["name"]
 })
 
 // GET /api/user/profile - Get user profile
