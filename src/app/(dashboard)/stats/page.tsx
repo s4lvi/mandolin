@@ -92,7 +92,7 @@ export default function StatsPage() {
     )
   }
 
-  const { stats, achievements, allAchievements, cardStats, dailyReviews, qualityCounts, accuracy } = data
+  const { stats, achievements, allAchievements, cardStats, dailyReviews, qualityCounts, accuracy, cardReviewStats } = data
 
   // Generate last 30 days for heatmap
   const last30Days = []
@@ -180,66 +180,91 @@ export default function StatsPage() {
       {/* Card States */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Card Progress</CardTitle>
-          <CardDescription>{cardStats.total} total cards</CardDescription>
+          <CardTitle className="text-lg">Spaced Repetition Status</CardTitle>
+          <CardDescription>
+            {cardStats.total} total cards tracked by the learning algorithm
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-5 gap-2 text-center">
-            <div className="p-3 bg-blue-50 rounded-lg">
-              <BookOpen className="h-5 w-5 text-blue-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{cardStats.new}</p>
-              <p className="text-xs text-muted-foreground">New</p>
+          <div className="space-y-3">
+            <div className="grid grid-cols-5 gap-2 text-center">
+              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg" title="Never reviewed before">
+                <BookOpen className="h-5 w-5 text-blue-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{cardStats.new}</p>
+                <p className="text-xs text-muted-foreground">New</p>
+              </div>
+              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg" title="In initial learning phase (short intervals)">
+                <Clock className="h-5 w-5 text-yellow-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{cardStats.learning}</p>
+                <p className="text-xs text-muted-foreground">Learning</p>
+              </div>
+              <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg" title="Being reviewed at medium intervals">
+                <TrendingUp className="h-5 w-5 text-orange-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{cardStats.review}</p>
+                <p className="text-xs text-muted-foreground">Review</p>
+              </div>
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg" title="Successfully learned (long intervals)">
+                <CheckCircle className="h-5 w-5 text-green-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{cardStats.learned}</p>
+                <p className="text-xs text-muted-foreground">Learned</p>
+              </div>
+              <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg" title="Cards ready to review today">
+                <Target className="h-5 w-5 text-purple-500 mx-auto mb-1" />
+                <p className="text-lg font-bold">{cardStats.dueToday}</p>
+                <p className="text-xs text-muted-foreground">Due</p>
+              </div>
             </div>
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <Clock className="h-5 w-5 text-yellow-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{cardStats.learning}</p>
-              <p className="text-xs text-muted-foreground">Learning</p>
-            </div>
-            <div className="p-3 bg-orange-50 rounded-lg">
-              <TrendingUp className="h-5 w-5 text-orange-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{cardStats.review}</p>
-              <p className="text-xs text-muted-foreground">Review</p>
-            </div>
-            <div className="p-3 bg-green-50 rounded-lg">
-              <CheckCircle className="h-5 w-5 text-green-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{cardStats.learned}</p>
-              <p className="text-xs text-muted-foreground">Learned</p>
-            </div>
-            <div className="p-3 bg-purple-50 rounded-lg">
-              <Target className="h-5 w-5 text-purple-500 mx-auto mb-1" />
-              <p className="text-lg font-bold">{cardStats.dueToday}</p>
-              <p className="text-xs text-muted-foreground">Due</p>
-            </div>
+            <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+              Cards progress through stages as you review them successfully
+            </p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Review Accuracy */}
+      {/* Review Performance */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Review Performance</CardTitle>
+          <CardTitle className="text-lg">Learning Progress</CardTitle>
           <CardDescription>
-            {stats.totalReviews} total reviews, {accuracy}% accuracy
+            {cardStats.total} cards in your deck
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-2 text-center">
-            <div className="p-2 bg-red-50 rounded">
-              <p className="text-lg font-bold text-red-500">{qualityCounts.again}</p>
-              <p className="text-xs text-muted-foreground">Again</p>
+          <div className="space-y-4">
+            {/* Accuracy percentage */}
+            <div className="text-center">
+              <div className="text-5xl font-bold text-primary mb-2">{accuracy}%</div>
+              <p className="text-sm text-muted-foreground">Success Rate (last 100 reviews)</p>
             </div>
-            <div className="p-2 bg-orange-50 rounded">
-              <p className="text-lg font-bold text-orange-500">{qualityCounts.hard}</p>
-              <p className="text-xs text-muted-foreground">Hard</p>
+
+            {/* Card-based breakdown */}
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg text-center border border-green-200 dark:border-green-900/30">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-green-700 dark:text-green-400">
+                  {cardReviewStats.successful}
+                </p>
+                <p className="text-xs text-muted-foreground">Successful</p>
+              </div>
+              <div className="p-3 bg-red-50 dark:bg-red-950/20 rounded-lg text-center border border-red-200 dark:border-red-900/30">
+                <Target className="h-5 w-5 text-red-600 dark:text-red-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-red-700 dark:text-red-400">
+                  {cardReviewStats.needsPractice}
+                </p>
+                <p className="text-xs text-muted-foreground">Needs Practice</p>
+              </div>
+              <div className="p-3 bg-gray-50 dark:bg-gray-950/20 rounded-lg text-center border border-gray-200 dark:border-gray-900/30">
+                <BookOpen className="h-5 w-5 text-gray-600 dark:text-gray-500 mx-auto mb-1" />
+                <p className="text-xl font-bold text-gray-700 dark:text-gray-400">
+                  {cardReviewStats.notReviewedYet}
+                </p>
+                <p className="text-xs text-muted-foreground">Not Reviewed Yet</p>
+              </div>
             </div>
-            <div className="p-2 bg-green-50 rounded">
-              <p className="text-lg font-bold text-green-500">{qualityCounts.good}</p>
-              <p className="text-xs text-muted-foreground">Good</p>
-            </div>
-            <div className="p-2 bg-blue-50 rounded">
-              <p className="text-lg font-bold text-blue-500">{qualityCounts.easy}</p>
-              <p className="text-xs text-muted-foreground">Easy</p>
-            </div>
+
+            <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+              Cards grouped by their last review result across all review types
+            </p>
           </div>
         </CardContent>
       </Card>

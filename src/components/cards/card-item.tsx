@@ -5,7 +5,14 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Pencil, Trash2, Volume2, Star } from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import { Pencil, Trash2, Volume2, Star, MoreVertical } from "lucide-react"
 import type { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
 import { toast } from "sonner"
@@ -76,22 +83,6 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
                 variant="ghost"
                 size="icon"
                 className="h-6 w-6 shrink-0"
-                onClick={togglePriority}
-                disabled={togglePriorityMutation.isPending}
-                title={card.isPriority ? "Remove from priority" : "Mark as priority"}
-              >
-                <Star
-                  className={`h-4 w-4 transition-colors ${
-                    card.isPriority
-                      ? 'fill-yellow-500 text-yellow-500'
-                      : 'text-muted-foreground hover:text-yellow-500'
-                  } ${togglePriorityMutation.isPending ? 'opacity-50' : ''}`}
-                />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-6 w-6 shrink-0"
                 onClick={playAudio}
                 disabled={isPlaying}
                 title="Play pronunciation"
@@ -131,21 +122,46 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
             </div>
           </div>
           <div className="flex gap-1 ml-2">
-            <Link href={`/deck/${card.id}`}>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <Pencil className="h-4 w-4" />
-              </Button>
-            </Link>
-            {onDelete && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive"
-                onClick={() => onDelete(card.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={togglePriority}
+              disabled={togglePriorityMutation.isPending}
+              title={card.isPriority ? "Remove from priority" : "Mark as priority"}
+            >
+              <Star
+                className={`h-4 w-4 transition-colors ${
+                  card.isPriority
+                    ? 'fill-yellow-500 text-yellow-500'
+                    : 'text-muted-foreground hover:text-yellow-500'
+                } ${togglePriorityMutation.isPending ? 'opacity-50' : ''}`}
+              />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem asChild>
+                  <Link href={`/deck/${card.id}`} className="cursor-pointer">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </Link>
+                </DropdownMenuItem>
+                {onDelete && (
+                  <DropdownMenuItem
+                    onClick={() => onDelete(card.id)}
+                    className="text-destructive focus:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </CardContent>

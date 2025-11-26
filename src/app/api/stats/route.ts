@@ -113,7 +113,7 @@ export async function GET() {
       }
     })
 
-    // Calculate accuracy over time
+    // Calculate review performance breakdown
     const qualityCounts = { again: 0, hard: 0, good: 0, easy: 0 }
     recentReviews.forEach((review) => {
       switch (review.quality) {
@@ -132,6 +132,81 @@ export async function GET() {
       }
     })
 
+    // Calculate accuracy: count all successful reviews (quality >= 1)
+    // This includes:
+    // - Test mode correct answers (quality 1)
+    // - Classic mode HARD/GOOD/EASY (quality 1, 2, 3)
+    const successfulReviews = qualityCounts.hard + qualityCounts.good + qualityCounts.easy
+    const accuracy = recentReviews.length > 0
+      ? Math.round((successfulReviews / recentReviews.length) * 100)
+      : 0
+
+    // Get card-based review stats (different from review history stats)
+    let cardReviewStats = {
+      successful: 0,
+      needsPractice: 0,
+      notReviewedYet: 0
+    }
+
+    if (deck) {
+      const [successfulCards, needsPracticeCards, notReviewed] = await Promise.all([
+        // Cards where last review was successful (quality >= 1)
+        prisma.reviewHistory.groupBy({
+          by: ['cardId'],
+          where: {
+            userId: session.user.id,
+            card: { deckId: deck.id }
+          },
+          _max: { reviewedAt: true }
+        }).then(async (latestReviews) => {
+          // For each card, get its most recent review quality
+          const cardIds = latestReviews.map(r => r.cardId)
+          const recentReviews = await prisma.reviewHistory.findMany({
+            where: {
+              cardId: { in: cardIds },
+              userId: session.user.id
+            },
+            orderBy: { reviewedAt: 'desc' },
+            distinct: ['cardId']
+          })
+          return recentReviews.filter(r => r.quality >= 1).length
+        }),
+        // Cards where last review needs practice (quality = 0)
+        prisma.reviewHistory.groupBy({
+          by: ['cardId'],
+          where: {
+            userId: session.user.id,
+            card: { deckId: deck.id }
+          },
+          _max: { reviewedAt: true }
+        }).then(async (latestReviews) => {
+          const cardIds = latestReviews.map(r => r.cardId)
+          const recentReviews = await prisma.reviewHistory.findMany({
+            where: {
+              cardId: { in: cardIds },
+              userId: session.user.id
+            },
+            orderBy: { reviewedAt: 'desc' },
+            distinct: ['cardId']
+          })
+          return recentReviews.filter(r => r.quality === 0).length
+        }),
+        // Cards never reviewed
+        prisma.card.count({
+          where: {
+            deckId: deck.id,
+            lastReviewed: null
+          }
+        })
+      ])
+
+      cardReviewStats = {
+        successful: successfulCards,
+        needsPractice: needsPracticeCards,
+        notReviewedYet: notReviewed
+      }
+    }
+
     // Calculate XP progress in current level
     const xpProgress = xpProgressInLevel(userStats.totalXp)
 
@@ -148,12 +223,8 @@ export async function GET() {
       cardStats,
       dailyReviews,
       qualityCounts,
-      accuracy:
-        recentReviews.length > 0
-          ? Math.round(
-              ((qualityCounts.good + qualityCounts.easy) / recentReviews.length) * 100
-            )
-          : 0
+      accuracy,
+      cardReviewStats
     })
   } catch (error) {
     console.error("Error fetching stats:", error)
