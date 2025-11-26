@@ -1,0 +1,11 @@
+{
+  "version": "0.2.1",
+  "title": "Bug Fixes & UI Improvements",
+  "changes": [
+    "Fixed review settings: Card limit changes now take effect immediately",
+    "Improved card UI: Edit/delete moved to dropdown menu with priority star button",
+    "Redesigned stats page: Card counts now accurate and add up correctly",
+    "Added explanations for Spaced Repetition states (New, Learning, Review, Learned, Due)",
+    "Updated accuracy calculation to work across all review types (flashcards, tests, etc.)"
+  ]
+}

@@ -113,7 +113,7 @@ export async function GET() {
       }
     })
 
-    // Calculate accuracy over time
+    // Calculate review performance breakdown
     const qualityCounts = { again: 0, hard: 0, good: 0, easy: 0 }
     recentReviews.forEach((review) => {
       switch (review.quality) {
@@ -132,6 +132,83 @@ export async function GET() {
       }
     })
 
+    // Calculate accuracy: count all successful reviews (quality >= 1)
+    // This includes:
+    // - Test mode correct answers (quality 1)
+    // - Classic mode HARD/GOOD/EASY (quality 1, 2, 3)
+    const successfulReviews = qualityCounts.hard + qualityCounts.good + qualityCounts.easy
+    const accuracy = recentReviews.length > 0
+      ? Math.round((successfulReviews / recentReviews.length) * 100)
+      : 0
+
+    // Get card-based review stats (different from review history stats)
+    let cardReviewStats = {
+      successful: 0,
+      needsPractice: 0,
+      notReviewedYet: 0
+    }
+
+    if (deck) {
+      // Optimize: Run queries in parallel and combine duplicate queries
+      const [latestReviewsByCard, notReviewed] = await Promise.all([
+        // Get the latest review timestamp for each card
+        prisma.reviewHistory.groupBy({
+          by: ['cardId'],
+          where: {
+            userId: session.user.id,
+            card: { deckId: deck.id }
+          },
+          _max: { reviewedAt: true }
+        }),
+        // Cards never reviewed
+        prisma.card.count({
+          where: {
+            deckId: deck.id,
+            lastReviewed: null
+          }
+        })
+      ])
+
+      // If there are reviewed cards, fetch their latest reviews in one query
+      if (latestReviewsByCard.length > 0) {
+        // Build OR conditions to match exact (cardId, reviewedAt) pairs
+        const latestReviews = await prisma.reviewHistory.findMany({
+          where: {
+            userId: session.user.id,
+            OR: latestReviewsByCard.map(({ cardId, _max }) => ({
+              cardId,
+              reviewedAt: _max.reviewedAt!
+            }))
+          },
+          select: {
+            cardId: true,
+            quality: true
+          }
+        })
+
+        // Count successful vs needs practice in-memory
+        let successfulCount = 0
+        let needsPracticeCount = 0
+
+        for (const review of latestReviews) {
+          if (review.quality >= 1) {
+            successfulCount++
+          } else {
+            needsPracticeCount++
+          }
+        }
+
+        cardReviewStats = {
+          successful: successfulCount,
+          needsPractice: needsPracticeCount,
+          notReviewedYet: notReviewed
+        }
+      } else {
+        // No reviewed cards
+        cardReviewStats.notReviewedYet = notReviewed
+      }
+    }
+
     // Calculate XP progress in current level
     const xpProgress = xpProgressInLevel(userStats.totalXp)
 
@@ -148,12 +225,8 @@ export async function GET() {
       cardStats,
       dailyReviews,
       qualityCounts,
-      accuracy:
-        recentReviews.length > 0
-          ? Math.round(
-              ((qualityCounts.good + qualityCounts.easy) / recentReviews.length) * 100
-            )
-          : 0
+      accuracy,
+      cardReviewStats
     })
   } catch (error) {
     console.error("Error fetching stats:", error)
