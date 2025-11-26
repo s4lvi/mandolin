@@ -92,7 +92,7 @@ export default function StatsPage() {
     )
   }
 
-  const { stats, achievements, allAchievements, cardStats, dailyReviews, qualityCounts, accuracy, cardReviewStats } = data
+  const { stats, achievements, allAchievements, cardStats, dailyReviews, accuracy, cardReviewStats } = data
 
   // Generate last 30 days for heatmap
   const last30Days = []

@@ -149,8 +149,9 @@ export async function GET() {
     }
 
     if (deck) {
-      const [successfulCards, needsPracticeCards, notReviewed] = await Promise.all([
-        // Cards where last review was successful (quality >= 1)
+      // Optimize: Run queries in parallel and combine duplicate queries
+      const [latestReviewsByCard, notReviewed] = await Promise.all([
+        // Get the latest review timestamp for each card
         prisma.reviewHistory.groupBy({
           by: ['cardId'],
           where: {
@@ -158,38 +159,6 @@ export async function GET() {
             card: { deckId: deck.id }
           },
           _max: { reviewedAt: true }
-        }).then(async (latestReviews) => {
-          // For each card, get its most recent review quality
-          const cardIds = latestReviews.map(r => r.cardId)
-          const recentReviews = await prisma.reviewHistory.findMany({
-            where: {
-              cardId: { in: cardIds },
-              userId: session.user.id
-            },
-            orderBy: { reviewedAt: 'desc' },
-            distinct: ['cardId']
-          })
-          return recentReviews.filter(r => r.quality >= 1).length
-        }),
-        // Cards where last review needs practice (quality = 0)
-        prisma.reviewHistory.groupBy({
-          by: ['cardId'],
-          where: {
-            userId: session.user.id,
-            card: { deckId: deck.id }
-          },
-          _max: { reviewedAt: true }
-        }).then(async (latestReviews) => {
-          const cardIds = latestReviews.map(r => r.cardId)
-          const recentReviews = await prisma.reviewHistory.findMany({
-            where: {
-              cardId: { in: cardIds },
-              userId: session.user.id
-            },
-            orderBy: { reviewedAt: 'desc' },
-            distinct: ['cardId']
-          })
-          return recentReviews.filter(r => r.quality === 0).length
         }),
         // Cards never reviewed
         prisma.card.count({
@@ -200,10 +169,43 @@ export async function GET() {
         })
       ])
 
-      cardReviewStats = {
-        successful: successfulCards,
-        needsPractice: needsPracticeCards,
-        notReviewedYet: notReviewed
+      // If there are reviewed cards, fetch their latest reviews in one query
+      if (latestReviewsByCard.length > 0) {
+        // Build OR conditions to match exact (cardId, reviewedAt) pairs
+        const latestReviews = await prisma.reviewHistory.findMany({
+          where: {
+            userId: session.user.id,
+            OR: latestReviewsByCard.map(({ cardId, _max }) => ({
+              cardId,
+              reviewedAt: _max.reviewedAt!
+            }))
+          },
+          select: {
+            cardId: true,
+            quality: true
+          }
+        })
+
+        // Count successful vs needs practice in-memory
+        let successfulCount = 0
+        let needsPracticeCount = 0
+
+        for (const review of latestReviews) {
+          if (review.quality >= 1) {
+            successfulCount++
+          } else {
+            needsPracticeCount++
+          }
+        }
+
+        cardReviewStats = {
+          successful: successfulCount,
+          needsPractice: needsPracticeCount,
+          notReviewedYet: notReviewed
+        }
+      } else {
+        // No reviewed cards
+        cardReviewStats.notReviewedYet = notReviewed
       }
     }
 
