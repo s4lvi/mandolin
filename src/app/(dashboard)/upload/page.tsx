@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator"
 import { Upload, Loader2, Check, X, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 import type { ParsedCard, CardType } from "@/types"
+import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
 
 interface ParsedCardWithDuplicate extends ParsedCard {
   isDuplicate: boolean
@@ -34,6 +35,9 @@ export default function UploadPage() {
   const [lessonTitle, setLessonTitle] = useState("")
   const [parsedCards, setParsedCards] = useState<ParsedCardWithDuplicate[]>([])
   const [showPreview, setShowPreview] = useState(false)
+  const [showLessonModal, setShowLessonModal] = useState(false)
+  const [createdCardIds, setCreatedCardIds] = useState<string[]>([])
+  const [createdCardCount, setCreatedCardCount] = useState(0)
 
   const parseNotesMutation = useParseNotes()
   const createCardsMutation = useCreateCardsBulk()
@@ -101,13 +105,30 @@ export default function UploadPage() {
         cards: selectedCards
       })
 
-      toast.success(`Added ${result.created} cards to your deck`)
-      router.push("/deck")
+      toast.success(`Created ${result.created} cards successfully`)
+
+      // Store created card IDs and show lesson association modal
+      setCreatedCardIds(result.cardIds || [])
+      setCreatedCardCount(result.created)
+      setShowLessonModal(true)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to save cards"
       )
     }
+  }
+
+  const handleLessonModalClose = () => {
+    setShowLessonModal(false)
+    // Redirect to deck page after modal closes
+    router.push("/deck")
+  }
+
+  const handleLessonAssociationSuccess = (lessonId: string, lessonTitle: string) => {
+    // Optional: redirect to lesson detail page instead of deck
+    // router.push(`/lessons/${lessonId}`)
+    setShowLessonModal(false)
+    router.push("/deck")
   }
 
   const selectedCount = parsedCards.filter(
@@ -223,7 +244,9 @@ export default function UploadPage() {
       <Card>
         <CardHeader>
           <CardTitle>Lesson Information</CardTitle>
-          <CardDescription>Optional: Add lesson details for organization</CardDescription>
+          <CardDescription>
+            Optional: Add lesson details to use after card creation
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -294,6 +317,17 @@ Phrases:
           </Button>
         </CardContent>
       </Card>
+
+      {/* Lesson Association Modal */}
+      <LessonAssociationModal
+        open={showLessonModal}
+        onClose={handleLessonModalClose}
+        cardIds={createdCardIds}
+        cardCount={createdCardCount}
+        onSuccess={handleLessonAssociationSuccess}
+        defaultLessonNumber={lessonNumber ? parseInt(lessonNumber) : undefined}
+        defaultLessonTitle={lessonTitle}
+      />
     </div>
     </ErrorBoundary>
   )
