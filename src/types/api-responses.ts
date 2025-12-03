@@ -175,6 +175,7 @@ export interface CreateCardsBulkRequest {
 
 export interface CreateCardsBulkResponse {
   cards: Card[]
+  cardIds: string[] // IDs of created cards for lesson association
   duplicates: string[]
   created: number
   skipped: number
