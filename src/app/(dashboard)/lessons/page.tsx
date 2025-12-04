@@ -6,10 +6,22 @@ import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-bou
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { BookOpen, ArrowRight } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { BookOpen, ArrowRight, Play } from "lucide-react"
 import type { Lesson } from "@/types"
 
-async function fetchLessons(): Promise<Lesson[]> {
+interface LessonWithProgress extends Lesson {
+  progress?: {
+    new: number
+    learning: number
+    review: number
+    learned: number
+    total: number
+    masteryPercentage: number
+  }
+}
+
+async function fetchLessons(): Promise<LessonWithProgress[]> {
   const res = await fetch("/api/lessons")
   if (!res.ok) {
     throw new Error("Failed to fetch lessons")
@@ -56,36 +68,85 @@ export default function LessonsPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {lessons?.map((lesson) => (
-            <Card key={lesson.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">
-                    Lesson {lesson.number}
-                  </CardTitle>
-                  <Badge variant="secondary">
-                    {lesson._count?.cards || 0} cards
-                  </Badge>
-                </div>
-                {lesson.title && (
-                  <p className="text-sm text-muted-foreground">{lesson.title}</p>
-                )}
-              </CardHeader>
-              <CardContent>
-                {lesson.date && (
-                  <p className="text-xs text-muted-foreground mb-3">
-                    {new Date(lesson.date).toLocaleDateString()}
-                  </p>
-                )}
-                <Link href={`/deck?lessonId=${lesson.id}`}>
-                  <Button variant="outline" size="sm" className="w-full">
-                    View Cards
-                    <ArrowRight className="h-4 w-4 ml-2" />
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          {lessons?.map((lesson) => {
+            const progress = lesson.progress
+            const cardCount = lesson._count?.cards || 0
+
+            return (
+              <Link key={lesson.id} href={`/lessons/${lesson.id}`}>
+                <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                  <CardHeader className="pb-3">
+                    <div className="flex justify-between items-start mb-2">
+                      <CardTitle className="text-lg">
+                        Lesson {lesson.number}
+                      </CardTitle>
+                      <Badge variant="secondary">
+                        {cardCount} {cardCount === 1 ? 'card' : 'cards'}
+                      </Badge>
+                    </div>
+                    {lesson.title && (
+                      <p className="text-sm text-muted-foreground line-clamp-2">
+                        {lesson.title}
+                      </p>
+                    )}
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {lesson.date && (
+                      <p className="text-xs text-muted-foreground">
+                        {new Date(lesson.date).toLocaleDateString()}
+                      </p>
+                    )}
+
+                    {progress && cardCount > 0 && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Progress</span>
+                          <span className="font-medium">{progress.masteryPercentage}%</span>
+                        </div>
+                        <Progress value={progress.masteryPercentage} className="h-2" />
+                        <div className="flex gap-2 text-xs">
+                          <span className="text-blue-600 dark:text-blue-400">
+                            {progress.new} new
+                          </span>
+                          <span className="text-yellow-600 dark:text-yellow-400">
+                            {progress.learning} learning
+                          </span>
+                          <span className="text-green-600 dark:text-green-400">
+                            {progress.learned} learned
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          window.location.href = `/review?lessonId=${lesson.id}&mode=narrative`
+                        }}
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Learn
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          window.location.href = `/lessons/${lesson.id}`
+                        }}
+                      >
+                        <ArrowRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
