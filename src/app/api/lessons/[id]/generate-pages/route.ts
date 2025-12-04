@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/auth-options"
+import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { LESSON_PAGE_GENERATION_PROMPT } from "@/lib/constants"
+import { SegmentType } from "@prisma/client"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!
@@ -16,15 +16,15 @@ interface SegmentResponse {
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const lessonId = params.id
+    const { id: lessonId } = await params
 
     // Fetch user
     const user = await prisma.user.findUnique({
@@ -114,8 +114,8 @@ export async function POST(
             segments: {
               create: pageData.segments.map((segment, segmentIndex) => ({
                 orderIndex: segmentIndex,
-                type: segment.type,
-                content: segment.content
+                type: segment.type as SegmentType,
+                content: segment.content as any
               }))
             }
           },
@@ -136,7 +136,7 @@ export async function POST(
       pages: savedPages.map((page) => ({
         pageNumber: page.pageNumber,
         segmentCount: page.segments.length,
-        types: page.segments.map((s) => s.type)
+        types: page.segments.map((s: any) => s.type)
       }))
     })
   } catch (error) {

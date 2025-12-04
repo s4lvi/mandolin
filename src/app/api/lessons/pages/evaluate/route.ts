@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
-import { authOptions } from "@/app/api/auth/auth-options"
+import { auth } from "@/lib/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { TRANSLATION_EVAL_PROMPT } from "@/lib/constants"
 
@@ -26,7 +25,7 @@ interface EvaluationResult {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
+    const session = await auth()
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
