@@ -9,15 +9,15 @@ datasource db {
 }
 
 model User {
-  id              String    @id @default(cuid())
-  email           String    @unique
+  id              String           @id @default(cuid())
+  email           String           @unique
   passwordHash    String
   name            String?
-  bio             String?   @db.Text
-  hasSeenWelcome  Boolean   @default(false)
-  lastSeenVersion String?   // Track which app version user has seen
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  bio             String?          @db.Text
+  hasSeenWelcome  Boolean          @default(false)
+  lastSeenVersion String?          // Track which app version user has seen
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 
   decks           Deck[]
   sessions        Session[]
@@ -26,6 +26,7 @@ model User {
   achievements    UserAchievement[]
   reviewHistory   ReviewHistory[]
   feedback        Feedback[]
+  lessonProgress  LessonProgress[]
 }
 
 model Account {
@@ -79,16 +80,18 @@ model Deck {
 }
 
 model Lesson {
-  id          String    @id @default(cuid())
+  id          String           @id @default(cuid())
   number      Int
   title       String?
   date        DateTime?
-  notes       String?   @db.Text
+  notes       String?          @db.Text
   deckId      String
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime         @default(now())
 
-  deck        Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  deck        Deck             @relation(fields: [deckId], references: [id], onDelete: Cascade)
   cards       Card[]
+  pages       LessonPage[]
+  progress    LessonProgress[]
 
   @@unique([deckId, number])
   @@index([deckId])
@@ -290,4 +293,60 @@ model Changelog {
   createdAt   DateTime @default(now())
 
   @@index([releaseDate])
+}
+
+// Interactive Lesson System Models
+model LessonPage {
+  id         String        @id @default(cuid())
+  lessonId   String
+  pageNumber Int           // 1, 2, 3, ..., 10+
+  createdAt  DateTime      @default(now())
+
+  lesson     Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  segments   PageSegment[]
+
+  @@unique([lessonId, pageNumber])
+  @@index([lessonId])
+}
+
+model PageSegment {
+  id          String       @id @default(cuid())
+  pageId      String
+  orderIndex  Int          // 0, 1, 2, 3 (order within page)
+  type        SegmentType
+  content     Json         // Flexible structure for different segment types
+  createdAt   DateTime     @default(now())
+
+  page        LessonPage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+}
+
+enum SegmentType {
+  TEXT              // Informational paragraph
+  FLASHCARD         // Show/hide flashcard
+  MULTIPLE_CHOICE   // Multiple choice question
+  FILL_IN           // Fill in the blank
+  TRANSLATION_EN_ZH // English → Chinese translation
+  TRANSLATION_ZH_EN // Chinese → English translation
+  FEEDBACK          // AI feedback (inserted dynamically)
+}
+
+model LessonProgress {
+  id              String    @id @default(cuid())
+  userId          String
+  lessonId        String
+  currentPage     Int       @default(1)
+  totalPages      Int
+  responses       Json[]    // Array of user responses per segment
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, lessonId])
+  @@index([userId])
+  @@index([lessonId])
 }
