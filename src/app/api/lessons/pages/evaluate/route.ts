@@ -97,7 +97,19 @@ export async function POST(req: NextRequest) {
         throw new Error("Unexpected response type from Claude")
       }
 
-      const evaluation = JSON.parse(content.text) as EvaluationResult
+      // Strip markdown code blocks if present
+      let jsonText = content.text.trim()
+      if (jsonText.startsWith("```json")) {
+        jsonText = jsonText.slice(7)
+      } else if (jsonText.startsWith("```")) {
+        jsonText = jsonText.slice(3)
+      }
+      if (jsonText.endsWith("```")) {
+        jsonText = jsonText.slice(0, -3)
+      }
+      jsonText = jsonText.trim()
+
+      const evaluation = JSON.parse(jsonText) as EvaluationResult
 
       return NextResponse.json({
         correct: evaluation.isCorrect,

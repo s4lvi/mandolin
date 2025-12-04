@@ -192,7 +192,7 @@ export default function InteractiveLessonPage({
           <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
           <h2 className="text-2xl font-bold">Generating Your Interactive Lesson</h2>
           <p className="text-muted-foreground">
-            Creating 10 pages of educational content with AI...
+            Creating educational content with AI...
           </p>
           <Progress value={33} className="w-full max-w-md mx-auto" />
         </div>

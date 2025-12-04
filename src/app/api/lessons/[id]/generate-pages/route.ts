@@ -87,8 +87,8 @@ export async function POST(
       })
     }
 
-    // Generate pages in parallel
-    const totalPages = 10
+    // Generate pages sequentially to avoid rate limits
+    const totalPages = 5 // Reduced from 10 to stay within rate limits
     const lessonContext = lesson.notes || "No lesson context provided"
     const cardList = lesson.cards
       .map(
@@ -96,13 +96,16 @@ export async function POST(
       )
       .join("\n")
 
-    // Generate all pages in parallel
-    const pageGenerationPromises = Array.from(
-      { length: totalPages },
-      (_, i) => generatePage(i + 1, totalPages, lessonContext, cardList)
-    )
-
-    const generatedPages = await Promise.all(pageGenerationPromises)
+    // Generate pages sequentially with delays to avoid rate limits
+    const generatedPages: { segments: SegmentResponse[] }[] = []
+    for (let i = 0; i < totalPages; i++) {
+      const pageData = await generatePage(i + 1, totalPages, lessonContext, cardList)
+      generatedPages.push(pageData)
+      // Small delay between requests to avoid rate limiting
+      if (i < totalPages - 1) {
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+    }
 
     // Save all pages to database
     const savedPages = await Promise.all(
@@ -178,8 +181,23 @@ async function generatePage(
     throw new Error("Unexpected response type from Claude")
   }
 
-  // Parse JSON response
-  const segments = JSON.parse(content.text) as SegmentResponse[]
+  // Parse JSON response - strip markdown code blocks if present
+  let jsonText = content.text.trim()
+
+  // Remove markdown code blocks if present
+  if (jsonText.startsWith("```json")) {
+    jsonText = jsonText.slice(7)
+  } else if (jsonText.startsWith("```")) {
+    jsonText = jsonText.slice(3)
+  }
+
+  if (jsonText.endsWith("```")) {
+    jsonText = jsonText.slice(0, -3)
+  }
+
+  jsonText = jsonText.trim()
+
+  const segments = JSON.parse(jsonText) as SegmentResponse[]
 
   return { segments }
 }
