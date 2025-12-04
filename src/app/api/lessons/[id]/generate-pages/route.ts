@@ -105,31 +105,38 @@ export async function POST(
       )
     }
 
+    // Check for regenerate flag
+    const { searchParams } = new URL(req.url)
+    const regenerate = searchParams.get("regenerate") === "true"
+
     // Check if pages already exist
-    const existingPages = await prisma.lessonPage.count({
-      where: { lessonId }
+    const existingPages = await prisma.lessonPage.findMany({
+      where: { lessonId },
+      include: {
+        segments: {
+          orderBy: { orderIndex: "asc" }
+        }
+      },
+      orderBy: { pageNumber: "asc" }
     })
 
-    if (existingPages > 0) {
-      // Return existing pages structure
-      const pages = await prisma.lessonPage.findMany({
-        where: { lessonId },
-        include: {
-          segments: {
-            orderBy: { orderIndex: "asc" }
-          }
-        },
-        orderBy: { pageNumber: "asc" }
-      })
-
+    // If pages exist and complete (5 pages), return them unless regenerate requested
+    if (existingPages.length >= 5 && !regenerate) {
       return NextResponse.json({
         lessonId,
-        totalPages: pages.length,
-        pages: pages.map((page) => ({
+        totalPages: existingPages.length,
+        pages: existingPages.map((page) => ({
           pageNumber: page.pageNumber,
           segmentCount: page.segments.length,
           types: page.segments.map((s) => s.type)
         }))
+      })
+    }
+
+    // Delete any existing partial pages before generating new ones
+    if (existingPages.length > 0) {
+      await prisma.lessonPage.deleteMany({
+        where: { lessonId }
       })
     }
 
