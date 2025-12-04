@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { LESSON_PAGE_GENERATION_PROMPT } from "@/lib/constants"
 import { SegmentType } from "@prisma/client"
 
 const anthropic = new Anthropic({
@@ -13,6 +12,53 @@ interface SegmentResponse {
   type: string
   content: Record<string, unknown>
 }
+
+interface PageResponse {
+  pageNumber: number
+  segments: SegmentResponse[]
+}
+
+// Prompt that generates all pages in a single request
+const ALL_PAGES_PROMPT = `You are creating an interactive Chinese language lesson with multiple pages.
+
+**Lesson Context:**
+{LESSON_CONTEXT}
+
+**Cards in Lesson:**
+{CARD_LIST}
+
+**Task:** Generate {TOTAL_PAGES} lesson pages. Each page should have 2-4 educational segments.
+
+**Segment Types:**
+- TEXT: Explain concept (1 paragraph max, 2-4 sentences)
+- FLASHCARD: Highlight key vocabulary (hanzi, pinyin, english, optional notes)
+- MULTIPLE_CHOICE: Test comprehension (question, 4 options, correctIndex 0-3, explanation)
+- FILL_IN: Complete sentence (sentence with ___, correctAnswer, pinyin, translation, hint)
+- TRANSLATION_EN_ZH: English to Chinese (sourceText, acceptableTranslations array, hint)
+- TRANSLATION_ZH_EN: Chinese to English (sourceText, acceptableTranslations array, hint)
+
+**Progressive Difficulty:**
+- Pages 1-2: Introduce vocabulary with TEXT and FLASHCARD segments
+- Pages 3-4: Practice with MULTIPLE_CHOICE and FILL_IN questions
+- Page 5: Complex TRANSLATION exercises and cultural notes
+
+**Response Format:**
+Return a JSON object with a "pages" array. Each page has "pageNumber" and "segments" array.
+
+Example structure:
+{
+  "pages": [
+    {
+      "pageNumber": 1,
+      "segments": [
+        { "type": "TEXT", "content": { "title": "Welcome", "text": "..." } },
+        { "type": "FLASHCARD", "content": { "hanzi": "...", "pinyin": "...", "english": "..." } }
+      ]
+    }
+  ]
+}
+
+Return ONLY valid JSON. No markdown, no explanation.`
 
 export async function POST(
   req: NextRequest,
@@ -87,8 +133,8 @@ export async function POST(
       })
     }
 
-    // Generate pages sequentially to avoid rate limits
-    const totalPages = 5 // Reduced from 10 to stay within rate limits
+    // Build the prompt
+    const totalPages = 5
     const lessonContext = lesson.notes || "No lesson context provided"
     const cardList = lesson.cards
       .map(
@@ -96,24 +142,55 @@ export async function POST(
       )
       .join("\n")
 
-    // Generate pages sequentially with delays to avoid rate limits
-    const generatedPages: { segments: SegmentResponse[] }[] = []
-    for (let i = 0; i < totalPages; i++) {
-      const pageData = await generatePage(i + 1, totalPages, lessonContext, cardList)
-      generatedPages.push(pageData)
-      // Small delay between requests to avoid rate limiting
-      if (i < totalPages - 1) {
-        await new Promise((resolve) => setTimeout(resolve, 500))
+    const prompt = ALL_PAGES_PROMPT
+      .replace("{LESSON_CONTEXT}", lessonContext)
+      .replace("{CARD_LIST}", cardList)
+      .replace("{TOTAL_PAGES}", String(totalPages))
+
+    // Use streaming to generate all pages in one API call
+    let fullResponse = ""
+
+    const stream = await anthropic.messages.stream({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 8000, // More tokens for all pages
+      messages: [
+        {
+          role: "user",
+          content: prompt
+        }
+      ]
+    })
+
+    // Collect the full streamed response
+    for await (const event of stream) {
+      if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+        fullResponse += event.delta.text
       }
     }
 
+    // Parse the complete response
+    let jsonText = fullResponse.trim()
+
+    // Remove markdown code blocks if present
+    if (jsonText.startsWith("```json")) {
+      jsonText = jsonText.slice(7)
+    } else if (jsonText.startsWith("```")) {
+      jsonText = jsonText.slice(3)
+    }
+    if (jsonText.endsWith("```")) {
+      jsonText = jsonText.slice(0, -3)
+    }
+    jsonText = jsonText.trim()
+
+    const parsed = JSON.parse(jsonText) as { pages: PageResponse[] }
+
     // Save all pages to database
     const savedPages = await Promise.all(
-      generatedPages.map(async (pageData, index) => {
+      parsed.pages.map(async (pageData) => {
         const page = await prisma.lessonPage.create({
           data: {
             lessonId,
-            pageNumber: index + 1,
+            pageNumber: pageData.pageNumber,
             segments: {
               create: pageData.segments.map((segment, segmentIndex) => ({
                 orderIndex: segmentIndex,
@@ -149,55 +226,4 @@ export async function POST(
       { status: 500 }
     )
   }
-}
-
-async function generatePage(
-  pageNumber: number,
-  totalPages: number,
-  lessonContext: string,
-  cardList: string
-): Promise<{ segments: SegmentResponse[] }> {
-  const prompt = LESSON_PAGE_GENERATION_PROMPT.replace(
-    "{LESSON_CONTEXT}",
-    lessonContext
-  )
-    .replace("{CARD_LIST}", cardList)
-    .replace("{PAGE_NUMBER}", String(pageNumber))
-    .replace("{TOTAL_PAGES}", String(totalPages))
-
-  const message = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 2000,
-    messages: [
-      {
-        role: "user",
-        content: prompt
-      }
-    ]
-  })
-
-  const content = message.content[0]
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type from Claude")
-  }
-
-  // Parse JSON response - strip markdown code blocks if present
-  let jsonText = content.text.trim()
-
-  // Remove markdown code blocks if present
-  if (jsonText.startsWith("```json")) {
-    jsonText = jsonText.slice(7)
-  } else if (jsonText.startsWith("```")) {
-    jsonText = jsonText.slice(3)
-  }
-
-  if (jsonText.endsWith("```")) {
-    jsonText = jsonText.slice(0, -3)
-  }
-
-  jsonText = jsonText.trim()
-
-  const segments = JSON.parse(jsonText) as SegmentResponse[]
-
-  return { segments }
 }
