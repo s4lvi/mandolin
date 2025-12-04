@@ -109,8 +109,8 @@ export function getRelatedCards(
 /**
  * Get next available lesson number
  */
-export function getNextLessonNumber(existingLessons: Array<{ number: number }>): number {
-  if (existingLessons.length === 0) {
+export function getNextLessonNumber(existingLessons?: Array<{ number: number }> | null): number {
+  if (!existingLessons || !Array.isArray(existingLessons) || existingLessons.length === 0) {
     return 1
   }
 

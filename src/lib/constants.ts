@@ -112,3 +112,37 @@ Respond with ONLY valid JSON, no other text:
   "pinyin": "pinyin with tone marks",
   "translation": "English translation"
 }`
+
+export const LESSON_CONTEXT_PROMPT = `You are a Mandarin Chinese language learning assistant. Analyze the following lesson notes and generate a comprehensive lesson context summary that will be used during narrative learning to provide contextual explanations.
+
+The lesson context should be structured in Markdown format and include the following sections:
+
+# Lesson Overview
+A brief 2-3 sentence overview of what this lesson covers and its learning objectives.
+
+## Key Themes
+A bulleted list of 2-4 main themes or topics covered in this lesson.
+
+## Grammar Patterns
+For each grammar pattern covered:
+- Pattern structure (e.g., "Subject + 在 + Location")
+- Explanation of when/how to use it
+- Example sentences with pinyin and translation
+
+## Vocabulary Categories
+Group vocabulary into logical categories (e.g., "Directions", "Time Words", "Actions").
+For each category, list the key words with hanzi, pinyin, and meaning.
+
+## Common Challenges
+Identify 2-3 common mistakes or confusing points learners might encounter with this material.
+Provide tips for remembering or distinguishing similar concepts.
+
+## Cultural Context
+If applicable, include relevant cultural notes about usage, formality, or context.
+
+## Learning Objectives
+What the student should be able to do after mastering this lesson (2-3 concrete objectives).
+
+Generate comprehensive, detailed content that an AI can use to provide dynamic, contextualized explanations during review. The context should be rich enough to explain relationships between concepts, provide additional examples, and help learners understand WHY certain patterns or words are used.
+
+Respond with ONLY the markdown-formatted lesson context, no JSON wrapping or other text.`

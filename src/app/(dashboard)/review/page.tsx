@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   useReviewCards,
   useSubmitReview,
@@ -32,15 +33,21 @@ interface SessionResults {
 }
 
 export default function ReviewPage() {
+  const searchParams = useSearchParams()
+
+  // Read URL parameters for direct lesson access
+  const urlLessonId = searchParams.get("lessonId")
+  const urlMode = searchParams.get("mode") as ReviewMode | null
+
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>("hanzi")
-  const [reviewMode, setReviewMode] = useState<ReviewMode>("classic")
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(urlMode || "classic")
   const [testDirection, setTestDirection] = useState<TestDirection>("HANZI_TO_MEANING")
   const [cardLimit, setCardLimit] = useState("20")
   const [allCards, setAllCards] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
-  const [selectedLesson, setSelectedLesson] = useState<string>("all")
+  const [selectedLesson, setSelectedLesson] = useState<string>(urlLessonId || "all")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResults>({
     again: 0,
@@ -78,8 +85,8 @@ export default function ReviewPage() {
   const { data: lessons } = useLessons()
 
   // Find selected lesson for display
-  const currentLesson = selectedLesson !== "all"
-    ? lessons?.find(l => l.id === selectedLesson)
+  const currentLesson = selectedLesson !== "all" && lessons && Array.isArray(lessons)
+    ? lessons.find(l => l.id === selectedLesson)
     : null
 
   // Shuffle cards from session snapshot (frozen at session start)
@@ -153,6 +160,14 @@ export default function ReviewPage() {
     setExamples({})
     refetch()
   }
+
+  // Auto-start session when coming from direct lesson link (Learn button)
+  useEffect(() => {
+    if (urlLessonId && urlMode === "narrative" && cards && cards.length > 0 && !isStarted) {
+      handleStart()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLessonId, urlMode, cards, isStarted])
 
   const handleAnswer = (quality: Quality) => {
     if (!currentCard || isProcessing.current) return

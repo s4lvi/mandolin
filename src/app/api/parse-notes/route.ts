@@ -6,7 +6,7 @@ import { createLogger } from "@/lib/logger"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard } from "@/types"
-import { PARSE_NOTES_PROMPT } from "@/lib/constants"
+import { PARSE_NOTES_PROMPT, LESSON_CONTEXT_PROMPT } from "@/lib/constants"
 
 const logger = createLogger("api/parse-notes")
 const anthropic = new Anthropic()
@@ -14,7 +14,9 @@ const anthropic = new Anthropic()
 const parseNotesSchema = z.object({
   notes: z.string().min(1, "Notes are required"),
   lessonNumber: z.number().int().positive().optional(),
-  lessonTitle: z.string().optional()
+  lessonTitle: z.string().optional(),
+  lessonMode: z.enum(["new", "existing", "none"]).optional(),
+  selectedLessonId: z.string().optional()
 })
 
 export async function POST(req: Request) {
@@ -41,8 +43,44 @@ export async function POST(req: Request) {
           // Send initial heartbeat
           controller.enqueue(encoder.encode('{"status":"processing"}\n'))
 
-          // Stream from Anthropic
-          const anthropicStream = await anthropic.messages.stream({
+          let lessonContext = ""
+
+          // Generate lesson context if lesson mode is not "none"
+          if (data.lessonMode && data.lessonMode !== "none") {
+            controller.enqueue(encoder.encode('{"status":"generating_context"}\n'))
+
+            const contextStream = await anthropic.messages.stream({
+              model: "claude-sonnet-4-5-20250929",
+              max_tokens: 8192,
+              messages: [
+                {
+                  role: "user",
+                  content: `${LESSON_CONTEXT_PROMPT}\n\nLesson Notes:\n${data.notes}`
+                }
+              ]
+            })
+
+            let contextText = ""
+            for await (const event of contextStream) {
+              if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+                contextText += event.delta.text
+                controller.enqueue(encoder.encode('{"status":"generating_context"}\n'))
+              }
+            }
+
+            const contextMessage = await contextStream.finalMessage()
+            if (contextMessage.stop_reason === "max_tokens") {
+              logger.warn("Lesson context was truncated", { deckId: deck.id })
+            }
+
+            lessonContext = contextText.trim()
+            logger.info("Lesson context generated", { deckId: deck.id, length: lessonContext.length })
+          }
+
+          // Parse cards
+          controller.enqueue(encoder.encode('{"status":"parsing_cards"}\n'))
+
+          const cardsStream = await anthropic.messages.stream({
             model: "claude-sonnet-4-5-20250929",
             max_tokens: 16384,
             messages: [
@@ -56,7 +94,7 @@ export async function POST(req: Request) {
           let fullText = ""
 
           // Collect the streamed response
-          for await (const event of anthropicStream) {
+          for await (const event of cardsStream) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
               fullText += event.delta.text
               // Send heartbeat every so often to keep connection alive
@@ -64,7 +102,7 @@ export async function POST(req: Request) {
             }
           }
 
-          const finalMessage = await anthropicStream.finalMessage()
+          const finalMessage = await cardsStream.finalMessage()
 
           // Check if response was truncated
           if (finalMessage.stop_reason === "max_tokens") {
@@ -97,8 +135,11 @@ export async function POST(req: Request) {
           // Send final result
           const result = {
             cards: cardsWithDuplicateInfo,
+            lessonContext: lessonContext || undefined,
             lessonNumber: data.lessonNumber,
             lessonTitle: data.lessonTitle,
+            lessonMode: data.lessonMode,
+            selectedLessonId: data.selectedLessonId,
             totalParsed: parsedCards.length,
             duplicatesFound: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
           }
@@ -106,7 +147,8 @@ export async function POST(req: Request) {
           logger.info("Notes parsed successfully", {
             deckId: deck.id,
             totalParsed: parsedCards.length,
-            duplicates: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length
+            duplicates: cardsWithDuplicateInfo.filter((c) => c.isDuplicate).length,
+            hasLessonContext: !!lessonContext
           })
 
           controller.enqueue(encoder.encode(JSON.stringify(result) + '\n'))

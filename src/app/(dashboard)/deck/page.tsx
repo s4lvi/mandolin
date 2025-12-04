@@ -53,8 +53,8 @@ export default function DeckPage() {
   const { data: lessons } = useLessons()
 
   // Find lesson info if filtering by lesson
-  const currentLesson = lessonIdFromUrl
-    ? lessons?.find(l => l.id === lessonIdFromUrl)
+  const currentLesson = lessonIdFromUrl && lessons && Array.isArray(lessons)
+    ? lessons.find(l => l.id === lessonIdFromUrl)
     : null
 
   const filteredCards = cards?.filter((card) => {

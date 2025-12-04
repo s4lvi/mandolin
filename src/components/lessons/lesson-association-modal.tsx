@@ -108,7 +108,7 @@ export function LessonAssociationModal({
         lessonTitle = lesson.title || `Lesson ${lesson.number}`
       } else {
         // Find selected lesson title
-        const lesson = lessons?.find((l) => l.id === lessonId)
+        const lesson = lessons && Array.isArray(lessons) ? lessons.find((l) => l.id === lessonId) : null
         lessonTitle = lesson?.title || `Lesson ${lesson?.number}`
       }
 
@@ -154,7 +154,7 @@ export function LessonAssociationModal({
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : lessons && lessons.length > 0 ? (
+          ) : lessons && Array.isArray(lessons) && lessons.length > 0 ? (
             <>
               {/* Mode Selection (only show if mode is auto) */}
               {forcedMode === "auto" && (

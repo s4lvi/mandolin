@@ -1,8 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
+import { useLessons } from "@/hooks/use-lessons"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -10,35 +10,11 @@ import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { BookOpen, ArrowRight, Play, Plus, Upload } from "lucide-react"
 import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
-import type { Lesson } from "@/types"
-
-interface LessonWithProgress extends Lesson {
-  progress?: {
-    new: number
-    learning: number
-    review: number
-    learned: number
-    total: number
-    masteryPercentage: number
-  }
-}
-
-async function fetchLessons(): Promise<LessonWithProgress[]> {
-  const res = await fetch("/api/lessons")
-  if (!res.ok) {
-    throw new Error("Failed to fetch lessons")
-  }
-  const data = await res.json()
-  return data.lessons
-}
 
 export default function LessonsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const { data: lessons, isLoading } = useQuery({
-    queryKey: ["lessons"],
-    queryFn: fetchLessons
-  })
+  const { data: lessons, isLoading } = useLessons()
 
   return (
     <ErrorBoundary>
@@ -68,7 +44,7 @@ export default function LessonsPage() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">Loading lessons...</p>
         </div>
-      ) : lessons?.length === 0 ? (
+      ) : !lessons || !Array.isArray(lessons) || lessons.length === 0 ? (
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">No lessons yet</h3>
@@ -81,7 +57,7 @@ export default function LessonsPage() {
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {lessons?.map((lesson) => {
+          {lessons.map((lesson) => {
             const progress = lesson.progress
             const cardCount = lesson._count?.cards || 0
 

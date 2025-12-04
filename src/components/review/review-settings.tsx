@@ -151,7 +151,7 @@ export function ReviewSettings({
             </div>
           )}
 
-          {lessons && lessons.length > 0 && (
+          {lessons && Array.isArray(lessons) && lessons.length > 0 && (
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <BookOpen className="h-4 w-4" />

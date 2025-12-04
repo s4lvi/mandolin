@@ -3,10 +3,18 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { Lesson } from "@prisma/client"
 
-// Extended Lesson type with card count
+// Extended Lesson type with card count and progress
 export interface LessonWithCount extends Lesson {
   _count?: {
     cards: number
+  }
+  progress?: {
+    new: number
+    learning: number
+    review: number
+    learned: number
+    total: number
+    masteryPercentage: number
   }
 }
 
@@ -16,7 +24,8 @@ async function fetchLessons(): Promise<LessonWithCount[]> {
   if (!res.ok) {
     throw new Error("Failed to fetch lessons")
   }
-  return res.json()
+  const data = await res.json()
+  return data.lessons || []
 }
 
 // Create a new lesson
