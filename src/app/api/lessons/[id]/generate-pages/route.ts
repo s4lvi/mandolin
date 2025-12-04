@@ -1,22 +1,14 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { SegmentType } from "@prisma/client"
+import { SegmentType, Prisma } from "@prisma/client"
+import { getAuthenticatedUserDeck, stripMarkdownCodeBlock } from "@/lib/api-helpers"
+import { CLAUDE_MODEL, LESSON_TOTAL_PAGES } from "@/lib/constants"
+import { aiPagesResponseSchema } from "@/lib/validations/lesson"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!
 })
-
-interface SegmentResponse {
-  type: string
-  content: Record<string, unknown>
-}
-
-interface PageResponse {
-  pageNumber: number
-  segments: SegmentResponse[]
-}
 
 // Prompt that generates all pages in a single request
 const ALL_PAGES_PROMPT = `You are creating an interactive Chinese language lesson with multiple pages.
@@ -65,27 +57,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, deck } = await getAuthenticatedUserDeck()
+    if (error) return error
 
     const { id: lessonId } = await params
 
-    // Fetch user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Fetch lesson with cards
+    // Fetch lesson with cards (verify ownership through deck)
     const lesson = await prisma.lesson.findFirst({
       where: {
         id: lessonId,
-        deck: { userId: user.id }
+        deckId: deck.id
       },
       include: {
         cards: {
@@ -120,8 +101,8 @@ export async function POST(
       orderBy: { pageNumber: "asc" }
     })
 
-    // If pages exist and complete (5 pages), return them unless regenerate requested
-    if (existingPages.length >= 5 && !regenerate) {
+    // If pages exist and complete, return them unless regenerate requested
+    if (existingPages.length >= LESSON_TOTAL_PAGES && !regenerate) {
       return NextResponse.json({
         lessonId,
         totalPages: existingPages.length,
@@ -133,15 +114,21 @@ export async function POST(
       })
     }
 
-    // Delete any existing partial pages before generating new ones
-    if (existingPages.length > 0) {
-      await prisma.lessonPage.deleteMany({
+    // Always delete existing pages before generating new ones (use transaction for safety)
+    await prisma.$transaction(async (tx) => {
+      // Delete segments first (in case cascade isn't working)
+      await tx.pageSegment.deleteMany({
+        where: {
+          page: { lessonId }
+        }
+      })
+      // Then delete pages
+      await tx.lessonPage.deleteMany({
         where: { lessonId }
       })
-    }
+    })
 
     // Build the prompt
-    const totalPages = 5
     const lessonContext = lesson.notes || "No lesson context provided"
     const cardList = lesson.cards
       .map(
@@ -152,14 +139,14 @@ export async function POST(
     const prompt = ALL_PAGES_PROMPT
       .replace("{LESSON_CONTEXT}", lessonContext)
       .replace("{CARD_LIST}", cardList)
-      .replace("{TOTAL_PAGES}", String(totalPages))
+      .replace("{TOTAL_PAGES}", String(LESSON_TOTAL_PAGES))
 
     // Use streaming to generate all pages in one API call
     let fullResponse = ""
 
     const stream = await anthropic.messages.stream({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 8000, // More tokens for all pages
+      model: CLAUDE_MODEL,
+      max_tokens: 8000,
       messages: [
         {
           role: "user",
@@ -175,47 +162,44 @@ export async function POST(
       }
     }
 
-    // Parse the complete response
-    let jsonText = fullResponse.trim()
+    // Parse and validate the AI response
+    const jsonText = stripMarkdownCodeBlock(fullResponse)
+    const rawParsed = JSON.parse(jsonText)
+    const parsed = aiPagesResponseSchema.parse(rawParsed)
 
-    // Remove markdown code blocks if present
-    if (jsonText.startsWith("```json")) {
-      jsonText = jsonText.slice(7)
-    } else if (jsonText.startsWith("```")) {
-      jsonText = jsonText.slice(3)
-    }
-    if (jsonText.endsWith("```")) {
-      jsonText = jsonText.slice(0, -3)
-    }
-    jsonText = jsonText.trim()
+    // Deduplicate pages by pageNumber (keep first occurrence)
+    const seenPageNumbers = new Set<number>()
+    const uniquePages = parsed.pages.filter((page) => {
+      if (seenPageNumbers.has(page.pageNumber)) {
+        return false
+      }
+      seenPageNumbers.add(page.pageNumber)
+      return true
+    })
 
-    const parsed = JSON.parse(jsonText) as { pages: PageResponse[] }
-
-    // Save all pages to database
-    const savedPages = await Promise.all(
-      parsed.pages.map(async (pageData) => {
-        const page = await prisma.lessonPage.create({
-          data: {
-            lessonId,
-            pageNumber: pageData.pageNumber,
-            segments: {
-              create: pageData.segments.map((segment, segmentIndex) => ({
-                orderIndex: segmentIndex,
-                type: segment.type as SegmentType,
-                content: segment.content as any
-              }))
-            }
-          },
-          include: {
-            segments: {
-              orderBy: { orderIndex: "asc" }
-            }
+    // Save all pages to database sequentially to avoid race conditions
+    const savedPages = []
+    for (const pageData of uniquePages) {
+      const page = await prisma.lessonPage.create({
+        data: {
+          lessonId,
+          pageNumber: pageData.pageNumber,
+          segments: {
+            create: pageData.segments.map((segment, segmentIndex) => ({
+              orderIndex: segmentIndex,
+              type: segment.type as SegmentType,
+              content: segment.content as Prisma.InputJsonValue
+            }))
           }
-        })
-
-        return page
+        },
+        include: {
+          segments: {
+            orderBy: { orderIndex: "asc" }
+          }
+        }
       })
-    )
+      savedPages.push(page)
+    }
 
     return NextResponse.json({
       lessonId,
@@ -223,7 +207,7 @@ export async function POST(
       pages: savedPages.map((page) => ({
         pageNumber: page.pageNumber,
         segmentCount: page.segments.length,
-        types: page.segments.map((s: any) => s.type)
+        types: page.segments.map((s) => s.type)
       }))
     })
   } catch (error) {

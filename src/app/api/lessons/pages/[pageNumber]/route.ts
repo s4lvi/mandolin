@@ -1,19 +1,30 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { z } from "zod"
+
+const pageNumberSchema = z.coerce.number().int().positive()
 
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ pageNumber: string }> }
 ) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, deck } = await getAuthenticatedUserDeck()
+    if (error) return error
 
     const { pageNumber: pageNumberStr } = await params
-    const pageNumber = parseInt(pageNumberStr)
+
+    // Validate pageNumber
+    const pageNumberResult = pageNumberSchema.safeParse(pageNumberStr)
+    if (!pageNumberResult.success) {
+      return NextResponse.json(
+        { error: "Invalid page number" },
+        { status: 400 }
+      )
+    }
+    const pageNumber = pageNumberResult.data
+
     const { searchParams } = new URL(req.url)
     const lessonId = searchParams.get("lessonId")
 
@@ -24,20 +35,11 @@ export async function GET(
       )
     }
 
-    // Fetch user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Verify user has access to this lesson
+    // Verify user has access to this lesson through their deck
     const lesson = await prisma.lesson.findFirst({
       where: {
         id: lessonId,
-        deck: { userId: user.id }
+        deckId: deck.id
       }
     })
 

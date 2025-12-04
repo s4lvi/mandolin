@@ -47,8 +47,7 @@ export function FillInSegment({
           <div className="text-2xl font-medium">
             {sentence.replace("___", "__________")}
           </div>
-          <div className="text-sm text-muted-foreground">{pinyin}</div>
-          <div className="text-sm italic">&quot;{translation}&quot;</div>
+          <div className="text-sm italic text-muted-foreground">&quot;{translation}&quot;</div>
         </div>
 
         {hint && !isSubmitted && (
@@ -106,8 +105,13 @@ export function FillInSegment({
                 </span>
               </div>
               {!isCorrect && (
-                <p className="text-sm">
+                <p className="text-sm mb-1">
                   The correct answer is: <span className="font-bold">{correctAnswer}</span>
+                </p>
+              )}
+              {pinyin && (
+                <p className="text-sm text-muted-foreground">
+                  {pinyin}
                 </p>
               )}
             </div>

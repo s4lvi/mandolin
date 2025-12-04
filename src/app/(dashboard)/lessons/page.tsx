@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BookOpen, ArrowRight, Play, Plus, Upload } from "lucide-react"
+import { BookOpen, ArrowRight, Play, Plus, Upload, CheckCircle } from "lucide-react"
 import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
 
 export default function LessonsPage() {
@@ -58,8 +58,12 @@ export default function LessonsPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {lessons.map((lesson) => {
-            const progress = lesson.progress
             const cardCount = lesson._count?.cards || 0
+            const lessonProgress = lesson.lessonProgress
+            const isComplete = lessonProgress?.isComplete
+            const progressPercent = lessonProgress
+              ? Math.round((lessonProgress.currentPage / lessonProgress.totalPages) * 100)
+              : 0
 
             return (
               <Link key={lesson.id} href={`/lessons/${lesson.id}`}>
@@ -86,24 +90,31 @@ export default function LessonsPage() {
                       </p>
                     )}
 
-                    {progress && cardCount > 0 && (
+                    {cardCount > 0 && (
                       <div className="space-y-2">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Progress</span>
-                          <span className="font-medium">{progress.masteryPercentage}%</span>
+                        <div className="flex justify-between text-xs items-center">
+                          <span className="text-muted-foreground">
+                            {isComplete ? (
+                              <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                <CheckCircle className="h-3 w-3" />
+                                Completed
+                              </span>
+                            ) : lessonProgress ? (
+                              `Page ${lessonProgress.currentPage} of ${lessonProgress.totalPages}`
+                            ) : (
+                              "Not started"
+                            )}
+                          </span>
+                          {lessonProgress && !isComplete && (
+                            <span className="font-medium">{progressPercent}%</span>
+                          )}
                         </div>
-                        <Progress value={progress.masteryPercentage} className="h-2" />
-                        <div className="flex gap-2 text-xs">
-                          <span className="text-blue-600 dark:text-blue-400">
-                            {progress.new} new
-                          </span>
-                          <span className="text-yellow-600 dark:text-yellow-400">
-                            {progress.learning} learning
-                          </span>
-                          <span className="text-green-600 dark:text-green-400">
-                            {progress.learned} learned
-                          </span>
-                        </div>
+                        {lessonProgress && !isComplete && (
+                          <Progress value={progressPercent} className="h-2" />
+                        )}
+                        {isComplete && (
+                          <Progress value={100} className="h-2" />
+                        )}
                       </div>
                     )}
 
@@ -118,7 +129,7 @@ export default function LessonsPage() {
                         }}
                       >
                         <Play className="h-3 w-3 mr-1" />
-                        Learn
+                        {isComplete ? "Review" : lessonProgress ? "Continue" : "Start"}
                       </Button>
                       <Button
                         variant="ghost"

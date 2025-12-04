@@ -1,30 +1,38 @@
 "use client"
 
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import ReactMarkdown from "react-markdown"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible"
 import { CardItem } from "@/components/cards/card-item"
 import {
   BookOpen,
   ArrowLeft,
   Play,
   BarChart3,
-  Calendar,
   FileText,
-  Edit
+  CheckCircle,
+  ChevronDown
 } from "lucide-react"
-import {
-  calculateLessonProgress,
-  formatLessonTitle,
-  getLessonStatusLabel,
-  estimateLessonTime
-} from "@/lib/lesson-helpers"
+import { formatLessonTitle } from "@/lib/lesson-helpers"
 import type { Card as CardType } from "@/types"
+
+interface LessonProgress {
+  currentPage: number
+  totalPages: number
+  completedAt: string | null
+  isComplete: boolean
+}
 
 interface LessonDetail {
   id: string
@@ -35,6 +43,7 @@ interface LessonDetail {
   deckId: string
   createdAt: string
   cards: CardType[]
+  lessonProgress: LessonProgress | null
 }
 
 async function fetchLessonDetail(id: string): Promise<LessonDetail> {
@@ -49,6 +58,7 @@ export default function LessonDetailPage() {
   const params = useParams()
   const router = useRouter()
   const lessonId = params.id as string
+  const [notesOpen, setNotesOpen] = useState(false)
 
   const { data: lesson, isLoading, error } = useQuery({
     queryKey: ["lesson", lessonId],
@@ -86,9 +96,17 @@ export default function LessonDetailPage() {
     return null
   }
 
-  const progress = calculateLessonProgress(lesson.cards)
-  const statusLabel = getLessonStatusLabel(progress)
-  const estimatedMinutes = estimateLessonTime(progress)
+  const lessonProgress = lesson.lessonProgress
+  const isComplete = lessonProgress?.isComplete
+  const progressPercent = lessonProgress
+    ? Math.round((lessonProgress.currentPage / lessonProgress.totalPages) * 100)
+    : 0
+
+  const getStatusLabel = () => {
+    if (isComplete) return "Completed"
+    if (lessonProgress) return "In Progress"
+    return "Not Started"
+  }
 
   return (
     <ErrorBoundary>
@@ -108,136 +126,125 @@ export default function LessonDetailPage() {
                 {formatLessonTitle(lesson.number, lesson.title)}
               </h1>
               <p className="text-muted-foreground">
-                {progress.total} cards • {statusLabel}
+                {lesson.cards.length} cards • {getStatusLabel()}
+                {lesson.date && ` • ${new Date(lesson.date).toLocaleDateString(undefined, {
+                  month: 'short',
+                  day: 'numeric',
+                  year: 'numeric'
+                })}`}
               </p>
             </div>
           </div>
           <div className="flex gap-2">
-            <Link href={`/review?lessonId=${lesson.id}`}>
+            <Link href={`/lessons/${lesson.id}/learn`}>
               <Button>
                 <Play className="h-4 w-4 mr-2" />
-                Start Review
+                {isComplete ? "Review Lesson" : lessonProgress ? "Continue" : "Start Lesson"}
               </Button>
             </Link>
           </div>
         </div>
 
-        {/* Lesson Info Card */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Progress Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5" />
-                Progress
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span>Mastery</span>
-                  <span className="font-medium">{progress.masteryPercentage}%</span>
-                </div>
-                <Progress value={progress.masteryPercentage} className="h-2" />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 pt-2">
-                <div className="text-center p-3 bg-blue-50 dark:bg-blue-950/20 rounded">
-                  <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {progress.new}
-                  </div>
-                  <div className="text-xs text-muted-foreground">New</div>
-                </div>
-                <div className="text-center p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded">
-                  <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {progress.learning}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Learning</div>
-                </div>
-                <div className="text-center p-3 bg-orange-50 dark:bg-orange-950/20 rounded">
-                  <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                    {progress.review}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Review</div>
-                </div>
-                <div className="text-center p-3 bg-green-50 dark:bg-green-950/20 rounded">
-                  <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {progress.learned}
-                  </div>
-                  <div className="text-xs text-muted-foreground">Learned</div>
+        {/* Progress Stats */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Lesson Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {isComplete ? (
+              <div className="flex items-center gap-4">
+                <CheckCircle className="h-10 w-10 text-green-600 dark:text-green-400 flex-shrink-0" />
+                <div>
+                  <p className="text-lg font-medium text-green-600 dark:text-green-400">
+                    Lesson Completed!
+                  </p>
+                  {lessonProgress?.completedAt && (
+                    <p className="text-sm text-muted-foreground">
+                      Completed on {new Date(lessonProgress.completedAt).toLocaleDateString()}
+                    </p>
+                  )}
                 </div>
               </div>
-
-              {estimatedMinutes > 0 && (
-                <div className="text-sm text-muted-foreground text-center pt-2 border-t">
-                  Estimated time: {estimatedMinutes} min
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Lesson Metadata */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <BookOpen className="h-5 w-5" />
-                Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {lesson.date && (
-                <div className="flex items-start gap-2">
-                  <Calendar className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div>
-                    <div className="text-sm font-medium">Lesson Date</div>
-                    <div className="text-sm text-muted-foreground">
-                      {new Date(lesson.date).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </div>
+            ) : lessonProgress ? (
+              <div className="flex items-center gap-6">
+                <div className="flex-1 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Progress</span>
+                    <span className="font-medium">{progressPercent}%</span>
                   </div>
+                  <Progress value={progressPercent} className="h-2" />
                 </div>
-              )}
-
-              {lesson.notes && (
-                <div className="flex items-start gap-2">
-                  <FileText className="h-4 w-4 mt-1 text-muted-foreground" />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium mb-1">Notes</div>
-                    <div className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted p-3 rounded">
-                      {lesson.notes}
-                    </div>
+                <div className="text-center px-4 py-2 bg-blue-50 dark:bg-blue-950/20 rounded flex-shrink-0">
+                  <div className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                    {lessonProgress.currentPage} / {lessonProgress.totalPages}
                   </div>
+                  <div className="text-xs text-muted-foreground">pages</div>
                 </div>
-              )}
-
-              <div className="text-sm text-muted-foreground pt-2 border-t">
-                Created {new Date(lesson.createdAt).toLocaleDateString()}
               </div>
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <BookOpen className="h-8 w-8 text-muted-foreground" />
+                  <p className="text-muted-foreground">
+                    You haven't started this lesson yet
+                  </p>
+                </div>
+                <Link href={`/lessons/${lesson.id}/learn`}>
+                  <Button>
+                    <Play className="h-4 w-4 mr-2" />
+                    Start Lesson
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Lesson Context - Collapsible */}
+        {lesson.notes && (
+          <Collapsible open={notesOpen} onOpenChange={setNotesOpen}>
+            <Card>
+              <CollapsibleTrigger asChild>
+                <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                  <CardTitle className="flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Lesson Context
+                    </span>
+                    <ChevronDown
+                      className={`h-5 w-5 text-muted-foreground transition-transform duration-200 ${
+                        notesOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </CardTitle>
+                </CardHeader>
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <CardContent className="pt-0">
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{lesson.notes}</ReactMarkdown>
+                  </div>
+                </CardContent>
+              </CollapsibleContent>
+            </Card>
+          </Collapsible>
+        )}
 
         {/* Quick Actions */}
         <div className="flex flex-wrap gap-3">
-          <Link href={`/review?lessonId=${lesson.id}`}>
-            <Button variant="outline">
-              <Play className="h-4 w-4 mr-2" />
-              Classic Review
-            </Button>
-          </Link>
-          <Link href={`/review?lessonId=${lesson.id}&mode=test`}>
-            <Button variant="outline">
-              <Play className="h-4 w-4 mr-2" />
-              Test Mode
-            </Button>
-          </Link>
           <Link href={`/lessons/${lesson.id}/learn`}>
             <Button variant="outline">
               <BookOpen className="h-4 w-4 mr-2" />
-              Interactive Lesson
+              {isComplete ? "Review Lesson" : lessonProgress ? "Continue Lesson" : "Start Lesson"}
+            </Button>
+          </Link>
+          <Link href={`/review?lessonId=${lesson.id}`}>
+            <Button variant="outline">
+              <Play className="h-4 w-4 mr-2" />
+              Flashcard Review
             </Button>
           </Link>
           <Link href={`/deck?lessonId=${lesson.id}`}>
@@ -250,7 +257,7 @@ export default function LessonDetailPage() {
         {/* Cards List */}
         <div>
           <h2 className="text-xl font-semibold mb-4">
-            Cards in this lesson ({progress.total})
+            Cards in this lesson ({lesson.cards.length})
           </h2>
 
           {lesson.cards.length === 0 ? (

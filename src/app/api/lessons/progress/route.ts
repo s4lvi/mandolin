@@ -1,24 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-
-interface SaveProgressRequest {
-  lessonId: string
-  currentPage: number
-  totalPages: number
-  responses: Array<{
-    segmentId: string
-    correct: boolean
-    userAnswer: string
-  }>
-}
+import { Prisma } from "@prisma/client"
+import { getAuthenticatedUser } from "@/lib/api-helpers"
+import { progressRequestSchema } from "@/lib/validations/lesson"
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const { error, userId } = await getAuthenticatedUser()
+    if (error) return error
 
     const { searchParams } = new URL(req.url)
     const lessonId = searchParams.get("lessonId")
@@ -30,20 +19,11 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    // Fetch user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Verify user has access to this lesson
+    // Verify user has access to this lesson through their deck
     const lesson = await prisma.lesson.findFirst({
       where: {
         id: lessonId,
-        deck: { userId: user.id }
+        deck: { userId }
       }
     })
 
@@ -55,7 +35,7 @@ export async function GET(req: NextRequest) {
     const progress = await prisma.lessonProgress.findUnique({
       where: {
         userId_lessonId: {
-          userId: user.id,
+          userId,
           lessonId
         }
       }
@@ -88,28 +68,27 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { error, userId } = await getAuthenticatedUser()
+    if (error) return error
+
+    // Validate request body
+    const body = await req.json()
+    const validationResult = progressRequestSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: validationResult.error.issues },
+        { status: 400 }
+      )
     }
 
-    const body = (await req.json()) as SaveProgressRequest
-    const { lessonId, currentPage, totalPages, responses } = body
+    const { lessonId, currentPage, totalPages, responses } = validationResult.data
 
-    // Fetch user
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
-    })
-
-    if (!user) {
-      return NextResponse.json({ error: "User not found" }, { status: 404 })
-    }
-
-    // Verify user has access to this lesson
+    // Verify user has access to this lesson through their deck
     const lesson = await prisma.lesson.findFirst({
       where: {
         id: lessonId,
-        deck: { userId: user.id }
+        deck: { userId }
       }
     })
 
@@ -117,29 +96,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
     }
 
-    // Check if lesson is complete
+    // Check if lesson is complete (user has moved past the last page)
     const isComplete = currentPage > totalPages
+
+    // Cast responses to Prisma InputJsonValue array
+    const responsesJson = (responses || []) as Prisma.InputJsonValue[]
 
     // Upsert progress
     const progress = await prisma.lessonProgress.upsert({
       where: {
         userId_lessonId: {
-          userId: user.id,
+          userId,
           lessonId
         }
       },
       create: {
-        userId: user.id,
+        userId,
         lessonId,
         currentPage: isComplete ? totalPages : currentPage,
         totalPages,
-        responses,
+        responses: responsesJson,
         completedAt: isComplete ? new Date() : null
       },
       update: {
         currentPage: isComplete ? totalPages : currentPage,
         totalPages,
-        responses,
+        responses: responsesJson,
         completedAt: isComplete ? new Date() : undefined
       }
     })

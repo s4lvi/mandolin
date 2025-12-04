@@ -2,7 +2,6 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
-import { calculateLessonProgress } from "@/lib/lesson-helpers"
 
 const createLessonSchema = z.object({
   number: z.number().int().positive(),
@@ -32,25 +31,32 @@ export async function GET() {
       where: { deckId: deck.id },
       include: {
         _count: {
-          select: { cards: true }
+          select: { cards: true, pages: true }
         },
-        cards: {
-          select: { state: true }
+        progress: {
+          where: { userId: session.user.id }
         }
       },
       orderBy: { number: "desc" }
     })
 
-    // Calculate progress for each lesson
+    // Map lessons with interactive lesson progress
     const lessonsWithProgress = lessons.map((lesson) => {
-      const progress = calculateLessonProgress(lesson.cards)
-
-      // Remove cards array before returning (we only needed state for calculation)
-      const { cards, ...lessonData } = lesson
+      const userProgress = lesson.progress[0] // One progress per user per lesson
 
       return {
-        ...lessonData,
-        progress
+        id: lesson.id,
+        number: lesson.number,
+        title: lesson.title,
+        date: lesson.date,
+        notes: lesson.notes,
+        _count: lesson._count,
+        lessonProgress: userProgress ? {
+          currentPage: userProgress.currentPage,
+          totalPages: userProgress.totalPages,
+          completedAt: userProgress.completedAt,
+          isComplete: !!userProgress.completedAt
+        } : null
       }
     })
 

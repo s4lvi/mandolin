@@ -24,7 +24,7 @@ export async function GET(
       return NextResponse.json({ error: "Deck not found" }, { status: 404 })
     }
 
-    // Fetch lesson with all cards
+    // Fetch lesson with all cards, progress, and page count
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
       include: {
@@ -40,6 +40,12 @@ export async function GET(
             }
           },
           orderBy: { createdAt: "asc" }
+        },
+        progress: {
+          where: { userId: session.user.id }
+        },
+        _count: {
+          select: { pages: true }
         }
       }
     })
@@ -53,7 +59,20 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
-    return NextResponse.json(lesson)
+    // Format lesson progress
+    const userProgress = lesson.progress[0]
+    const response = {
+      ...lesson,
+      progress: undefined, // Remove raw progress array
+      lessonProgress: userProgress ? {
+        currentPage: userProgress.currentPage,
+        totalPages: userProgress.totalPages,
+        completedAt: userProgress.completedAt,
+        isComplete: !!userProgress.completedAt
+      } : null
+    }
+
+    return NextResponse.json(response)
   } catch (error) {
     console.error("Error fetching lesson:", error)
     return NextResponse.json(

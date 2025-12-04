@@ -2,11 +2,10 @@
   "version": "0.3.0",
   "title": "Structured Lessons & AI Learning",
   "changes": [
-    "Organize flashcards into lessons with AI-generated lesson context summaries",
-    "Interactive AI Lessons: Multi-page guided learning with diverse question types and dynamic feedback",
-    "Enhanced upload flow: Select lesson before parsing, automatic duplicate detection",
-    "Multi-select cards to quickly add them to lessons or create new lessons",
-    "Track progress per lesson (new, learning, learned) with detailed progress bars",
-    "Improved lesson management with filtering and quick action buttons"
+    "Added Interactive AI Lessons with multi-page guided learning, quizzes, and translation exercises",
+    "Added lesson organization with AI-generated context summaries",
+    "Improved upload flow with lesson selection and automatic duplicate detection",
+    "Added multi-select for bulk card management and lesson creation",
+    "Added per-lesson progress tracking with new/learning/learned status"
   ]
 }

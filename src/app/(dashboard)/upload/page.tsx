@@ -166,21 +166,35 @@ export default function UploadPage() {
         finalLessonId = lesson.id
         toast.success(`Created Lesson ${lesson.number}`)
       } else if (lessonMode === "existing") {
-        // Update existing lesson's notes with generated context
-        if (selectedLessonId && generatedLessonContext && lessons && Array.isArray(lessons)) {
-          const lesson = lessons.find((l) => l.id === selectedLessonId)
+        // Merge new context with existing lesson using AI
+        if (selectedLessonId && generatedLessonContext) {
+          try {
+            const mergeResponse = await fetch(`/api/lessons/${selectedLessonId}/merge-context`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ newContext: generatedLessonContext })
+            })
 
-          // Append new context to existing notes
-          const updatedNotes = lesson?.notes
-            ? `${lesson.notes}\n\n---\n\n${generatedLessonContext}`
-            : generatedLessonContext
+            if (!mergeResponse.ok) {
+              const errorData = await mergeResponse.json()
+              throw new Error(errorData.error || "Failed to merge context")
+            }
 
-          await updateLessonMutation.mutateAsync({
-            lessonId: selectedLessonId,
-            data: { notes: updatedNotes }
-          })
+            toast.success(`Merged lesson context`)
+          } catch (error) {
+            console.error("Error merging context:", error)
+            toast.warning("Could not merge context, appending instead")
+            // Fallback to simple append if merge fails
+            const lesson = lessons?.find((l) => l.id === selectedLessonId)
+            const updatedNotes = lesson?.notes
+              ? `${lesson.notes}\n\n---\n\n${generatedLessonContext}`
+              : generatedLessonContext
 
-          toast.success(`Updated lesson context`)
+            await updateLessonMutation.mutateAsync({
+              lessonId: selectedLessonId,
+              data: { notes: updatedNotes }
+            })
+          }
         }
         finalLessonId = selectedLessonId
       }

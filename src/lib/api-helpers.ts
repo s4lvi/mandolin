@@ -2,6 +2,26 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 
+/**
+ * Strip markdown code block markers from a string
+ * Useful for parsing AI responses that may be wrapped in ```json blocks
+ */
+export function stripMarkdownCodeBlock(text: string): string {
+  let result = text.trim()
+
+  if (result.startsWith("```json")) {
+    result = result.slice(7)
+  } else if (result.startsWith("```")) {
+    result = result.slice(3)
+  }
+
+  if (result.endsWith("```")) {
+    result = result.slice(0, -3)
+  }
+
+  return result.trim()
+}
+
 type Deck = {
   id: string
   userId: string

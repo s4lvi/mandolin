@@ -1,3 +1,9 @@
+// AI Model Configuration
+export const CLAUDE_MODEL = "claude-sonnet-4-20250514"
+
+// Interactive Lesson Configuration
+export const LESSON_TOTAL_PAGES = 5
+
 // Predefined tags for categorizing flashcards
 export const PREDEFINED_TAGS = [
   // HSK Levels
@@ -244,6 +250,33 @@ TRANSLATION_ZH_EN:
 }
 
 Return ONLY a valid JSON array of 2-4 segments. No markdown, no explanation, just the JSON array.`
+
+export const MERGE_CONTEXT_PROMPT = `You are a Mandarin Chinese language learning assistant. You need to merge two lesson context documents into one cohesive document.
+
+**Existing Lesson Context:**
+{EXISTING_CONTEXT}
+
+**New Content to Merge:**
+{NEW_CONTEXT}
+
+**Instructions:**
+1. Intelligently merge the two documents, avoiding duplication
+2. Keep all unique information from both documents
+3. If both cover the same topic/section, combine the information
+4. Maintain the original Markdown structure with sections like:
+   - # Lesson Overview
+   - ## Key Themes
+   - ## Grammar Patterns
+   - ## Vocabulary Categories
+   - ## Common Challenges
+   - ## Cultural Context
+   - ## Learning Objectives
+5. Update the overview to reflect the combined content
+6. Remove redundant information - don't repeat the same vocabulary or grammar points
+7. If new content adds to existing categories, integrate it smoothly
+8. Preserve any unique insights or examples from both documents
+
+Return ONLY the merged markdown document, no JSON wrapping or other text.`
 
 export const TRANSLATION_EVAL_PROMPT = `Evaluate this Chinese translation.
 

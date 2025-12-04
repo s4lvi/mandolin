@@ -1,38 +1,62 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
-import { TRANSLATION_EVAL_PROMPT } from "@/lib/constants"
+import { getAuthenticatedUserDeck, stripMarkdownCodeBlock } from "@/lib/api-helpers"
+import { CLAUDE_MODEL, TRANSLATION_EVAL_PROMPT } from "@/lib/constants"
+import {
+  evaluateRequestSchema,
+  aiEvaluationResponseSchema
+} from "@/lib/validations/lesson"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!
 })
 
-interface EvaluateRequest {
-  segmentId: string
-  segmentType: string
-  userAnswer: string
-  sourceText?: string
-  acceptableTranslations?: string[]
-  correctAnswer?: string
-}
-
-interface EvaluationResult {
-  isCorrect: boolean
-  explanation: string
-  correctAnswer: string
-  encouragement: string
-}
-
 export async function POST(req: NextRequest) {
   try {
-    const session = await auth()
-    if (!session?.user?.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const { error, deck } = await getAuthenticatedUserDeck()
+    if (error) return error
+
+    // Validate request body
+    const body = await req.json()
+    const validationResult = evaluateRequestSchema.safeParse(body)
+
+    if (!validationResult.success) {
+      return NextResponse.json(
+        { error: "Invalid request body", details: validationResult.error.issues },
+        { status: 400 }
+      )
     }
 
-    const body = (await req.json()) as EvaluateRequest
+    const {
+      segmentId,
+      segmentType,
+      userAnswer,
+      sourceText,
+      acceptableTranslations,
+      correctAnswer
+    } = validationResult.data
 
-    const { segmentType, userAnswer, sourceText, acceptableTranslations, correctAnswer } = body
+    // Verify the segment exists and user has access to it through their deck
+    const segment = await prisma.pageSegment.findUnique({
+      where: { id: segmentId },
+      include: {
+        page: {
+          include: {
+            lesson: {
+              select: { deckId: true }
+            }
+          }
+        }
+      }
+    })
+
+    if (!segment || segment.page.lesson.deckId !== deck.id) {
+      return NextResponse.json(
+        { error: "Segment not found or unauthorized" },
+        { status: 404 }
+      )
+    }
 
     // For MULTIPLE_CHOICE and FILL_IN, do simple string comparison
     if (segmentType === "MULTIPLE_CHOICE" || segmentType === "FILL_IN") {
@@ -82,7 +106,7 @@ export async function POST(req: NextRequest) {
         )
 
       const message = await anthropic.messages.create({
-        model: "claude-sonnet-4-20250514",
+        model: CLAUDE_MODEL,
         max_tokens: 800,
         messages: [
           {
@@ -97,19 +121,10 @@ export async function POST(req: NextRequest) {
         throw new Error("Unexpected response type from Claude")
       }
 
-      // Strip markdown code blocks if present
-      let jsonText = content.text.trim()
-      if (jsonText.startsWith("```json")) {
-        jsonText = jsonText.slice(7)
-      } else if (jsonText.startsWith("```")) {
-        jsonText = jsonText.slice(3)
-      }
-      if (jsonText.endsWith("```")) {
-        jsonText = jsonText.slice(0, -3)
-      }
-      jsonText = jsonText.trim()
-
-      const evaluation = JSON.parse(jsonText) as EvaluationResult
+      // Parse and validate AI response
+      const jsonText = stripMarkdownCodeBlock(content.text)
+      const rawEvaluation = JSON.parse(jsonText)
+      const evaluation = aiEvaluationResponseSchema.parse(rawEvaluation)
 
       return NextResponse.json({
         correct: evaluation.isCorrect,
