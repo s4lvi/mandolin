@@ -146,3 +146,126 @@ What the student should be able to do after mastering this lesson (2-3 concrete 
 Generate comprehensive, detailed content that an AI can use to provide dynamic, contextualized explanations during review. The context should be rich enough to explain relationships between concepts, provide additional examples, and help learners understand WHY certain patterns or words are used.
 
 Respond with ONLY the markdown-formatted lesson context, no JSON wrapping or other text.`
+
+// Interactive Lesson Generation Prompts
+export const LESSON_PAGE_GENERATION_PROMPT = `You are creating an interactive Chinese language lesson.
+
+**Lesson Context:**
+{LESSON_CONTEXT}
+
+**Cards in Lesson:**
+{CARD_LIST}
+
+**Page Number:** {PAGE_NUMBER} of {TOTAL_PAGES}
+
+Create 2-4 educational segments for this page. Use cards from the lesson.
+
+**Segment Types:**
+- TEXT: Explain concept (1 paragraph max, 2-4 sentences)
+- FLASHCARD: Highlight key vocabulary from the card list
+- MULTIPLE_CHOICE: Test comprehension (4 options)
+- FILL_IN: Complete sentence with missing word
+- TRANSLATION_EN_ZH: Translate English to Chinese
+- TRANSLATION_ZH_EN: Translate Chinese to English
+
+**Progressive Difficulty:**
+- Early pages (1-3): Introduce vocabulary, simple concepts, basic TEXT and FLASHCARD segments
+- Middle pages (4-7): Practice with varied question types (MULTIPLE_CHOICE, FILL_IN)
+- Later pages (8-10): Complex translations (TRANSLATION_EN_ZH, TRANSLATION_ZH_EN), cultural notes
+
+**Response Format:**
+Return a JSON array of segments. Each segment must have:
+- type: One of the SegmentType values above
+- content: Object with fields appropriate for that type
+
+**Content Structure by Type:**
+
+TEXT:
+{
+  "type": "TEXT",
+  "content": {
+    "text": "Your paragraph here (max 4 sentences)",
+    "title": "Optional section title"
+  }
+}
+
+FLASHCARD:
+{
+  "type": "FLASHCARD",
+  "content": {
+    "hanzi": "汉字",
+    "pinyin": "hànzì",
+    "english": "Chinese characters",
+    "notes": "Optional context"
+  }
+}
+
+MULTIPLE_CHOICE:
+{
+  "type": "MULTIPLE_CHOICE",
+  "content": {
+    "question": "What does 你好 mean?",
+    "options": ["hello", "goodbye", "thank you", "please"],
+    "correctIndex": 0,
+    "explanation": "Why this is correct"
+  }
+}
+
+FILL_IN:
+{
+  "type": "FILL_IN",
+  "content": {
+    "sentence": "我___学生。",
+    "correctAnswer": "是",
+    "pinyin": "Wǒ ___ xuésheng.",
+    "translation": "I am a student.",
+    "hint": "Use the verb 'to be'"
+  }
+}
+
+TRANSLATION_EN_ZH:
+{
+  "type": "TRANSLATION_EN_ZH",
+  "content": {
+    "sourceText": "I am learning Chinese",
+    "acceptableTranslations": ["我在学中文", "我正在学习中文", "我学中文"],
+    "hint": "Use 在 or 正在 for ongoing action"
+  }
+}
+
+TRANSLATION_ZH_EN:
+{
+  "type": "TRANSLATION_ZH_EN",
+  "content": {
+    "sourceText": "我喜欢看书",
+    "acceptableTranslations": ["I like reading books", "I like to read books", "I enjoy reading"],
+    "hint": "Focus on the main verb 喜欢"
+  }
+}
+
+Return ONLY a valid JSON array of 2-4 segments. No markdown, no explanation, just the JSON array.`
+
+export const TRANSLATION_EVAL_PROMPT = `Evaluate this Chinese translation.
+
+**Question:** Translate to {DIRECTION}: "{SOURCE_TEXT}"
+**User Answer:** {USER_ANSWER}
+**Expected Answers:** {ACCEPTABLE_ANSWERS}
+
+Determine correctness by evaluating semantic meaning, not exact character matching:
+1. **Correct** - Conveys the same meaning (even if using different but equivalent words/grammar)
+2. **Partially correct** - Right general idea but minor errors in grammar, tones, or word choice
+3. **Incorrect** - Wrong meaning, major grammatical errors, or incomprehensible
+
+Provide helpful feedback:
+- isCorrect: boolean (true for correct, false for partially/incorrect)
+- explanation: Friendly, specific feedback explaining what was good or what went wrong
+- correctAnswer: The best translation from acceptable answers (always include this)
+- encouragement: Short positive note to keep learner motivated
+
+Return JSON in this exact format:
+{
+  "isCorrect": boolean,
+  "explanation": "string",
+  "correctAnswer": "string",
+  "encouragement": "string"
+}`
