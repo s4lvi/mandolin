@@ -228,7 +228,7 @@ function MarketingPage() {
           <h2 className="text-3xl font-bold text-center mb-12">
             Everything you need to learn Mandarin
           </h2>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
                 <Upload className="h-10 w-10 text-primary mb-2" />
@@ -264,6 +264,19 @@ function MarketingPage() {
                 <CardDescription>
                   Get AI-generated example sentences for grammar points
                   using vocabulary you already know.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <GraduationCap className="h-10 w-10 text-primary mb-2" />
+                <CardTitle>Interactive AI Lessons</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Learn with AI-generated multi-page lessons featuring quizzes,
+                  fill-in-the-blank exercises, and translation practice.
                 </CardDescription>
               </CardContent>
             </Card>

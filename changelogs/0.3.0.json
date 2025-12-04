@@ -1,0 +1,11 @@
+{
+  "version": "0.3.0",
+  "title": "Structured Lessons & AI Learning",
+  "changes": [
+    "Added Interactive AI Lessons with multi-page guided learning, quizzes, and translation exercises",
+    "Added lesson organization with AI-generated context summaries",
+    "Improved upload flow with lesson selection and automatic duplicate detection",
+    "Added multi-select for bulk card management and lesson creation",
+    "Added per-lesson progress tracking with new/learning/learned status"
+  ]
+}

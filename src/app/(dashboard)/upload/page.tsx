@@ -1,14 +1,24 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useParseNotes } from "@/hooks/use-upload"
 import { useCreateCardsBulk } from "@/hooks/use-cards"
+import { useLessons, useCreateLesson, useUpdateLesson } from "@/hooks/use-lessons"
+import { getNextLessonNumber } from "@/lib/lesson-helpers"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import {
   Card,
   CardContent,
@@ -30,13 +40,31 @@ interface ParsedCardWithDuplicate extends ParsedCard {
 export default function UploadPage() {
   const router = useRouter()
   const [notes, setNotes] = useState("")
+  const [lessonMode, setLessonMode] = useState<"new" | "existing" | "none">("new")
+  const [selectedLessonId, setSelectedLessonId] = useState("")
   const [lessonNumber, setLessonNumber] = useState("")
   const [lessonTitle, setLessonTitle] = useState("")
   const [parsedCards, setParsedCards] = useState<ParsedCardWithDuplicate[]>([])
+  const [generatedLessonContext, setGeneratedLessonContext] = useState("")
   const [showPreview, setShowPreview] = useState(false)
 
   const parseNotesMutation = useParseNotes()
   const createCardsMutation = useCreateCardsBulk()
+  const createLessonMutation = useCreateLesson()
+  const updateLessonMutation = useUpdateLesson()
+  const { data: lessons } = useLessons()
+
+  // Set default lesson number when component mounts or lessons load
+  useEffect(() => {
+    if (lessons && lessonNumber === "") {
+      const nextNumber = getNextLessonNumber(lessons)
+      setLessonNumber(nextNumber.toString())
+    }
+    // Set first lesson as default for "existing" mode
+    if (lessons && Array.isArray(lessons) && lessons.length > 0 && selectedLessonId === "") {
+      setSelectedLessonId(lessons[0].id)
+    }
+  }, [lessons, lessonNumber, selectedLessonId])
 
   const handleParse = async () => {
     if (!notes.trim()) {
@@ -44,24 +72,46 @@ export default function UploadPage() {
       return
     }
 
+    // Validate lesson selection
+    if (lessonMode === "new" && !lessonNumber) {
+      toast.error("Please enter a lesson number")
+      return
+    }
+    if (lessonMode === "existing" && !selectedLessonId) {
+      toast.error("Please select a lesson")
+      return
+    }
+
     try {
       const result = await parseNotesMutation.mutateAsync({
         notes,
         lessonNumber: lessonNumber ? parseInt(lessonNumber) : undefined,
-        lessonTitle: lessonTitle || undefined
+        lessonTitle: lessonTitle || undefined,
+        lessonMode,
+        selectedLessonId: lessonMode === "existing" ? selectedLessonId : undefined
       })
 
       setParsedCards(
         result.cards.map((card) => ({
           ...card,
-          selected: !card.isDuplicate
+          selected: !card.isDuplicate  // Only select new cards, deselect duplicates
         }))
       )
+
+      // Store generated lesson context
+      if (result.lessonContext) {
+        setGeneratedLessonContext(result.lessonContext)
+      }
+
       setShowPreview(true)
 
-      if (result.duplicatesFound > 0) {
+      if (result.duplicatesFound > 0 && lessonMode !== "none") {
         toast.info(
-          `Found ${result.duplicatesFound} duplicate(s) that will be skipped`
+          `Found ${result.duplicatesFound} duplicate card(s) - will be associated with the lesson (not created again)`
+        )
+      } else if (result.duplicatesFound > 0) {
+        toast.info(
+          `Found ${result.duplicatesFound} duplicate card(s) - these already exist and won't be created again`
         )
       }
     } catch (error) {
@@ -80,7 +130,7 @@ export default function UploadPage() {
   }
 
   const handleSaveCards = async () => {
-    const selectedCards = parsedCards
+    const newCards = parsedCards
       .filter((card) => card.selected && !card.isDuplicate)
       .map((card) => ({
         hanzi: card.hanzi,
@@ -91,18 +141,136 @@ export default function UploadPage() {
         tags: card.suggestedTags
       }))
 
-    if (selectedCards.length === 0) {
-      toast.error("No cards selected to save")
+    // Associate ALL duplicate cards with lesson (regardless of selection)
+    const duplicateCards = parsedCards
+      .filter((card) => card.isDuplicate)
+
+    const totalToProcess = newCards.length + (lessonMode !== "none" ? duplicateCards.length : 0)
+
+    if (totalToProcess === 0) {
+      toast.error("No cards to save")
       return
     }
 
     try {
-      const result = await createCardsMutation.mutateAsync({
-        cards: selectedCards
-      })
+      let finalLessonId: string | undefined = undefined
 
-      toast.success(`Added ${result.created} cards to your deck`)
-      router.push("/deck")
+      // Handle lesson creation or update based on lesson mode
+      if (lessonMode === "new") {
+        // Create new lesson with generated context
+        const lesson = await createLessonMutation.mutateAsync({
+          number: parseInt(lessonNumber),
+          title: lessonTitle || undefined,
+          notes: generatedLessonContext || undefined
+        })
+        finalLessonId = lesson.id
+        toast.success(`Created Lesson ${lesson.number}`)
+      } else if (lessonMode === "existing") {
+        // Merge new context with existing lesson using AI
+        if (selectedLessonId && generatedLessonContext) {
+          try {
+            const mergeResponse = await fetch(`/api/lessons/${selectedLessonId}/merge-context`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ newContext: generatedLessonContext })
+            })
+
+            if (!mergeResponse.ok) {
+              const errorData = await mergeResponse.json()
+              throw new Error(errorData.error || "Failed to merge context")
+            }
+
+            toast.success(`Merged lesson context`)
+          } catch (error) {
+            console.error("Error merging context:", error)
+            toast.warning("Could not merge context, appending instead")
+            // Fallback to simple append if merge fails
+            const lesson = lessons?.find((l) => l.id === selectedLessonId)
+            const updatedNotes = lesson?.notes
+              ? `${lesson.notes}\n\n---\n\n${generatedLessonContext}`
+              : generatedLessonContext
+
+            await updateLessonMutation.mutateAsync({
+              lessonId: selectedLessonId,
+              data: { notes: updatedNotes }
+            })
+          }
+        }
+        finalLessonId = selectedLessonId
+      }
+
+      let createdCount = 0
+      let associatedCount = 0
+
+      // Create new cards with lesson association
+      if (newCards.length > 0) {
+        const result = await createCardsMutation.mutateAsync({
+          cards: newCards,
+          lessonId: finalLessonId
+        })
+        createdCount = result.created
+      }
+
+      // Associate existing duplicate cards with the lesson
+      if (duplicateCards.length > 0 && finalLessonId) {
+        try {
+          // Fetch existing cards by hanzi to get their IDs
+          const response = await fetch("/api/cards")
+          if (!response.ok) {
+            throw new Error("Failed to fetch cards for duplicate checking")
+          }
+          const allCards = await response.json()
+
+          const duplicateHanzi = new Set(duplicateCards.map(c => c.hanzi))
+          const existingCardIds = allCards.cards
+            .filter((c: any) => duplicateHanzi.has(c.hanzi))
+            .map((c: any) => c.id)
+
+          if (existingCardIds.length > 0) {
+            const associateResponse = await fetch("/api/cards/associate-lesson", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                cardIds: existingCardIds,
+                lessonId: finalLessonId,
+                mode: "move"  // Use 'move' to reassign cards even if they're already in another lesson
+              })
+            })
+
+            if (!associateResponse.ok) {
+              const errorData = await associateResponse.json()
+              throw new Error(errorData.error || "Failed to associate duplicate cards")
+            }
+
+            const associateResult = await associateResponse.json()
+            associatedCount = associateResult.updatedCount
+          }
+        } catch (error) {
+          console.error("Error associating duplicate cards:", error)
+          toast.warning(
+            error instanceof Error
+              ? `Some duplicate cards may not be associated: ${error.message}`
+              : "Some duplicate cards may not be associated with the lesson"
+          )
+        }
+      }
+
+      // Show comprehensive success message
+      const messages = []
+      if (createdCount > 0) messages.push(`${createdCount} new card${createdCount !== 1 ? 's' : ''}`)
+      if (associatedCount > 0) messages.push(`${associatedCount} existing card${associatedCount !== 1 ? 's' : ''}`)
+
+      if (messages.length > 0) {
+        const action = finalLessonId ? 'added to lesson' : 'created'
+        toast.success(`${messages.join(' and ')} ${action}`)
+      }
+
+      // Redirect to lesson detail if lesson was created, otherwise to deck
+      if (finalLessonId) {
+        router.push(`/lessons/${finalLessonId}`)
+      } else {
+        router.push("/deck")
+      }
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to save cards"
@@ -110,9 +278,9 @@ export default function UploadPage() {
     }
   }
 
-  const selectedCount = parsedCards.filter(
-    (c) => c.selected && !c.isDuplicate
-  ).length
+  const selectedNewCards = parsedCards.filter((c) => c.selected && !c.isDuplicate).length
+  const duplicateCards = parsedCards.filter((c) => c.isDuplicate).length
+  const totalNewCards = parsedCards.filter((c) => !c.isDuplicate).length
 
   if (showPreview) {
     return (
@@ -121,7 +289,8 @@ export default function UploadPage() {
           <div>
             <h1 className="text-3xl font-bold">Review Parsed Cards</h1>
             <p className="text-muted-foreground">
-              {selectedCount} of {parsedCards.length} cards selected
+              {selectedNewCards} of {totalNewCards} new card{totalNewCards !== 1 ? 's' : ''} selected to save
+              {duplicateCards > 0 && lessonMode !== "none" && ` • ${duplicateCards} duplicate${duplicateCards !== 1 ? 's' : ''} will be associated with lesson`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -130,7 +299,7 @@ export default function UploadPage() {
             </Button>
             <Button
               onClick={handleSaveCards}
-              disabled={createCardsMutation.isPending || selectedCount === 0}
+              disabled={createCardsMutation.isPending || selectedNewCards === 0}
             >
               {createCardsMutation.isPending ? (
                 <>
@@ -138,7 +307,7 @@ export default function UploadPage() {
                   Saving...
                 </>
               ) : (
-                `Save ${selectedCount} Cards`
+                `Save ${selectedNewCards} Card${selectedNewCards !== 1 ? 's' : ''}${duplicateCards > 0 && lessonMode !== "none" ? ` + ${duplicateCards} Duplicate${duplicateCards !== 1 ? 's' : ''}` : ''}`
               )}
             </Button>
           </div>
@@ -149,20 +318,18 @@ export default function UploadPage() {
             <Card
               key={index}
               className={`cursor-pointer transition-all ${
-                card.isDuplicate
-                  ? "opacity-50 bg-muted"
-                  : card.selected
-                    ? "ring-2 ring-primary"
+                card.selected
+                  ? "ring-2 ring-primary"
+                  : card.isDuplicate
+                    ? "opacity-60 bg-muted"
                     : "opacity-70"
               }`}
-              onClick={() => !card.isDuplicate && toggleCard(index)}
+              onClick={() => toggleCard(index)}
             >
               <CardContent className="p-4">
                 <div className="flex items-start gap-4">
                   <div className="flex-shrink-0 pt-1">
-                    {card.isDuplicate ? (
-                      <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                    ) : card.selected ? (
+                    {card.selected ? (
                       <Check className="h-5 w-5 text-primary" />
                     ) : (
                       <X className="h-5 w-5 text-muted-foreground" />
@@ -176,7 +343,7 @@ export default function UploadPage() {
                       </span>
                       {card.isDuplicate && (
                         <Badge variant="secondary" className="text-xs">
-                          Duplicate
+                          Already exists{lessonMode !== "none" ? " (will link to lesson)" : ""}
                         </Badge>
                       )}
                     </div>
@@ -222,31 +389,93 @@ export default function UploadPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lesson Information</CardTitle>
-          <CardDescription>Optional: Add lesson details for organization</CardDescription>
+          <CardTitle>Lesson Selection</CardTitle>
+          <CardDescription>
+            Choose whether to create a new lesson, add to an existing one, or just create cards without a lesson.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="lessonNumber">Lesson Number</Label>
-              <Input
-                id="lessonNumber"
-                type="number"
-                placeholder="e.g., 5"
-                value={lessonNumber}
-                onChange={(e) => setLessonNumber(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lessonTitle">Lesson Title</Label>
-              <Input
-                id="lessonTitle"
-                placeholder="e.g., Asking for Directions"
-                value={lessonTitle}
-                onChange={(e) => setLessonTitle(e.target.value)}
-              />
-            </div>
+          <div className="space-y-3">
+            <Label>Lesson Mode</Label>
+            <RadioGroup value={lessonMode} onValueChange={(value) => setLessonMode(value as "new" | "existing" | "none")}>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="new" id="new" />
+                <Label htmlFor="new" className="font-normal cursor-pointer">
+                  Create New Lesson
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="existing" id="existing" />
+                <Label htmlFor="existing" className="font-normal cursor-pointer">
+                  Add to Existing Lesson
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="none" id="none" />
+                <Label htmlFor="none" className="font-normal cursor-pointer">
+                  No Lesson (Cards Only)
+                </Label>
+              </div>
+            </RadioGroup>
           </div>
+
+          {lessonMode === "new" && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="lessonNumber">
+                  Lesson Number <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  id="lessonNumber"
+                  type="number"
+                  placeholder="e.g., 1"
+                  value={lessonNumber}
+                  onChange={(e) => setLessonNumber(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lessonTitle">Lesson Title (Optional)</Label>
+                <Input
+                  id="lessonTitle"
+                  placeholder="e.g., Greetings"
+                  value={lessonTitle}
+                  onChange={(e) => setLessonTitle(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {lessonMode === "existing" && (
+            <div className="space-y-2">
+              <Label htmlFor="existingLesson">
+                Select Lesson <span className="text-destructive">*</span>
+              </Label>
+              {lessons && Array.isArray(lessons) && lessons.length > 0 ? (
+                <Select value={selectedLessonId} onValueChange={setSelectedLessonId}>
+                  <SelectTrigger id="existingLesson">
+                    <SelectValue placeholder="Choose a lesson" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lessons.map((lesson) => (
+                      <SelectItem key={lesson.id} value={lesson.id}>
+                        Lesson {lesson.number}
+                        {lesson.title && `: ${lesson.title}`}
+                        {lesson._count && ` (${lesson._count.cards} cards)`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No existing lessons. Create a new lesson instead.
+                </p>
+              )}
+            </div>
+          )}
+
+          <p className="text-xs text-muted-foreground">
+            💡 Tip: When you parse notes with a lesson selected, AI will generate both flashcards and a lesson context summary for interactive lessons.
+          </p>
         </CardContent>
       </Card>
 

@@ -136,6 +136,8 @@ export interface ParseNotesRequest {
   notes: string
   lessonNumber?: number
   lessonTitle?: string
+  lessonMode?: "new" | "existing" | "none"
+  selectedLessonId?: string
 }
 
 export interface ParseNotesResponse {
@@ -148,8 +150,11 @@ export interface ParseNotesResponse {
     suggestedTags: string[]
     isDuplicate: boolean
   }>
+  lessonContext?: string
   lessonNumber?: number
   lessonTitle?: string
+  lessonMode?: "new" | "existing" | "none"
+  selectedLessonId?: string
   totalParsed: number
   duplicatesFound: number
 }
@@ -175,6 +180,7 @@ export interface CreateCardsBulkRequest {
 
 export interface CreateCardsBulkResponse {
   cards: Card[]
+  cardIds: string[] // IDs of created cards for lesson association
   duplicates: string[]
   created: number
   skipped: number

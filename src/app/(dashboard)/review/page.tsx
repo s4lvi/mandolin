@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect, useMemo, useRef } from "react"
+import { useSearchParams } from "next/navigation"
 import {
   useReviewCards,
   useSubmitReview,
   useGenerateSentence
 } from "@/hooks/use-review"
 import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
+import { useLessons } from "@/hooks/use-lessons"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
 import { SessionComplete } from "@/components/review/session-complete"
@@ -15,6 +17,8 @@ import { SessionHeader } from "@/components/review/session-header"
 import { NoCardsView } from "@/components/review/no-cards-view"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { BookOpen } from "lucide-react"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
 
@@ -27,14 +31,21 @@ interface SessionResults {
 }
 
 export default function ReviewPage() {
+  const searchParams = useSearchParams()
+
+  // Read URL parameters for direct lesson access
+  const urlLessonId = searchParams.get("lessonId")
+  const urlMode = searchParams.get("mode") as ReviewMode | null
+
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>("hanzi")
-  const [reviewMode, setReviewMode] = useState<ReviewMode>("classic")
+  const [reviewMode, setReviewMode] = useState<ReviewMode>(urlMode || "classic")
   const [testDirection, setTestDirection] = useState<TestDirection>("HANZI_TO_MEANING")
   const [cardLimit, setCardLimit] = useState("20")
   const [allCards, setAllCards] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedLesson, setSelectedLesson] = useState<string>(urlLessonId || "all")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResults>({
     again: 0,
@@ -58,7 +69,8 @@ export default function ReviewPage() {
     limit: parseInt(cardLimit),
     allCards,
     tagIds: selectedTags,
-    types: selectedTypes
+    types: selectedTypes,
+    lessonId: selectedLesson !== "all" ? selectedLesson : undefined
   })
 
   const availableTags = reviewData?.availableTags || []
@@ -68,10 +80,18 @@ export default function ReviewPage() {
   const submitReviewMutation = useSubmitReview()
   const generateSentenceMutation = useGenerateSentence()
   const prefetchMutation = usePrefetchTestQuestions()
+  const { data: lessons } = useLessons()
+
+  // Find selected lesson for display
+  const currentLesson = selectedLesson !== "all" && lessons && Array.isArray(lessons)
+    ? lessons.find(l => l.id === selectedLesson)
+    : null
 
   // Shuffle cards from session snapshot (frozen at session start)
   const shuffledCards = useMemo(() => {
     if (sessionCards.length === 0) return []
+
+    // Random shuffle
     return [...sessionCards].sort(() => Math.random() - 0.5)
   }, [sessionCards])
 
@@ -132,6 +152,7 @@ export default function ReviewPage() {
     setExamples({})
     refetch()
   }
+
 
   const handleAnswer = (quality: Quality) => {
     if (!currentCard || isProcessing.current) return
@@ -263,6 +284,8 @@ export default function ReviewPage() {
           onSelectedTypesChange={setSelectedTypes}
           selectedTags={selectedTags}
           onSelectedTagsChange={setSelectedTags}
+          selectedLesson={selectedLesson}
+          onSelectedLessonChange={setSelectedLesson}
           availableTags={availableTags}
           reviewData={reviewData ? {
             dueCount: reviewData.dueCount,
@@ -296,6 +319,16 @@ export default function ReviewPage() {
         incorrectCount={results.again + results.hard}
         progress={progress}
       />
+
+      {currentLesson && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            Reviewing: Lesson {currentLesson.number}
+            {currentLesson.title && ` - ${currentLesson.title}`}
+          </span>
+        </div>
+      )}
 
       {currentCard && (
         <>

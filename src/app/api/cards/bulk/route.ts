@@ -118,6 +118,7 @@ export async function POST(req: Request) {
     return NextResponse.json(
       {
         cards: createdCards,
+        cardIds: createdCards.map((card) => card.id), // For lesson association
         duplicates,
         created: createdCards.length,
         skipped: duplicates.length

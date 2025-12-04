@@ -10,7 +10,7 @@ const createLessonSchema = z.object({
   notes: z.string().optional()
 })
 
-// GET /api/lessons - Get all lessons for user's deck
+// GET /api/lessons - Get all lessons for user's deck with progress
 export async function GET() {
   try {
     const session = await auth()
@@ -31,13 +31,36 @@ export async function GET() {
       where: { deckId: deck.id },
       include: {
         _count: {
-          select: { cards: true }
+          select: { cards: true, pages: true }
+        },
+        progress: {
+          where: { userId: session.user.id }
         }
       },
       orderBy: { number: "desc" }
     })
 
-    return NextResponse.json({ lessons })
+    // Map lessons with interactive lesson progress
+    const lessonsWithProgress = lessons.map((lesson) => {
+      const userProgress = lesson.progress[0] // One progress per user per lesson
+
+      return {
+        id: lesson.id,
+        number: lesson.number,
+        title: lesson.title,
+        date: lesson.date,
+        notes: lesson.notes,
+        _count: lesson._count,
+        lessonProgress: userProgress ? {
+          currentPage: userProgress.currentPage,
+          totalPages: userProgress.totalPages,
+          completedAt: userProgress.completedAt,
+          isComplete: !!userProgress.completedAt
+        } : null
+      }
+    })
+
+    return NextResponse.json({ lessons: lessonsWithProgress })
   } catch (error) {
     console.error("Error fetching lessons:", error)
     return NextResponse.json(
