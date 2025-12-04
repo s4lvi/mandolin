@@ -1,5 +1,7 @@
 export type CardType = "VOCABULARY" | "GRAMMAR" | "PHRASE" | "IDIOM"
 
+export type CardState = "NEW" | "LEARNING" | "REVIEW" | "LEARNED"
+
 export interface Tag {
   id: string
   name: string
@@ -41,6 +43,11 @@ export interface Card {
   incorrectCount: number
   lastReviewed?: string
   nextReview?: string
+  // SM-2 algorithm fields
+  easeFactor: number
+  interval: number
+  repetitions: number
+  state: CardState
   lesson?: {
     number: number
     title?: string
@@ -67,4 +74,4 @@ export type FaceMode = "pinyin" | "hanzi" | "both" | "english" | "random"
 
 export type TestDirection = "HANZI_TO_MEANING" | "MEANING_TO_HANZI" | "PINYIN_TO_HANZI"
 
-export type ReviewMode = "classic" | "test_easy"
+export type ReviewMode = "classic" | "test_easy" | "narrative"

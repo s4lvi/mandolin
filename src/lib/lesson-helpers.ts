@@ -173,10 +173,16 @@ export function getLessonStatusLabel(progress: LessonProgress): string {
 /**
  * Sort cards for narrative mode (for sequential learning)
  * Uses SRS algorithm but maintains some order
+ * Note: Accepts both Prisma Card objects (with Date) and API Card objects (with string dates)
  */
-export function sortCardsForNarrativeMode(
-  cards: Array<Pick<Card, "state" | "nextReview" | "easeFactor" | "createdAt">>
-): typeof cards {
+export function sortCardsForNarrativeMode<
+  T extends {
+    state: CardState
+    nextReview?: Date | string | null
+    easeFactor: number
+    createdAt: Date | string
+  }
+>(cards: T[]): T[] {
   return [...cards].sort((a, b) => {
     // Priority 1: State (NEW → LEARNING → REVIEW → LEARNED)
     const stateOrder: Record<CardState, number> = {
@@ -193,8 +199,10 @@ export function sortCardsForNarrativeMode(
     // Priority 2: Due cards first (if in LEARNING or REVIEW state)
     if (a.state !== "NEW" && b.state !== "NEW") {
       const now = new Date()
-      const aDue = a.nextReview ? a.nextReview <= now : true
-      const bDue = b.nextReview ? b.nextReview <= now : true
+      const aNextReview = a.nextReview ? (typeof a.nextReview === 'string' ? new Date(a.nextReview) : a.nextReview) : null
+      const bNextReview = b.nextReview ? (typeof b.nextReview === 'string' ? new Date(b.nextReview) : b.nextReview) : null
+      const aDue = aNextReview ? aNextReview <= now : true
+      const bDue = bNextReview ? bNextReview <= now : true
 
       if (aDue !== bDue) {
         return aDue ? -1 : 1
@@ -207,6 +215,8 @@ export function sortCardsForNarrativeMode(
     }
 
     // Priority 4: Creation date (maintain upload order for NEW cards)
-    return a.createdAt.getTime() - b.createdAt.getTime()
+    const aCreatedAt = typeof a.createdAt === 'string' ? new Date(a.createdAt) : a.createdAt
+    const bCreatedAt = typeof b.createdAt === 'string' ? new Date(b.createdAt) : b.createdAt
+    return aCreatedAt.getTime() - bCreatedAt.getTime()
   })
 }
