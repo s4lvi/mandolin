@@ -11,8 +11,9 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Tags } from "lucide-react"
+import { Tags, BookOpen } from "lucide-react"
 import type { ReviewMode, FaceMode, TestDirection } from "@/types"
+import { useLessons, type LessonWithCount } from "@/hooks/use-lessons"
 
 interface Tag {
   id: string
@@ -39,6 +40,8 @@ interface ReviewSettingsProps {
   onSelectedTypesChange: (types: string[]) => void
   selectedTags: string[]
   onSelectedTagsChange: (tags: string[]) => void
+  selectedLesson: string
+  onSelectedLessonChange: (lessonId: string) => void
   availableTags: Tag[]
   reviewData: ReviewData | null
   isLoading: boolean
@@ -62,11 +65,14 @@ export function ReviewSettings({
   onSelectedTypesChange,
   selectedTags,
   onSelectedTagsChange,
+  selectedLesson,
+  onSelectedLessonChange,
   availableTags,
   reviewData,
   isLoading,
   onStart
 }: ReviewSettingsProps) {
+  const { data: lessons, isLoading: lessonsLoading } = useLessons()
   return (
     <div className="max-w-md mx-auto space-y-6">
       <div>
@@ -134,6 +140,43 @@ export function ReviewSettings({
                   <SelectItem value="random">Random</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+          )}
+
+          {lessons && lessons.length > 0 && (
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <BookOpen className="h-4 w-4" />
+                Filter by Lesson
+              </Label>
+              <Select
+                value={selectedLesson}
+                onValueChange={onSelectedLessonChange}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="All lessons" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lessons</SelectItem>
+                  {lessons.map((lesson) => (
+                    <SelectItem key={lesson.id} value={lesson.id}>
+                      Lesson {lesson.number}
+                      {lesson.title && `: ${lesson.title}`}
+                      {lesson._count && ` (${lesson._count.cards} cards)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {selectedLesson && selectedLesson !== "all" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onSelectedLessonChange("all")}
+                  className="text-xs"
+                >
+                  Clear lesson filter
+                </Button>
+              )}
             </div>
           )}
 

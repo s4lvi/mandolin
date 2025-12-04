@@ -7,6 +7,7 @@ import {
   useGenerateSentence
 } from "@/hooks/use-review"
 import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
+import { useLessons } from "@/hooks/use-lessons"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
 import { SessionComplete } from "@/components/review/session-complete"
@@ -15,6 +16,8 @@ import { SessionHeader } from "@/components/review/session-header"
 import { NoCardsView } from "@/components/review/no-cards-view"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { BookOpen } from "lucide-react"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
 
@@ -35,6 +38,7 @@ export default function ReviewPage() {
   const [allCards, setAllCards] = useState(false)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [selectedTypes, setSelectedTypes] = useState<string[]>([])
+  const [selectedLesson, setSelectedLesson] = useState<string>("all")
   const [currentIndex, setCurrentIndex] = useState(0)
   const [results, setResults] = useState<SessionResults>({
     again: 0,
@@ -58,7 +62,8 @@ export default function ReviewPage() {
     limit: parseInt(cardLimit),
     allCards,
     tagIds: selectedTags,
-    types: selectedTypes
+    types: selectedTypes,
+    lessonId: selectedLesson !== "all" ? selectedLesson : undefined
   })
 
   const availableTags = reviewData?.availableTags || []
@@ -68,6 +73,12 @@ export default function ReviewPage() {
   const submitReviewMutation = useSubmitReview()
   const generateSentenceMutation = useGenerateSentence()
   const prefetchMutation = usePrefetchTestQuestions()
+  const { data: lessons } = useLessons()
+
+  // Find selected lesson for display
+  const currentLesson = selectedLesson !== "all"
+    ? lessons?.find(l => l.id === selectedLesson)
+    : null
 
   // Shuffle cards from session snapshot (frozen at session start)
   const shuffledCards = useMemo(() => {
@@ -263,6 +274,8 @@ export default function ReviewPage() {
           onSelectedTypesChange={setSelectedTypes}
           selectedTags={selectedTags}
           onSelectedTagsChange={setSelectedTags}
+          selectedLesson={selectedLesson}
+          onSelectedLessonChange={setSelectedLesson}
           availableTags={availableTags}
           reviewData={reviewData ? {
             dueCount: reviewData.dueCount,
@@ -296,6 +309,16 @@ export default function ReviewPage() {
         incorrectCount={results.again + results.hard}
         progress={progress}
       />
+
+      {currentLesson && (
+        <div className="flex items-center justify-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            Reviewing: Lesson {currentLesson.number}
+            {currentLesson.title && ` - ${currentLesson.title}`}
+          </span>
+        </div>
+      )}
 
       {currentCard && (
         <>

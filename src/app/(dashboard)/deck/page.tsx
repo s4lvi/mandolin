@@ -2,7 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
+import { useSearchParams } from "next/navigation"
 import { useCards, useDeleteCard } from "@/hooks/use-cards"
+import { useLessons } from "@/hooks/use-lessons"
 import { CardItem } from "@/components/cards/card-item"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
@@ -29,14 +31,25 @@ import { toast } from "sonner"
 const CARDS_PER_PAGE = 12
 
 export default function DeckPage() {
+  const searchParams = useSearchParams()
+  const lessonIdFromUrl = searchParams.get("lessonId")
+
   const [search, setSearch] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null)
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
 
-  const { data: cards, isLoading } = useCards()
+  const { data: cards, isLoading } = useCards({
+    lessonId: lessonIdFromUrl || undefined
+  })
   const deleteCardMutation = useDeleteCard()
+  const { data: lessons } = useLessons()
+
+  // Find lesson info if filtering by lesson
+  const currentLesson = lessonIdFromUrl
+    ? lessons?.find(l => l.id === lessonIdFromUrl)
+    : null
 
   const filteredCards = cards?.filter((card) => {
     const matchesSearch =
@@ -140,6 +153,25 @@ export default function DeckPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {currentLesson && (
+        <div className="flex items-center gap-2 p-3 bg-primary/10 border border-primary/20 rounded-lg">
+          <BookOpen className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            Viewing: Lesson {currentLesson.number}
+            {currentLesson.title && ` - ${currentLesson.title}`}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            ({cards?.length || 0} cards)
+          </span>
+          <Link href="/deck">
+            <Button variant="ghost" size="sm" className="ml-auto h-7 px-2">
+              <X className="h-3 w-3 mr-1" />
+              Clear
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {tagFilter && (
         <div className="flex items-center gap-2">
