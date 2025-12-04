@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import Link from "next/link"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
@@ -7,7 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BookOpen, ArrowRight, Play } from "lucide-react"
+import { BookOpen, ArrowRight, Play, Plus, Upload } from "lucide-react"
+import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
 import type { Lesson } from "@/types"
 
 interface LessonWithProgress extends Lesson {
@@ -31,6 +33,8 @@ async function fetchLessons(): Promise<LessonWithProgress[]> {
 }
 
 export default function LessonsPage() {
+  const [showCreateModal, setShowCreateModal] = useState(false)
+
   const { data: lessons, isLoading } = useQuery({
     queryKey: ["lessons"],
     queryFn: fetchLessons
@@ -39,16 +43,25 @@ export default function LessonsPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold">Lessons</h1>
           <p className="text-muted-foreground">
-            View your lessons and their associated cards
+            Organize your cards into structured learning paths
           </p>
         </div>
-        <Link href="/upload">
-          <Button>Upload Notes</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowCreateModal(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Lesson
+          </Button>
+          <Link href="/upload">
+            <Button>
+              <Upload className="h-4 w-4 mr-2" />
+              Upload Notes
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {isLoading ? (
@@ -149,6 +162,11 @@ export default function LessonsPage() {
           })}
         </div>
       )}
+
+      <CreateLessonModal
+        open={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
     </div>
     </ErrorBoundary>
   )

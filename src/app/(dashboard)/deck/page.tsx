@@ -9,6 +9,7 @@ import { CardItem } from "@/components/cards/card-item"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Select,
   SelectContent,
@@ -27,6 +28,7 @@ import {
 import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
+import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
 
 const CARDS_PER_PAGE = 12
 
@@ -39,6 +41,10 @@ export default function DeckPage() {
   const [tagFilter, setTagFilter] = useState<{ id: string; name: string } | null>(null)
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null)
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectionMode, setSelectionMode] = useState(false)
+  const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set())
+  const [showAddToLessonModal, setShowAddToLessonModal] = useState(false)
+  const [showCreateLessonModal, setShowCreateLessonModal] = useState(false)
 
   const { data: cards, isLoading } = useCards({
     lessonId: lessonIdFromUrl || undefined
@@ -109,26 +115,97 @@ export default function DeckPage() {
     }
   }
 
+  const handleToggleSelectionMode = () => {
+    setSelectionMode(!selectionMode)
+    setSelectedCards(new Set())
+  }
+
+  const handleToggleCard = (cardId: string) => {
+    const newSelected = new Set(selectedCards)
+    if (newSelected.has(cardId)) {
+      newSelected.delete(cardId)
+    } else {
+      newSelected.add(cardId)
+    }
+    setSelectedCards(newSelected)
+  }
+
+  const handleSelectAll = () => {
+    if (paginatedCards) {
+      setSelectedCards(new Set(paginatedCards.map(c => c.id)))
+    }
+  }
+
+  const handleCancelSelection = () => {
+    setSelectionMode(false)
+    setSelectedCards(new Set())
+  }
+
   return (
     <ErrorBoundary>
       <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-3xl font-bold">My Deck</h1>
         <div className="flex gap-2">
-          <Link href="/upload">
-            <Button variant="outline">
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Notes
-            </Button>
-          </Link>
-          <Link href="/deck/add">
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Cards
-            </Button>
-          </Link>
+          {!selectionMode && (
+            <>
+              <Button variant="outline" onClick={handleToggleSelectionMode}>
+                Select Cards
+              </Button>
+              <Link href="/upload">
+                <Button variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Upload Notes
+                </Button>
+              </Link>
+              <Link href="/deck/add">
+                <Button>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Cards
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
+
+      {/* Selection Mode Toolbar */}
+      {selectionMode && (
+        <Card className="border-primary">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium">
+                  {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
+                </span>
+                {paginatedCards && selectedCards.size < paginatedCards.length && (
+                  <Button variant="ghost" size="sm" onClick={handleSelectAll}>
+                    Select All
+                  </Button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  disabled={selectedCards.size === 0}
+                  onClick={() => setShowAddToLessonModal(true)}
+                >
+                  Add to Lesson
+                </Button>
+                <Button
+                  disabled={selectedCards.size === 0}
+                  onClick={() => setShowCreateLessonModal(true)}
+                >
+                  Create Lesson
+                </Button>
+                <Button variant="ghost" onClick={handleCancelSelection}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4">
         <div className="relative flex-1">
@@ -231,6 +308,9 @@ export default function DeckPage() {
                 card={card}
                 onDelete={(id) => setDeleteCardId(id)}
                 onTagClick={handleTagClick}
+                selectionMode={selectionMode}
+                isSelected={selectedCards.has(card.id)}
+                onToggleSelect={handleToggleCard}
               />
             ))}
           </div>
@@ -316,6 +396,42 @@ export default function DeckPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Add to Lesson Modal */}
+      <LessonAssociationModal
+        open={showAddToLessonModal}
+        onClose={() => {
+          setShowAddToLessonModal(false)
+          setSelectionMode(false)
+          setSelectedCards(new Set())
+        }}
+        cardIds={Array.from(selectedCards)}
+        cardCount={selectedCards.size}
+        mode="add"
+        onSuccess={() => {
+          setShowAddToLessonModal(false)
+          setSelectionMode(false)
+          setSelectedCards(new Set())
+        }}
+      />
+
+      {/* Create Lesson from Selection Modal */}
+      <LessonAssociationModal
+        open={showCreateLessonModal}
+        onClose={() => {
+          setShowCreateLessonModal(false)
+          setSelectionMode(false)
+          setSelectedCards(new Set())
+        }}
+        cardIds={Array.from(selectedCards)}
+        cardCount={selectedCards.size}
+        mode="create"
+        onSuccess={() => {
+          setShowCreateLessonModal(false)
+          setSelectionMode(false)
+          setSelectedCards(new Set())
+        }}
+      />
     </div>
     </ErrorBoundary>
   )

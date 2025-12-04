@@ -33,6 +33,7 @@ interface LessonAssociationModalProps {
   onSuccess?: (lessonId: string, lessonTitle: string) => void
   defaultLessonNumber?: number
   defaultLessonTitle?: string
+  mode?: "add" | "create" | "auto" // Force a specific mode or auto-select
 }
 
 export function LessonAssociationModal({
@@ -42,9 +43,12 @@ export function LessonAssociationModal({
   cardCount,
   onSuccess,
   defaultLessonNumber,
-  defaultLessonTitle
+  defaultLessonTitle,
+  mode: forcedMode = "auto"
 }: LessonAssociationModalProps) {
-  const [mode, setMode] = useState<"existing" | "new">("existing")
+  const [mode, setMode] = useState<"existing" | "new">(
+    forcedMode === "create" ? "new" : "existing"
+  )
   const [selectedLessonId, setSelectedLessonId] = useState<string>("")
   const [newLessonNumber, setNewLessonNumber] = useState("")
   const [newLessonTitle, setNewLessonTitle] = useState("")
@@ -152,28 +156,30 @@ export function LessonAssociationModal({
             </div>
           ) : lessons && lessons.length > 0 ? (
             <>
-              {/* Mode Selection */}
-              <div className="space-y-2">
-                <Label>Choose Option</Label>
-                <div className="flex gap-2">
-                  <Button
-                    variant={mode === "existing" ? "default" : "outline"}
-                    onClick={() => setMode("existing")}
-                    className="flex-1"
-                    type="button"
-                  >
-                    Add to Existing
-                  </Button>
-                  <Button
-                    variant={mode === "new" ? "default" : "outline"}
-                    onClick={() => setMode("new")}
-                    className="flex-1"
-                    type="button"
-                  >
-                    Create New
-                  </Button>
+              {/* Mode Selection (only show if mode is auto) */}
+              {forcedMode === "auto" && (
+                <div className="space-y-2">
+                  <Label>Choose Option</Label>
+                  <div className="flex gap-2">
+                    <Button
+                      variant={mode === "existing" ? "default" : "outline"}
+                      onClick={() => setMode("existing")}
+                      className="flex-1"
+                      type="button"
+                    >
+                      Add to Existing
+                    </Button>
+                    <Button
+                      variant={mode === "new" ? "default" : "outline"}
+                      onClick={() => setMode("new")}
+                      className="flex-1"
+                      type="button"
+                    >
+                      Create New
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Existing Lesson Selection */}
               {mode === "existing" && (

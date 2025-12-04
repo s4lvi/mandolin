@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { Pencil, Trash2, Volume2, Star, MoreVertical } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 import type { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
 import { toast } from "sonner"
@@ -21,6 +22,9 @@ interface CardItemProps {
   card: CardType
   onDelete?: (cardId: string) => void
   onTagClick?: (tagId: string, tagName: string) => void
+  selectionMode?: boolean
+  isSelected?: boolean
+  onToggleSelect?: (cardId: string) => void
 }
 
 const typeColors = {
@@ -30,7 +34,14 @@ const typeColors = {
   IDIOM: "bg-red-50 border-red-200 dark:bg-red-950/30 dark:border-red-900/50"
 }
 
-export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
+export function CardItem({
+  card,
+  onDelete,
+  onTagClick,
+  selectionMode = false,
+  isSelected = false,
+  onToggleSelect
+}: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
   const togglePriorityMutation = useToggleCardPriority()
@@ -72,9 +83,22 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
   }
 
   return (
-    <Card className={`hover:shadow-md transition-shadow ${colorClass}`}>
+    <Card
+      className={`hover:shadow-md transition-shadow ${colorClass} ${
+        selectionMode && isSelected ? 'ring-2 ring-primary' : ''
+      } ${selectionMode ? 'cursor-pointer' : ''}`}
+      onClick={selectionMode && onToggleSelect ? () => onToggleSelect(card.id) : undefined}
+    >
       <CardContent className="p-4">
         <div className="flex justify-between items-start">
+          {selectionMode && (
+            <div className="mr-3 mt-1" onClick={(e) => e.stopPropagation()}>
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => onToggleSelect?.(card.id)}
+              />
+            </div>
+          )}
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-2xl font-bold">{card.hanzi}</span>
@@ -120,48 +144,50 @@ export function CardItem({ card, onDelete, onTagClick }: CardItemProps) {
               ))}
             </div>
           </div>
-          <div className="flex gap-1 ml-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8"
-              onClick={togglePriority}
-              disabled={togglePriorityMutation.isPending}
-              title={card.isPriority ? "Remove from priority" : "Mark as priority"}
-            >
-              <Star
-                className={`h-4 w-4 transition-colors ${
-                  card.isPriority
-                    ? 'fill-yellow-500 text-yellow-500'
-                    : 'text-muted-foreground hover:text-yellow-500'
-                } ${togglePriorityMutation.isPending ? 'opacity-50' : ''}`}
-              />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-8 w-8">
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem asChild>
-                  <Link href={`/deck/${card.id}`} className="cursor-pointer">
-                    <Pencil className="h-4 w-4 mr-2" />
-                    Edit
-                  </Link>
-                </DropdownMenuItem>
-                {onDelete && (
-                  <DropdownMenuItem
-                    onClick={() => onDelete(card.id)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Delete
+          {!selectionMode && (
+            <div className="flex gap-1 ml-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
+                onClick={togglePriority}
+                disabled={togglePriorityMutation.isPending}
+                title={card.isPriority ? "Remove from priority" : "Mark as priority"}
+              >
+                <Star
+                  className={`h-4 w-4 transition-colors ${
+                    card.isPriority
+                      ? 'fill-yellow-500 text-yellow-500'
+                      : 'text-muted-foreground hover:text-yellow-500'
+                  } ${togglePriorityMutation.isPending ? 'opacity-50' : ''}`}
+                />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/deck/${card.id}`} className="cursor-pointer">
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Edit
+                    </Link>
                   </DropdownMenuItem>
-                )}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+                  {onDelete && (
+                    <DropdownMenuItem
+                      onClick={() => onDelete(card.id)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
