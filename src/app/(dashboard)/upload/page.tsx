@@ -94,7 +94,7 @@ export default function UploadPage() {
       setParsedCards(
         result.cards.map((card) => ({
           ...card,
-          selected: true  // Select all cards, including duplicates
+          selected: !card.isDuplicate  // Only select new cards, deselect duplicates
         }))
       )
 
@@ -107,11 +107,11 @@ export default function UploadPage() {
 
       if (result.duplicatesFound > 0 && lessonMode !== "none") {
         toast.info(
-          `Found ${result.duplicatesFound} duplicate(s) - they will be associated with the lesson`
+          `Found ${result.duplicatesFound} duplicate card(s) - will be associated with the lesson (not created again)`
         )
       } else if (result.duplicatesFound > 0) {
         toast.info(
-          `Found ${result.duplicatesFound} duplicate(s) - deselect them if you don't want them`
+          `Found ${result.duplicatesFound} duplicate card(s) - these already exist and won't be created again`
         )
       }
     } catch (error) {
@@ -141,13 +141,14 @@ export default function UploadPage() {
         tags: card.suggestedTags
       }))
 
+    // Associate ALL duplicate cards with lesson (regardless of selection)
     const duplicateCards = parsedCards
-      .filter((card) => card.selected && card.isDuplicate)
+      .filter((card) => card.isDuplicate)
 
-    const totalSelected = newCards.length + duplicateCards.length
+    const totalToProcess = newCards.length + (lessonMode !== "none" ? duplicateCards.length : 0)
 
-    if (totalSelected === 0) {
-      toast.error("No cards selected to save")
+    if (totalToProcess === 0) {
+      toast.error("No cards to save")
       return
     }
 
@@ -263,9 +264,9 @@ export default function UploadPage() {
     }
   }
 
-  const selectedCount = parsedCards.filter(
-    (c) => c.selected
-  ).length
+  const selectedNewCards = parsedCards.filter((c) => c.selected && !c.isDuplicate).length
+  const duplicateCards = parsedCards.filter((c) => c.isDuplicate).length
+  const totalNewCards = parsedCards.filter((c) => !c.isDuplicate).length
 
   if (showPreview) {
     return (
@@ -274,7 +275,8 @@ export default function UploadPage() {
           <div>
             <h1 className="text-3xl font-bold">Review Parsed Cards</h1>
             <p className="text-muted-foreground">
-              {selectedCount} of {parsedCards.length} cards selected
+              {selectedNewCards} of {totalNewCards} new card{totalNewCards !== 1 ? 's' : ''} selected to save
+              {duplicateCards > 0 && lessonMode !== "none" && ` • ${duplicateCards} duplicate${duplicateCards !== 1 ? 's' : ''} will be associated with lesson`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -283,7 +285,7 @@ export default function UploadPage() {
             </Button>
             <Button
               onClick={handleSaveCards}
-              disabled={createCardsMutation.isPending || selectedCount === 0}
+              disabled={createCardsMutation.isPending || selectedNewCards === 0}
             >
               {createCardsMutation.isPending ? (
                 <>
@@ -291,7 +293,7 @@ export default function UploadPage() {
                   Saving...
                 </>
               ) : (
-                `Save ${selectedCount} Cards`
+                `Save ${selectedNewCards} Card${selectedNewCards !== 1 ? 's' : ''}${duplicateCards > 0 && lessonMode !== "none" ? ` + ${duplicateCards} Duplicate${duplicateCards !== 1 ? 's' : ''}` : ''}`
               )}
             </Button>
           </div>
@@ -327,7 +329,7 @@ export default function UploadPage() {
                       </span>
                       {card.isDuplicate && (
                         <Badge variant="secondary" className="text-xs">
-                          Already exists
+                          Already exists{lessonMode !== "none" ? " (will link to lesson)" : ""}
                         </Badge>
                       )}
                     </div>
@@ -458,7 +460,7 @@ export default function UploadPage() {
           )}
 
           <p className="text-xs text-muted-foreground">
-            💡 Tip: When you parse notes with a lesson selected, AI will generate both flashcards and a lesson context summary for narrative learning.
+            💡 Tip: When you parse notes with a lesson selected, AI will generate both flashcards and a lesson context summary for interactive lessons.
           </p>
         </CardContent>
       </Card>

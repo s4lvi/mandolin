@@ -99,19 +99,11 @@ export function ReviewSettings({
               <SelectContent>
                 <SelectItem value="classic">Classic (Self-Rating)</SelectItem>
                 <SelectItem value="test_easy">Test Mode (Multiple Choice)</SelectItem>
-                {selectedLesson && selectedLesson !== "all" && (
-                  <SelectItem value="narrative">Learn by Lesson (Narrative)</SelectItem>
-                )}
               </SelectContent>
             </Select>
-            {selectedLesson && selectedLesson !== "all" && reviewMode === "narrative" && (
-              <p className="text-xs text-muted-foreground">
-                Sequential learning with contextual explanations
-              </p>
-            )}
           </div>
 
-          {reviewMode !== "classic" && reviewMode !== "narrative" && (
+          {reviewMode !== "classic" && (
             <div className="space-y-2">
               <Label>Test Direction</Label>
               <Select

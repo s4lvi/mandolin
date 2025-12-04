@@ -234,10 +234,10 @@ export default function LessonDetailPage() {
               Test Mode
             </Button>
           </Link>
-          <Link href={`/review?lessonId=${lesson.id}&mode=narrative`}>
+          <Link href={`/lessons/${lesson.id}/learn`}>
             <Button variant="outline">
               <BookOpen className="h-4 w-4 mr-2" />
-              Learn by Lesson
+              Interactive Lesson
             </Button>
           </Link>
           <Link href={`/deck?lessonId=${lesson.id}`}>

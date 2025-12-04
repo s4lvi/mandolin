@@ -11,7 +11,6 @@ import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
 import { useLessons } from "@/hooks/use-lessons"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
-import { NarrativeMode } from "@/components/review/narrative-mode"
 import { SessionComplete } from "@/components/review/session-complete"
 import { ReviewSettings } from "@/components/review/review-settings"
 import { SessionHeader } from "@/components/review/session-header"
@@ -21,7 +20,6 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { BookOpen } from "lucide-react"
 import { toast } from "sonner"
-import { sortCardsForNarrativeMode } from "@/lib/lesson-helpers"
 import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
 
 interface SessionResults {
@@ -90,18 +88,12 @@ export default function ReviewPage() {
     : null
 
   // Shuffle cards from session snapshot (frozen at session start)
-  // For narrative mode, use SRS sorting instead of random shuffle
   const shuffledCards = useMemo(() => {
     if (sessionCards.length === 0) return []
 
-    if (reviewMode === "narrative") {
-      // Use SRS-based sorting for narrative mode
-      return sortCardsForNarrativeMode(sessionCards)
-    }
-
-    // Random shuffle for other modes
+    // Random shuffle
     return [...sessionCards].sort(() => Math.random() - 0.5)
-  }, [sessionCards, reviewMode])
+  }, [sessionCards])
 
   const currentCard = shuffledCards[currentIndex]
   const progress = shuffledCards.length
@@ -129,7 +121,7 @@ export default function ReviewPage() {
 
   // Prefetch next 3 test questions when index changes
   useEffect(() => {
-    if (reviewMode !== "classic" && reviewMode !== "narrative" && shuffledCards.length > 0 && isStarted) {
+    if (reviewMode !== "classic" && shuffledCards.length > 0 && isStarted) {
       const nextCards = []
       for (let i = 1; i <= 3; i++) {
         const nextIndex = currentIndex + i
@@ -161,13 +153,6 @@ export default function ReviewPage() {
     refetch()
   }
 
-  // Auto-start session when coming from direct lesson link (Learn button)
-  useEffect(() => {
-    if (urlLessonId && urlMode === "narrative" && cards && cards.length > 0 && !isStarted) {
-      handleStart()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [urlLessonId, urlMode, cards, isStarted])
 
   const handleAnswer = (quality: Quality) => {
     if (!currentCard || isProcessing.current) return
@@ -347,16 +332,7 @@ export default function ReviewPage() {
 
       {currentCard && (
         <>
-          {reviewMode === "narrative" ? (
-            <NarrativeMode
-              card={currentCard}
-              lessonNotes={currentLesson?.notes}
-              lessonCards={shuffledCards}
-              onAnswer={handleAnswer}
-              cardNumber={currentIndex + 1}
-              totalCards={shuffledCards.length}
-            />
-          ) : reviewMode === "classic" ? (
+          {reviewMode === "classic" ? (
             <Flashcard
               card={currentCard}
               faceMode={actualFaceMode}

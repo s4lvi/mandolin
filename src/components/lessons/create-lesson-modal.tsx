@@ -128,7 +128,7 @@ export function CreateLessonModal({ open, onClose }: CreateLessonModalProps) {
               rows={4}
             />
             <p className="text-xs text-muted-foreground">
-              These notes will be shown during narrative learning mode to provide context.
+              These notes will be used to generate interactive lesson content.
             </p>
           </div>
         </div>

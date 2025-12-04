@@ -1,7 +1,7 @@
 # Feature Design Document: Structured Lesson System
 
-**Feature Name**: Structured Learning Paths with Narrative Review
-**Version**: 1.0
+**Feature Name**: Structured Learning Paths with Interactive AI Lessons
+**Version**: 2.0
 **Author**: Development Team
 **Date**: 2025-12-03
 **Status**: In Development
@@ -20,7 +20,7 @@
 8. [UI Components](#ui-components)
 9. [AI Integration](#ai-integration)
 10. [Edge Cases & Error Handling](#edge-cases--error-handling)
-11. [Testing Strategy](#testing-strategy)
+11. [Implementation Status](#implementation-status)
 12. [Future Enhancements](#future-enhancements)
 
 ---
@@ -32,29 +32,29 @@
 Currently, the Mandolin app allows users to:
 - Upload notes and create flashcards via AI parsing
 - Review cards using spaced repetition (SRS)
-- Organize cards by lessons (metadata exists but isn't functional)
+- Organize cards by lessons (basic functionality exists)
 
 However, users cannot:
-- **Associate uploaded cards with lessons** (metadata collected but ignored)
-- **Review specific lessons** (lesson filter doesn't exist)
-- **Learn in a structured, narrative way** (cards are randomly shuffled)
-- **Get contextual feedback** when wrong (no lesson notes or related cards shown)
+- **Experience interactive AI-powered lesson reviews** - No guided multi-page learning experience
+- **Get dynamic feedback from AI** - Static lesson notes instead of adaptive responses
+- **Practice with varied question types** - Only flashcard and multiple choice modes
+- **Track lesson-specific progress** - No per-page or per-segment completion tracking
 
 ### Solution
 
-Implement a **structured lesson system** that enables:
+Implement a **comprehensive structured lesson system** with:
 1. **Lesson-based organization**: Cards grouped into coherent learning units
-2. **Narrative learning mode**: Sequential review with contextual explanations
-3. **AI-powered lesson creation**: Automatic lesson suggestions and expansion
-4. **Progress tracking**: Per-lesson mastery metrics
-5. **Flexible learning paths**: User-defined lesson sequences
+2. **AI-generated interactive lessons**: Multi-page guided learning with diverse segment types
+3. **Dynamic AI evaluation**: Real-time assessment and personalized feedback
+4. **Progress tracking**: Per-lesson and per-page mastery metrics
+5. **Flexible learning modes**: Standard SRS review + Interactive lesson mode
 
 ### Success Metrics
 
-- **Adoption**: 70%+ of users create at least one lesson
-- **Engagement**: Average session time increases by 25%
-- **Retention**: Users return 40% more frequently to complete lessons
-- **Learning outcomes**: Improved accuracy in lesson-based reviews vs random reviews
+- **Adoption**: 70%+ of users complete at least one interactive lesson
+- **Engagement**: Average session time increases by 40%
+- **Retention**: Users return 50% more frequently to complete lessons
+- **Learning outcomes**: Improved long-term retention compared to random review
 
 ---
 
@@ -62,304 +62,174 @@ Implement a **structured lesson system** that enables:
 
 ### Primary Goals
 
-1. **Organize learning**: Group related vocabulary and grammar into coherent lessons
-2. **Learn progressively**: Follow a structured path from beginner to advanced
-3. **Understand context**: See how words/concepts relate within a lesson
-4. **Track progress**: Know which lessons are mastered vs in-progress
-5. **Reduce overwhelm**: Focus on one lesson at a time instead of 100s of random cards
+1. **Learn progressively**: Follow guided, AI-structured lessons with varied content
+2. **Understand context**: Receive AI feedback that explains mistakes and provides corrections
+3. **Practice actively**: Engage with multiple question types (flashcard, multiple choice, translation, fill-in)
+4. **Track progress**: See completion status per lesson and understand mastery level
+5. **Flexible study**: Choose between quick SRS review or in-depth lesson mode
 
 ### Secondary Goals
 
-6. **Save time**: Let AI suggest optimal lesson groupings
-7. **Expand knowledge**: AI recommends related cards to add to lessons
-8. **Flexible study**: Choose between narrative learning or SRS review
-9. **Self-directed**: Create custom lessons from existing cards
+6. **Self-paced learning**: Pause and resume lessons at any time
+7. **Personalized feedback**: AI adapts explanations to user's specific mistakes
+8. **Organized content**: Lessons automatically created from uploaded notes
+9. **Export/share**: Download lesson completion certificates
 
 ---
 
 ## Feature Requirements
 
-### Must-Have (MVP)
+### Implemented (Phase 1-4)
 
-#### 1. Lesson Association in Upload Flow
-- [ ] Toggle to associate cards with lesson after upload
-- [ ] Option: "Add to existing lesson" (default)
-- [ ] Option: "Create new lesson"
-- [ ] Dropdown showing existing lessons
-- [ ] Form for new lesson (number, title, optional notes)
-- [ ] Separate API call to associate cards after creation
+#### ✅ 1. Lesson Association in Upload Flow
+- [x] AI generates lesson context during note parsing
+- [x] Lesson selection BEFORE parsing (new/existing/none)
+- [x] Cards automatically associated with selected lesson
+- [x] Duplicate detection and lesson linkage
+- [x] Lesson context stored in database
 
-#### 2. Lesson-Based Review
-- [ ] Lesson selector in review settings
-- [ ] Filter cards by lesson using SRS algorithm
-- [ ] Display "Reviewing: Lesson X" context
-- [ ] Show lesson progress during review
+#### ✅ 2. Lesson-Based Review (Standard SRS)
+- [x] Lesson selector in review settings
+- [x] Filter cards by lesson using SRS algorithm
+- [x] Display lesson context during review
+- [x] Track progress per lesson
 
-#### 3. Narrative Learning Mode
-- [ ] New review mode: "Learn by Lesson"
-- [ ] Sequential card presentation (SRS-sorted within lesson)
-- [ ] Display lesson notes at top of screen
-- [ ] On incorrect answer, show:
-  - Lesson notes (expandable)
-  - Card explanation (notes field)
-  - Related cards (3-5 similar cards from lesson)
-- [ ] Progress indicator for lesson completion
+#### ✅ 3. Lesson Detail & Management
+- [x] View all cards in a lesson
+- [x] Display lesson metadata (number, title, notes)
+- [x] Show progress metrics (NEW, LEARNING, REVIEW, LEARNED)
+- [x] Action buttons: Learn, Review, Edit
 
-#### 4. Lesson Detail Page
-- [ ] View all cards in a lesson
-- [ ] Display lesson metadata (number, title, date, notes)
-- [ ] Show progress metrics (% NEW, LEARNING, REVIEW, LEARNED)
-- [ ] Action buttons: "Learn Lesson", "Review Lesson", "Edit", "Delete"
+#### ✅ 4. Multi-Select Bulk Operations
+- [x] Multi-select mode in deck page
+- [x] Add selected cards to existing lesson
+- [x] Create new lesson from selected cards
 
-#### 5. Manual Card-Lesson Association
-- [ ] Multi-select mode in deck page
-- [ ] "Add to Lesson" button
-- [ ] "Create Lesson from Selection" button
-- [ ] Bulk associate cards with lesson
+### To Implement (Phase 5 - Interactive Lessons)
 
-#### 6. Deck Page Lesson Filter
-- [ ] Read `lessonId` from URL query parameter
-- [ ] Filter cards by lesson
-- [ ] Display lesson info in header
-- [ ] "Clear filter" button
+#### 🚧 5. Interactive AI Lesson System
 
-### Should-Have (Phase 2)
+**Database Schema**:
+- [ ] `LessonPage` model - Store generated lesson pages
+- [ ] `PageSegment` model - Individual content segments
+- [ ] `SegmentType` enum - TEXT, FLASHCARD, MULTIPLE_CHOICE, FILL_IN, TRANSLATION_EN_ZH, TRANSLATION_ZH_EN, FEEDBACK
+- [ ] `LessonProgress` model - Track user progress through lessons
 
-#### 7. AI Lesson Suggestions
-- [ ] "Suggest Lessons" button on lessons page
-- [ ] AI analyzes all cards and proposes 3-5 lesson groupings
-- [ ] Modal showing suggestions with:
-  - Proposed lesson title
-  - List of cards (with preview)
-  - Rationale (why these cards together)
-- [ ] User can accept, modify, or reject
+**Page Generation**:
+- [ ] Parallel API calls to generate 10+ pages
+- [ ] Each page has 2-4 segments of varying types
+- [ ] Progressive difficulty across pages
+- [ ] Use cards from the lesson in questions
 
-#### 8. AI Lesson Expansion
-- [ ] "Expand Lesson" button on lesson detail page
-- [ ] AI suggests:
-  - Existing cards to add
-  - New cards to create
-- [ ] Modal showing suggestions with checkboxes
-- [ ] User reviews and confirms
+**Segment Types**:
+- [ ] TEXT - Informational paragraphs (max 1 paragraph)
+- [ ] FLASHCARD - Interactive card flip
+- [ ] MULTIPLE_CHOICE - 4-option questions
+- [ ] FILL_IN - Complete the sentence
+- [ ] TRANSLATION_EN_ZH - English to Chinese translation
+- [ ] TRANSLATION_ZH_EN - Chinese to English translation
+- [ ] FEEDBACK - AI-generated correction (inserted after wrong answers)
 
-#### 9. AI Lesson Notes Generation
-- [ ] "Generate Notes" button on lesson detail
-- [ ] AI writes comprehensive lesson introduction
-- [ ] Explains key concepts covered
-- [ ] Provides study tips
-- [ ] User can edit before saving
+**AI Evaluation**:
+- [ ] Real-time answer assessment for translation/fill-in
+- [ ] Dynamic feedback generation explaining mistakes
+- [ ] Encouragement messages for correct attempts
+- [ ] Insert feedback segments after incorrect answers
 
-### Nice-to-Have (Phase 3)
+**User Experience**:
+- [ ] Page-by-page navigation (Next/Previous)
+- [ ] Progress indicator showing current page
+- [ ] Persistent progress (resume where left off)
+- [ ] Completion certificate/reward
 
-#### 10. Lesson Ordering & Prerequisites
-- [ ] Drag-and-drop lesson reordering
-- [ ] Set prerequisite lessons
-- [ ] Lock lessons until prerequisites completed
-- [ ] Visual learning path timeline
-
-#### 11. Lesson Templates
-- [ ] Predefined lesson structures (HSK levels, topic-based)
-- [ ] Import template and auto-populate with cards
-- [ ] Share lesson templates (future: multi-user)
-
-#### 12. Enhanced Progress Tracking
-- [ ] Lesson completion achievements
-- [ ] XP bonuses for finishing lessons
-- [ ] Streak tracking per lesson
-- [ ] Estimated time to master lesson
+#### 🔮 6. AI Lesson Enhancement (Future)
+- [ ] "Suggest Lessons" from existing cards
+- [ ] "Expand Lesson" with related cards
+- [ ] "Generate Study Tips" for each lesson
+- [ ] Difficulty adjustment based on user performance
 
 ---
 
 ## User Flows
 
-### Flow 1: Upload Notes → Create Lesson → Associate Cards
+### Flow 1: Upload Notes → Create Lesson → Generate Context
 
 ```
 1. User navigates to /upload
-2. User enters lesson metadata (optional at this stage)
-3. User pastes notes
-4. User clicks "Parse with AI"
-   → AI extracts cards
+2. User selects lesson mode (new/existing/none)
+3. User enters lesson metadata if creating new
+4. User pastes notes
+5. User clicks "Parse Notes"
+   → AI generates lesson context (summary)
+   → AI extracts flashcards
    → Shows preview with duplicates marked
-5. User toggles off unwanted cards
-6. User clicks "Save Cards"
-   → Cards are created in database
-   → Success message: "15 cards created"
-7. NEW: Modal appears: "Associate with Lesson?"
-   → Option A: "Add to existing lesson" [DEFAULT]
-      → Dropdown: Select lesson
-      → Shows: "Lesson 3: Shopping Vocabulary (23 existing cards)"
-   → Option B: "Create new lesson"
-      → Form: Lesson number, title, notes (optional)
-   → Option C: "Skip" (cards remain unassociated)
-8. User selects option and confirms
-   → API call: POST /api/cards/associate-lesson
-   → Success: "15 cards added to Lesson 3"
-9. Redirect to lesson detail page (optional)
+6. User reviews parsed cards
+7. User clicks "Save X Cards + Y Duplicates"
+   → New cards created
+   → All cards (including duplicates) associated with lesson
+   → Lesson context saved to database
+8. Redirect to lesson detail page
 ```
 
-**Alternative Flow 1A**: User wants to add to multiple lessons
-- Checkbox: "Associate cards differently"
-- Shows list of created cards with dropdown per card
-- User assigns each card to a lesson
-- Bulk update
+### Flow 2: Interactive Lesson Learning
 
-### Flow 2: Review Specific Lesson (Standard Mode)
+```
+1. User navigates to /lessons
+2. User clicks "Learn" button on a lesson
+3. System generates lesson pages (10+ pages)
+   → Parallel API calls to Claude
+   → Each page gets 2-4 segments
+   → Returns page structure quickly
+4. User lands on Page 1
+   → Segments load dynamically
+   → TEXT: Introduction paragraph
+   → FLASHCARD: Key vocabulary
+   → MULTIPLE_CHOICE: Comprehension question
+5. User interacts with each segment:
+   a. Reads TEXT segment
+   b. Flips FLASHCARD
+   c. Answers MULTIPLE_CHOICE (instant feedback)
+6. User clicks "Next" → Page 2
+   → TEXT: Explain grammar pattern
+   → FILL_IN: Complete sentence
+   → TRANSLATION_EN_ZH: Translate phrase
+7. User answers TRANSLATION incorrectly
+   → AI evaluates answer
+   → FEEDBACK segment inserted:
+      "You translated 'I go to school' as '我去学校'
+      which is correct! But for future tense, use 会:
+      '我会去学校' (I will go to school)"
+8. User clicks "Next" → Page 3
+   ... continues through all pages
+9. Final page shows completion summary
+   → Stats: 85% accuracy, 12/15 questions correct
+   → Reward: +500 XP, "Lesson Master" badge
+   → Options: [Review Mistakes] [Next Lesson] [Back to Lessons]
+```
+
+### Flow 3: Resume Lesson Progress
+
+```
+1. User previously completed 6/10 pages of a lesson
+2. User navigates to /lessons
+3. Lesson card shows "60% Complete" badge
+4. User clicks "Learn"
+5. Modal appears:
+   "You're on Page 6. Continue where you left off?"
+   [Start from Beginning] [Continue]
+6. User clicks "Continue"
+7. User lands on Page 7 (next unfinished page)
+```
+
+### Flow 4: Standard SRS Review (Existing Flow)
 
 ```
 1. User navigates to /review
-2. Settings screen appears
-3. User selects:
-   → Review mode: "Standard" (SRS-based)
-   → Lesson: Dropdown shows "Lesson 3: Shopping Vocabulary"
-   → Card types: All
-   → Limit: 20 cards
-4. User clicks "Start Review"
-   → API fetches due cards from Lesson 3 only
-   → 70% priority, 30% non-priority (existing SRS logic)
-   → But cards are filtered to lessonId
-5. Review proceeds as normal
-   → Card flip, self-rate (AGAIN/HARD/GOOD/EASY)
-   → SRS updates for each card
-6. Session complete
-   → Shows results with lesson progress
-   → "Lesson 3: 15/20 cards reviewed, 80% accuracy"
-```
-
-### Flow 3: Learn by Lesson (Narrative Mode)
-
-```
-1. User navigates to /lessons
-2. User clicks "Learn" button on Lesson 5
-3. Review settings screen:
-   → Mode auto-set to "Learn by Lesson" (narrative)
-   → Limit pre-filled with lesson card count
-4. User clicks "Start Learning"
-5. Lesson introduction screen appears:
-   → Displays lesson title and notes
-   → "This lesson covers: X new words, Y grammar points"
-   → Button: "Begin Lesson"
-6. First card appears:
-   → Lesson notes visible at top (collapsible)
-   → Card displayed (flip to see answer)
-   → User self-assesses
-7a. If CORRECT (GOOD/EASY):
-   → Brief positive feedback
-   → "Next" button to continue
-7b. If INCORRECT (AGAIN/HARD):
-   → Expanded feedback panel appears:
-      → Section 1: "Lesson Context" - lesson notes
-      → Section 2: "About this word" - card notes
-      → Section 3: "Related cards" - 3-5 similar cards from lesson
-   → User reviews feedback
-   → "Continue" button
-8. After all cards reviewed:
-   → Lesson summary screen
-   → Progress chart: NEW → LEARNING → REVIEW → LEARNED
-   → "Lesson mastered" if all cards LEARNED
-   → Options: "Review again", "Next lesson", "Back to lessons"
-```
-
-### Flow 4: AI Suggest Lessons
-
-```
-1. User navigates to /lessons
-2. User clicks "Suggest Lessons" button
-3. Loading modal: "Analyzing your 147 cards..."
-   → AI analyzes:
-      - Card content (hanzi, english, notes)
-      - Card types (VOCABULARY, GRAMMAR, etc.)
-      - Existing tags (HSK levels, topics)
-      - Current lesson structure
-4. Suggestion modal appears with 4 proposals:
-
-   SUGGESTION 1:
-   Title: "HSK 1 Core Vocabulary"
-   Cards: 23 cards (shows first 5 with "...and 18 more")
-   Rationale: "These cards are all HSK-1 level basic vocabulary"
-   Actions: [Accept] [Modify] [Skip]
-
-   SUGGESTION 2:
-   Title: "Food & Restaurant Vocabulary"
-   Cards: 18 cards
-   Rationale: "Related to dining, ordering, and food vocabulary"
-
-   ... etc
-
-5. User clicks "Accept" on Suggestion 1
-   → Confirmation: "Create Lesson 8 with 23 cards?"
-   → User confirms
-   → Lesson created, cards associated
-   → Success message
-6. User can accept multiple suggestions
-7. Modal closes, lessons page refreshes
-```
-
-### Flow 5: Expand Lesson with AI
-
-```
-1. User on lesson detail page (Lesson 3: Shopping)
-2. User clicks "Expand Lesson" button
-3. Loading: "Finding related content..."
-4. Expansion modal appears:
-
-   EXISTING CARDS TO ADD:
-   ☐ 便宜 (piányi) - cheap
-   ☐ 贵 (guì) - expensive
-   ☐ 多少钱 (duōshao qián) - how much
-   [5 more cards]
-
-   NEW CARDS TO CREATE:
-   ☐ 打折 (dǎzhé) - discount
-      English: discount, on sale
-      Notes: Common in shopping contexts
-      Type: VOCABULARY
-   [3 more suggested cards]
-
-   AI REASONING:
-   "These cards relate to shopping and prices, complementing
-   your existing vocabulary about stores and purchases."
-
-   [Select All] [Deselect All]
-   [Confirm] [Cancel]
-
-5. User selects desired cards
-6. User clicks "Confirm"
-   → Existing cards: Associated with lesson
-   → New cards: Created and associated
-7. Lesson detail page refreshes
-   → Shows updated card count
-   → New cards appear in list
-```
-
-### Flow 6: Create Lesson from Selected Cards
-
-```
-1. User on deck page viewing all cards
-2. User clicks "Select Cards" button
-   → UI enters selection mode
-   → Checkboxes appear on each card
-3. User selects 12 cards related to travel
-4. Toolbar appears: "12 cards selected"
-   → [Add to Lesson ▼] [Create Lesson] [Cancel]
-5. User clicks "Create Lesson"
-6. Modal appears:
-   "Create New Lesson from 12 Cards"
-
-   Lesson Number: [auto-filled with next number]
-   Lesson Title: [empty]
-   Lesson Notes: [empty textarea]
-
-   AI SUGGESTION: "Travel Essentials"
-   (Click to use)
-
-   [Create] [Cancel]
-
-7. User clicks AI suggestion or enters custom title
-8. User clicks "Create"
-   → Lesson created
-   → Cards associated
-   → Redirect to lesson detail page
+2. User selects lesson from dropdown
+3. User chooses "Classic" mode
+4. System filters cards by lesson + SRS due date
+5. Standard flashcard review proceeds
+6. Lesson context available (collapsible panel)
 ```
 
 ---
@@ -369,219 +239,86 @@ Implement a **structured lesson system** that enables:
 ### System Components
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         Frontend                             │
-├─────────────────────────────────────────────────────────────┤
+┌──────────────────────────────────────────────────────────────┐
+│                         Frontend                              │
+├──────────────────────────────────────────────────────────────┤
 │                                                               │
-│  Upload Page          Lessons Page        Review Page        │
-│  ┌──────────┐        ┌──────────┐       ┌──────────┐       │
-│  │ Parse    │        │ List     │       │ Settings │       │
-│  │ Preview  │──────▶ │ Detail   │◀───── │ Standard │       │
-│  │ Associate│        │ Progress │       │ Narrative│       │
-│  └──────────┘        └──────────┘       └──────────┘       │
+│  Lessons Page          Lesson Detail      Interactive Learn  │
+│  ┌──────────┐         ┌──────────┐       ┌──────────┐      │
+│  │ List     │────────▶│ Progress │──────▶│ Page Nav │      │
+│  │ Cards    │         │ Actions  │       │ Segments │      │
+│  │          │         │          │       │ Evaluate │      │
+│  └──────────┘         └──────────┘       └──────────┘      │
 │                                                               │
-│  Deck Page                                                   │
-│  ┌──────────────────────────────────────────────┐          │
-│  │ Card List │ Multi-Select │ Lesson Filter     │          │
-│  └──────────────────────────────────────────────┘          │
+│  Upload Page          Review Page (Standard)                 │
+│  ┌──────────┐         ┌──────────┐                          │
+│  │ Parse    │         │ Settings │                          │
+│  │ Generate │         │ SRS Mode │                          │
+│  │ Associate│         │          │                          │
+│  └──────────┘         └──────────┘                          │
 │                                                               │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-                        │ React Query (Cache Layer)
-                        │
-┌───────────────────────▼─────────────────────────────────────┐
-│                      API Routes                              │
-├─────────────────────────────────────────────────────────────┤
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+                         │ React Query (Cache Layer)
+                         │
+┌────────────────────────▼─────────────────────────────────────┐
+│                      API Routes                               │
+├──────────────────────────────────────────────────────────────┤
 │                                                               │
-│  /api/lessons/                                               │
-│  ├─ GET /            List all lessons                       │
-│  ├─ POST /           Create lesson                          │
-│  ├─ GET /[id]        Get lesson detail                      │
-│  ├─ PUT /[id]        Update lesson                          │
-│  ├─ DELETE /[id]     Delete lesson                          │
-│  ├─ POST /suggest    AI suggest lessons                     │
-│  ├─ POST /[id]/expand         AI expand lesson              │
-│  └─ POST /[id]/generate-notes AI generate notes             │
+│  /api/lessons/[id]/generate-pages    Generate lesson pages  │
+│  /api/lessons/pages/[pageNum]        Get page content       │
+│  /api/lessons/pages/evaluate         Evaluate answer (AI)   │
+│  /api/lessons/progress               Save/load progress     │
+│  /api/parse-notes                    Parse + gen context    │
+│  /api/review                         Standard SRS review    │
 │                                                               │
-│  /api/cards/                                                 │
-│  ├─ POST /associate-lesson   Associate cards with lesson    │
-│  └─ POST /bulk              Create multiple cards (exists)  │
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+┌────────────────────────▼─────────────────────────────────────┐
+│                  Database (PostgreSQL)                        │
+├──────────────────────────────────────────────────────────────┤
 │                                                               │
-│  /api/review/                                                │
-│  └─ GET /?lessonId=...       Get review cards (modified)    │
+│  Lesson ──1:M──▶ LessonPage ──1:M──▶ PageSegment            │
+│     │                                                         │
+│     └──1:M──▶ Card                                           │
+│     └──1:M──▶ LessonProgress (userId, currentPage)          │
 │                                                               │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────────┐
-│                  Database (PostgreSQL)                       │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  User ──1:M──▶ Deck ──1:M──▶ Lesson                         │
-│                  │              │                             │
-│                  │              └─1:M─▶ Card                 │
-│                  │                      │                     │
-│                  └──────────1:M────────┘                     │
-│                                          │                     │
-│                                      ReviewHistory           │
-│                                      TestQuestion            │
-│                                      CardTag                 │
-│                                                               │
-└───────────────────────┬─────────────────────────────────────┘
-                        │
-┌───────────────────────▼─────────────────────────────────────┐
-│                  External Services                           │
-├─────────────────────────────────────────────────────────────┤
-│                                                               │
-│  Anthropic Claude API                                        │
-│  ├─ Parse notes (existing)                                  │
-│  ├─ Suggest lessons (new)                                   │
-│  ├─ Expand lesson (new)                                     │
-│  └─ Generate lesson notes (new)                             │
-│                                                               │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### Data Flow: Upload → Lesson Association
-
-```
-┌─────────┐
-│ Upload  │
-│ Page    │
-└────┬────┘
-     │
-     │ 1. Parse notes
-     ▼
-┌──────────────┐
-│ POST /api/   │
-│ parse-notes  │
-└──────┬───────┘
-       │
-       │ 2. Returns parsed cards
-       ▼
-┌──────────────┐
-│ Preview      │
-│ Component    │
-└──────┬───────┘
-       │
-       │ 3. User clicks "Save Cards"
-       ▼
-┌──────────────┐
-│ POST /api/   │──────▶ Database: Create cards
-│ cards/bulk   │
-└──────┬───────┘
-       │
-       │ 4. Cards created, IDs returned
-       ▼
-┌──────────────┐
-│ Lesson       │
-│ Modal        │◀────── User selects/creates lesson
-└──────┬───────┘
-       │
-       │ 5. POST { cardIds, lessonId }
-       ▼
-┌──────────────┐
-│ POST /api/   │──────▶ Database: Update cards
-│ cards/       │        SET lessonId = ?
-│ associate-   │        WHERE id IN (?)
-│ lesson       │
-└──────┬───────┘
-       │
-       │ 6. Success
-       ▼
-┌──────────────┐
-│ Redirect to  │
-│ Lesson Detail│
-└──────────────┘
-```
-
-### Data Flow: Narrative Review
-
-```
-┌─────────┐
-│ Lesson  │
-│ Detail  │
-└────┬────┘
-     │
-     │ User clicks "Learn Lesson"
-     ▼
-┌──────────────┐
-│ Review Page  │
-│ (Narrative)  │
-└──────┬───────┘
-       │
-       │ 1. Fetch cards for lesson
-       ▼
-┌──────────────┐
-│ GET /api/    │
-│ review?      │
-│ lessonId=X   │
-└──────┬───────┘
-       │
-       │ 2. Cards returned (SRS-sorted within lesson)
-       ▼
-┌──────────────┐
-│ Narrative    │
-│ Mode UI      │
-└──────┬───────┘
-       │
-       │ 3. Display first card
-       │
-       │ User answers INCORRECT
-       ▼
-┌──────────────┐
-│ Fetch        │
-│ Related      │
-│ Context      │
-└──────┬───────┘
-       │
-       │ 4. Get related cards (client-side filter)
-       │    Get lesson notes (already cached)
-       ▼
-┌──────────────┐
-│ Display      │
-│ Feedback     │
-│ Panel        │
-└──────┬───────┘
-       │
-       │ 5. User reviews, clicks "Continue"
-       ▼
-┌──────────────┐
-│ POST /api/   │──────▶ Database: Update card SRS
-│ review       │        Record review history
-│              │        Update stats
-└──────┬───────┘
-       │
-       │ 6. Next card
-       ▼
-       ...
+└────────────────────────┬─────────────────────────────────────┘
+                         │
+┌────────────────────────▼─────────────────────────────────────┐
+│                  Anthropic Claude API                         │
+├──────────────────────────────────────────────────────────────┤
+│  - Generate lesson pages (parallel requests)                 │
+│  - Evaluate translation answers                              │
+│  - Generate feedback corrections                             │
+│  - Generate lesson context (on upload)                       │
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Data Models
 
-### Existing Models (No Changes)
+### Existing Models (Implemented)
 
 ```prisma
-model User {
-  id            String   @id @default(cuid())
-  email         String   @unique
-  passwordHash  String
-  createdAt     DateTime @default(now())
+model Lesson {
+  id          String    @id @default(cuid())
+  number      Int
+  title       String?
+  date        DateTime?
+  notes       String?   @db.Text  // AI-generated lesson context
+  deckId      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
-  decks         Deck[]
-  // ... other relations
-}
+  deck        Deck      @relation(...)
+  cards       Card[]
+  pages       LessonPage[]       // NEW
+  progress    LessonProgress[]   // NEW
 
-model Deck {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  createdAt DateTime @default(now())
-
-  user      User     @relation(...)
-  cards     Card[]
-  lessons   Lesson[]
+  @@unique([deckId, number])
+  @@index([deckId])
 }
 
 model Card {
@@ -593,63 +330,62 @@ model Card {
   type         CardType
   state        CardState  @default(NEW)
   deckId       String
-  lessonId     String?    // ← Already exists!
+  lessonId     String?
 
   deck         Deck       @relation(...)
   lesson       Lesson?    @relation(..., onDelete: SetNull)
-  // ... other relations
 }
 ```
 
-### Modified Models
+### New Models (Phase 5 - To Implement)
 
 ```prisma
-model Lesson {
-  id          String    @id @default(cuid())
-  number      Int
-  title       String?
-  date        DateTime?
-  notes       String?   @db.Text
-  deckId      String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+model LessonPage {
+  id         String        @id @default(cuid())
+  lessonId   String
+  lesson     Lesson        @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  pageNumber Int           // 1, 2, 3, ..., 10
+  segments   PageSegment[]
+  createdAt  DateTime      @default(now())
 
-  // NEW FIELDS (Phase 3):
-  order       Int?                    // For explicit lesson ordering
-  prerequisiteId String?              // Optional prerequisite lesson
-  isPublished Boolean   @default(true) // Hide unpublished lessons
-
-  deck        Deck      @relation(...)
-  cards       Card[]
-  prerequisite Lesson?  @relation("LessonPrerequisite", fields: [prerequisiteId], references: [id], onDelete: SetNull)
-  dependents   Lesson[] @relation("LessonPrerequisite")
-
-  @@unique([deckId, number])
-  @@index([deckId])
-  @@index([deckId, order])
-  @@index([prerequisiteId])
+  @@unique([lessonId, pageNumber])
+  @@index([lessonId])
 }
-```
 
-### New Models (Optional - Phase 3)
+model PageSegment {
+  id          String       @id @default(cuid())
+  pageId      String
+  page        LessonPage   @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  orderIndex  Int          // 0, 1, 2, 3 (order within page)
+  type        SegmentType
+  content     Json         // Flexible structure for different types
+  createdAt   DateTime     @default(now())
 
-```prisma
+  @@index([pageId])
+}
+
+enum SegmentType {
+  TEXT              // Informational paragraph
+  FLASHCARD         // Show/hide flashcard
+  MULTIPLE_CHOICE   // Multiple choice question
+  FILL_IN           // Fill in the blank
+  TRANSLATION_EN_ZH // English → Chinese
+  TRANSLATION_ZH_EN // Chinese → English
+  FEEDBACK          // AI feedback (inserted dynamically)
+}
+
 model LessonProgress {
-  id           String    @id @default(cuid())
-  userId       String
-  lessonId     String
-  completed    Boolean   @default(false)
-  lastReviewed DateTime?
-  mastery      Float     @default(0) // 0-1 percentage
-  cardsNew     Int       @default(0)
-  cardsLearning Int      @default(0)
-  cardsReview  Int       @default(0)
-  cardsLearned Int       @default(0)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-
-  user         User      @relation(...)
-  lesson       Lesson    @relation(...)
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lessonId        String
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  currentPage     Int       @default(1)
+  totalPages      Int
+  responses       Json[]    // Array of user responses per segment
+  completedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@unique([userId, lessonId])
   @@index([userId])
@@ -657,928 +393,324 @@ model LessonProgress {
 }
 ```
 
+### Segment Content Structures (TypeScript)
+
+```typescript
+// types/lesson-segments.ts
+
+export type SegmentContent =
+  | TextSegmentContent
+  | FlashcardSegmentContent
+  | MultipleChoiceSegmentContent
+  | FillInSegmentContent
+  | TranslationSegmentContent
+  | FeedbackSegmentContent
+
+interface TextSegmentContent {
+  type: "TEXT"
+  text: string     // Max 1 paragraph
+  title?: string
+}
+
+interface FlashcardSegmentContent {
+  type: "FLASHCARD"
+  cardId?: string  // Optional reference to actual card
+  front: string
+  back: string
+  hint?: string
+}
+
+interface MultipleChoiceSegmentContent {
+  type: "MULTIPLE_CHOICE"
+  question: string
+  options: string[]        // 4 options
+  correctIndex: number
+  explanation?: string
+}
+
+interface FillInSegmentContent {
+  type: "FILL_IN"
+  prompt: string
+  sentence: string         // e.g., "我___去学校"
+  correctAnswers: string[] // Multiple valid answers
+  hint?: string
+}
+
+interface TranslationSegmentContent {
+  type: "TRANSLATION_EN_ZH" | "TRANSLATION_ZH_EN"
+  sourceText: string
+  acceptableTranslations: string[]
+  hint?: string
+}
+
+interface FeedbackSegmentContent {
+  type: "FEEDBACK"
+  userAnswer: string
+  correctAnswer: string
+  explanation: string   // AI-generated correction
+  encouragement?: string
+}
+```
+
 ---
 
 ## API Specifications
 
-### 1. Associate Cards with Lesson
+### 1. Generate Lesson Pages (Parallel)
 
-**Endpoint**: `POST /api/cards/associate-lesson`
+**Endpoint**: `POST /api/lessons/[id]/generate-pages`
 
-**Request Body**:
-```typescript
-{
-  cardIds: string[]      // Array of card IDs to associate
-  lessonId: string       // Lesson to associate with
-}
-```
+**Request Body**: None (uses lesson ID from URL)
 
 **Response**:
 ```typescript
 {
-  success: true
-  updatedCount: number   // Number of cards updated
-  lessonTitle: string    // For display
-}
-```
-
-**Implementation**:
-```typescript
-// Verify user owns all cards
-// Update cards in transaction
-await prisma.card.updateMany({
-  where: {
-    id: { in: cardIds },
-    deck: { userId: session.user.id }
-  },
-  data: { lessonId }
-})
-```
-
----
-
-### 2. Get Lesson with Cards
-
-**Endpoint**: `GET /api/lessons/[id]`
-
-**Query Parameters**: None
-
-**Response**:
-```typescript
-{
-  lesson: {
-    id: string
-    number: number
-    title: string | null
-    date: string | null
-    notes: string | null
-    createdAt: string
-    cardCount: number
-    cards: Card[]         // Includes full card data
-    progress: {
-      new: number
-      learning: number
-      review: number
-      learned: number
-      total: number
-      masteryPercentage: number  // learned / total * 100
-    }
-  }
-}
-```
-
-**Implementation**:
-```typescript
-const lesson = await prisma.lesson.findUnique({
-  where: { id: params.id },
-  include: {
-    cards: {
-      include: { tags: { include: { tag: true } } }
-    },
-    _count: { select: { cards: true } }
-  }
-})
-
-// Calculate progress by grouping cards by state
-const progress = {
-  new: lesson.cards.filter(c => c.state === 'NEW').length,
-  // ... etc
-}
-```
-
----
-
-### 3. AI Suggest Lessons
-
-**Endpoint**: `POST /api/lessons/suggest`
-
-**Request Body**:
-```typescript
-{
-  deckId: string
-  maxSuggestions?: number  // Default: 5
-}
-```
-
-**Response**:
-```typescript
-{
-  suggestions: [
-    {
-      title: string
-      rationale: string
-      cardIds: string[]
-      cards: Card[]        // Preview (first 5 cards)
-      estimatedCount: number
-    }
-  ]
-}
-```
-
-**AI Prompt**:
-```
-You are a Chinese language learning expert. Analyze the following flashcards
-and suggest optimal lesson groupings.
-
-Cards:
-[JSON array of cards with hanzi, pinyin, english, type, tags]
-
-Requirements:
-- Create 3-5 lesson suggestions
-- Group cards by related topics, HSK level, or grammar patterns
-- Each lesson should have 10-30 cards
-- Provide a concise title and rationale for each lesson
-- Consider pedagogical progression (simple → complex)
-
-Return JSON format:
-{
-  "suggestions": [
-    {
-      "title": "HSK 1 Core Vocabulary",
-      "rationale": "These are essential HSK-1 level words for beginners",
-      "cardIndices": [0, 3, 7, 12, ...]
-    }
-  ]
-}
-```
-
-**Implementation**:
-```typescript
-// Fetch all cards from deck
-const cards = await prisma.card.findMany({
-  where: { deckId, lessonId: null },  // Only unassociated cards
-  include: { tags: true }
-})
-
-// Call Claude API
-const suggestions = await generateLessonSuggestions(cards)
-
-// Return with full card data for preview
-return suggestions.map(s => ({
-  ...s,
-  cards: cards.filter((c, i) => s.cardIndices.includes(i)).slice(0, 5)
-}))
-```
-
----
-
-### 4. AI Expand Lesson
-
-**Endpoint**: `POST /api/lessons/[id]/expand`
-
-**Request Body**: None (reads lesson ID from URL)
-
-**Response**:
-```typescript
-{
-  existingCards: Card[]    // Unassociated cards that fit this lesson
-  newCardSuggestions: ParsedCard[]  // AI-suggested new cards to create
-  rationale: string
-}
-```
-
-**AI Prompt**:
-```
-You are expanding a Chinese lesson. The lesson currently contains these cards:
-[JSON array of lesson's current cards]
-
-Other unassociated cards in the deck:
-[JSON array of cards without lessonId]
-
-Task 1: Identify which existing cards should be added to this lesson.
-Task 2: Suggest 3-5 new cards that would complement this lesson.
-
-Return JSON:
-{
-  "existingCardIndices": [2, 5, 8],
-  "newCards": [
-    {
-      "hanzi": "打折",
-      "pinyin": "dǎzhé",
-      "english": "discount",
-      "notes": "Common in shopping contexts",
-      "type": "VOCABULARY",
-      "suggestedTags": ["shopping", "HSK-4"]
-    }
-  ],
-  "rationale": "These additions strengthen your shopping vocabulary"
-}
-```
-
----
-
-### 5. AI Generate Lesson Notes
-
-**Endpoint**: `POST /api/lessons/[id]/generate-notes`
-
-**Request Body**: None
-
-**Response**:
-```typescript
-{
-  notes: string  // Generated markdown content
-}
-```
-
-**AI Prompt**:
-```
-Write comprehensive lesson notes for a Chinese language lesson.
-
-Lesson title: {title}
-Cards covered:
-[JSON array of cards]
-
-Create pedagogical notes including:
-1. Introduction (what this lesson covers)
-2. Key concepts explanation
-3. Usage examples
-4. Common mistakes to avoid
-5. Study tips
-6. Cultural notes (if relevant)
-
-Return markdown-formatted text (not JSON).
-```
-
----
-
-### 6. Get Review Cards (Modified)
-
-**Endpoint**: `GET /api/review`
-
-**Query Parameters**:
-```typescript
-{
-  limit?: number           // Max cards to return
-  allCards?: boolean       // Include non-due cards
-  types?: string[]         // Filter by card types
-  tagIds?: string[]        // Filter by tags
-  lessonId?: string        // NEW: Filter by lesson
-}
-```
-
-**Implementation Changes**:
-```typescript
-// Add lessonId to where clause
-const where: Prisma.CardWhereInput = {
-  deckId: deck.id,
-  ...(lessonId && { lessonId }),  // NEW
-  ...(types && { type: { in: types } }),
-  ...(tagIds && { tags: { some: { tagId: { in: tagIds } } } }),
-  // ... other filters
-}
-```
-
----
-
-## UI Components
-
-### Component Hierarchy
-
-```
-UploadPage
-├── NotesTextarea
-├── LessonMetadataForm (existing, collects but doesn't use)
-├── ParseButton
-├── ParsedCardsPreview
-└── LessonAssociationModal (NEW)
-    ├── LessonSelector
-    │   ├── ExistingLessonDropdown
-    │   └── CreateLessonForm
-    └── AssociateButton
-
-LessonsPage
-├── LessonsList
-│   └── LessonCard (with progress bar)
-├── SuggestLessonsButton (NEW)
-└── SuggestLessonsModal (NEW)
-    └── LessonSuggestionCard
-
-LessonDetailPage (NEW)
-├── LessonHeader
-│   ├── LessonMetadata
-│   └── ActionButtons
-│       ├── LearnButton
-│       ├── ReviewButton
-│       ├── ExpandButton
-│       └── EditButton
-├── LessonNotes (rich text)
-├── ProgressMetrics
-└── CardsList
-    └── CardItem
-
-ReviewPage
-├── ReviewSettings
-│   ├── ModeSelector (Standard vs Narrative)
-│   ├── LessonSelector (NEW)
-│   ├── TypeFilters
-│   └── TagFilters
-├── StandardReviewMode (existing)
-└── NarrativeReviewMode (NEW)
-    ├── LessonContextPanel
-    ├── CardDisplay
-    ├── AnswerButtons
-    └── FeedbackPanel (on incorrect)
-        ├── LessonNotesSection
-        ├── CardExplanationSection
-        └── RelatedCardsSection
-
-DeckPage
-├── CardFilters
-│   ├── SearchBar
-│   ├── TypeFilter
-│   ├── TagFilter
-│   └── LessonFilter (NEW)
-├── SelectionToolbar (NEW)
-│   ├── AddToLessonButton
-│   └── CreateLessonButton
-└── CardList (with multi-select)
-```
-
-### Key Component Specifications
-
-#### LessonAssociationModal
-
-**Props**:
-```typescript
-interface LessonAssociationModalProps {
-  open: boolean
-  onClose: () => void
-  cardIds: string[]
-  onSuccess: (lessonId: string) => void
-}
-```
-
-**State**:
-```typescript
-const [mode, setMode] = useState<'existing' | 'new'>('existing')
-const [selectedLessonId, setSelectedLessonId] = useState<string>()
-const [newLessonData, setNewLessonData] = useState({
-  number: nextLessonNumber,
-  title: '',
-  notes: ''
-})
-```
-
-**UI**:
-```
-┌────────────────────────────────────────────┐
-│  Associate 15 cards with Lesson            │
-├────────────────────────────────────────────┤
-│                                             │
-│  ⦿ Add to existing lesson                  │
-│  ○ Create new lesson                       │
-│                                             │
-│  [Lesson 3: Shopping Vocabulary ▼]         │
-│   23 cards · Last updated 2 days ago       │
-│                                             │
-│                                             │
-│  [Skip]  [Associate Cards]                 │
-└────────────────────────────────────────────┘
-```
-
----
-
-#### NarrativeReviewMode
-
-**Props**:
-```typescript
-interface NarrativeReviewModeProps {
   lessonId: string
-  lesson: Lesson
-  cards: Card[]
-  onComplete: () => void
+  totalPages: number        // 10-15 pages
+  pages: Array<{
+    pageNumber: number
+    segmentCount: number
+    types: SegmentType[]
+  }>
 }
 ```
 
-**State**:
-```typescript
-const [currentIndex, setCurrentIndex] = useState(0)
-const [isFlipped, setIsFlipped] = useState(false)
-const [showFeedback, setShowFeedback] = useState(false)
-const [relatedCards, setRelatedCards] = useState<Card[]>([])
-```
-
-**UI Layout**:
-```
-┌────────────────────────────────────────────────────────────┐
-│ Lesson 5: Restaurant Vocabulary               [3/20] 15%   │
-├────────────────────────────────────────────────────────────┤
-│ ▼ Lesson Notes                                             │
-│   This lesson covers common phrases and vocabulary used... │
-│                                                             │
-├────────────────────────────────────────────────────────────┤
-│                                                             │
-│                     ┌──────────────┐                       │
-│                     │              │                       │
-│                     │   菜单        │                       │
-│                     │              │                       │
-│                     │   [🔊]        │                       │
-│                     │              │                       │
-│                     │   cài dān    │                       │
-│                     │              │                       │
-│                     │  [Tap to flip]                       │
-│                     └──────────────┘                       │
-│                                                             │
-└────────────────────────────────────────────────────────────┘
-
-After flip + incorrect answer:
-
-┌────────────────────────────────────────────────────────────┐
-│ Lesson 5: Restaurant Vocabulary               [3/20] 15%   │
-├────────────────────────────────────────────────────────────┤
-│                                                             │
-│   [Again]    [Hard]    [Good]    [Easy]                    │
-│                                                             │
-├────────────────────────────────────────────────────────────┤
-│ ⚠️ Let's review this concept                                │
-├────────────────────────────────────────────────────────────┤
-│ 📖 Lesson Context                                          │
-│    "菜单 (cài dān) is essential when ordering. Remember    │
-│    that 菜 means dish/cuisine and 单 means list."          │
-├────────────────────────────────────────────────────────────┤
-│ 💡 About this word                                         │
-│    Literally means "dish list". Used in all Chinese        │
-│    restaurants. Don't confuse with 点菜 (ordering).        │
-├────────────────────────────────────────────────────────────┤
-│ 🔗 Related Cards (click to view)                           │
-│    ┌──────────┐  ┌──────────┐  ┌──────────┐              │
-│    │ 点菜      │  │ 服务员    │  │ 结账      │              │
-│    │ order    │  │ waiter    │  │ pay bill │              │
-│    └──────────┘  └──────────┘  └──────────┘              │
-├────────────────────────────────────────────────────────────┤
-│                        [Continue]                           │
-└────────────────────────────────────────────────────────────┘
-```
+**Implementation**:
+- Fetch lesson with all cards
+- Generate 10 page structures in parallel (Promise.all)
+- Each AI call generates 2-4 segments for one page
+- Return lightweight structure (no full content yet)
 
 ---
 
-#### SuggestLessonsModal
+### 2. Get Page Content
 
-**UI**:
+**Endpoint**: `GET /api/lessons/pages/[pageNumber]?lessonId=xxx`
+
+**Response**:
+```typescript
+{
+  page: {
+    id: string
+    pageNumber: number
+    segments: Array<{
+      id: string
+      type: SegmentType
+      orderIndex: number
+      content: SegmentContent  // Typed by segment type
+    }>
+  }
+}
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  AI Lesson Suggestions                                  [✕]  │
-├──────────────────────────────────────────────────────────────┤
-│  Analyzed 147 cards. Here are 4 suggested lessons:          │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ 📚 HSK 1 Core Vocabulary                               │ │
-│  │ 23 cards                                               │ │
-│  │                                                         │ │
-│  │ Rationale: Essential HSK-1 level words covering basic  │ │
-│  │ daily conversation topics.                             │ │
-│  │                                                         │ │
-│  │ Cards: 你好, 谢谢, 再见, 是, 不是, ...and 18 more       │ │
-│  │                                                         │ │
-│  │ [View All Cards]  [Modify]  [Accept] [Skip]           │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                               │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │ 🍜 Food & Restaurant Vocabulary                        │ │
-│  │ 18 cards                                               │ │
-│  │                                                         │ │
-│  │ Rationale: Practical vocabulary for dining out and    │ │
-│  │ discussing food preferences.                           │ │
-│  │                                                         │ │
-│  │ ...                                                    │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                                                               │
-│  [Close]                                                     │
-└──────────────────────────────────────────────────────────────┘
+
+**Implementation**:
+- Check if page already generated
+- If not, generate on-demand with AI
+- Cache in database for future loads
+
+---
+
+### 3. Evaluate User Answer
+
+**Endpoint**: `POST /api/lessons/pages/evaluate`
+
+**Request Body**:
+```typescript
+{
+  segmentId: string
+  segmentType: SegmentType
+  userAnswer: string
+  correctAnswers?: string[]   // For reference
+}
+```
+
+**Response**:
+```typescript
+{
+  correct: boolean
+  feedback: FeedbackSegmentContent | null  // Only if wrong
+}
+```
+
+**Implementation**:
+- For TRANSLATION/FILL_IN, call Claude to evaluate
+- Compare semantic meaning, not exact match
+- Generate encouraging feedback if wrong
+
+---
+
+### 4. Save/Load Lesson Progress
+
+**Endpoint**: `GET /api/lessons/progress?lessonId=xxx`
+
+**Response**:
+```typescript
+{
+  currentPage: number
+  totalPages: number
+  responses: Array<{
+    segmentId: string
+    correct: boolean
+    userAnswer: string
+  }>
+}
+```
+
+**Endpoint**: `POST /api/lessons/progress`
+
+**Request Body**:
+```typescript
+{
+  lessonId: string
+  currentPage: number
+  responses: Array<{ segmentId: string, correct: boolean, userAnswer: string }>
+}
 ```
 
 ---
 
 ## AI Integration
 
-### AI Prompts Library
-
-**Location**: `/src/lib/lesson-ai-prompts.ts`
+### Prompt: Generate Lesson Page
 
 ```typescript
-export const SUGGEST_LESSONS_PROMPT = `
-You are a Chinese language learning expert. Analyze the following flashcards
-and suggest optimal lesson groupings for a structured learning path.
+export const LESSON_PAGE_GENERATION_PROMPT = `You are creating an interactive Chinese language lesson.
 
-Cards:
-{cards}
+**Lesson Context:**
+{LESSON_CONTEXT}
 
-Requirements:
-- Create 3-5 lesson suggestions
-- Group cards by related topics, HSK level, or grammar patterns
-- Each lesson should have 10-30 cards for optimal learning
-- Provide a concise, descriptive title for each lesson
-- Include a brief rationale explaining why these cards belong together
-- Consider pedagogical progression (introduce simple concepts before complex)
-- Prioritize practical, thematic groupings over arbitrary divisions
+**Cards in Lesson:**
+{CARD_LIST}
 
-Return JSON format:
-{
-  "suggestions": [
-    {
-      "title": "Lesson title (max 50 chars)",
-      "rationale": "Brief explanation (max 150 chars)",
-      "cardIndices": [0, 3, 7, 12, ...]
-    }
-  ]
-}
-`
+**Page Number:** {PAGE_NUMBER} of {TOTAL_PAGES}
 
-export const EXPAND_LESSON_PROMPT = `
-You are expanding a Chinese language lesson.
+Create 2-4 educational segments for this page. Use cards from the lesson.
 
-Current lesson: "{lessonTitle}"
-Current cards:
-{currentCards}
+**Segment Types:**
+- TEXT: Explain concept (1 paragraph max)
+- FLASHCARD: Highlight key vocabulary
+- MULTIPLE_CHOICE: Test comprehension (4 options)
+- FILL_IN: Complete sentence
+- TRANSLATION_EN_ZH: Translate English to Chinese
+- TRANSLATION_ZH_EN: Translate Chinese to English
 
-Available unassociated cards:
-{availableCards}
+**Progressive Difficulty:**
+- Early pages: Introduce vocabulary, simple concepts
+- Middle pages: Practice with varied question types
+- Later pages: Complex translations, cultural notes
 
-Tasks:
-1. Identify which existing unassociated cards fit thematically with this lesson
-2. Suggest 3-5 new cards that would complement and strengthen this lesson
-3. Explain your rationale
-
-Guidelines:
-- New cards should fill gaps in the lesson's topic coverage
-- Maintain consistent difficulty level with existing cards
-- Consider semantic relationships (synonyms, antonyms, related concepts)
-- Include practical, commonly-used vocabulary
-
-Return JSON:
-{
-  "existingCardIndices": [2, 5, 8],
-  "newCards": [
-    {
-      "hanzi": "打折",
-      "pinyin": "dǎzhé",
-      "english": "discount",
-      "notes": "Common in shopping contexts. Lit: hit/strike + discount",
-      "type": "VOCABULARY",
-      "suggestedTags": ["shopping", "HSK-4"]
-    }
-  ],
-  "rationale": "Brief explanation of additions"
-}
-`
-
-export const GENERATE_LESSON_NOTES_PROMPT = `
-Write comprehensive, pedagogical notes for a Chinese language lesson.
-
-Lesson: "{lessonTitle}"
-Cards covered:
-{cards}
-
-Create structured notes with the following sections:
-
-1. **Introduction** (2-3 sentences)
-   - What this lesson covers
-   - Why it's important
-
-2. **Key Concepts** (bullet points)
-   - Main vocabulary themes
-   - Grammar patterns (if applicable)
-   - Relationships between words
-
-3. **Usage Tips** (3-4 tips)
-   - How to use these words in context
-   - Common collocations
-   - Formality levels
-
-4. **Common Mistakes** (2-3 points)
-   - What learners often confuse
-   - How to avoid errors
-
-5. **Cultural Notes** (if relevant)
-   - Cultural context for vocabulary
-   - When/how native speakers use these
-
-6. **Study Suggestions**
-   - Recommended practice activities
-   - Mnemonic devices for difficult words
-
-Format in Markdown. Be concise but informative (~300-500 words total).
-Write for intermediate English speakers learning Mandarin.
-`
+Return JSON array of segments with proper typing.`
 ```
 
-### Token Management
+### Prompt: Evaluate Translation
 
-**Model Selection**:
-- **Suggest Lessons**: Claude Sonnet 4.5 (16k tokens max) - Complex analysis
-- **Expand Lesson**: Claude Sonnet 4.5 (4k tokens max) - Medium complexity
-- **Generate Notes**: Claude Sonnet 4.5 (2k tokens max) - Creative writing
+```typescript
+export const TRANSLATION_EVAL_PROMPT = `Evaluate this Chinese translation.
 
-**Cost Optimization**:
-- Cache lesson suggestions for 24 hours
-- Batch multiple expansion requests
-- Rate limit: 10 AI requests per user per hour
+**Question:** Translate to Chinese: "{SOURCE_TEXT}"
+**User Answer:** {USER_ANSWER}
+**Expected Answers:** {ACCEPTABLE_ANSWERS}
+
+Determine correctness:
+1. Correct - Matches meaning (even if different words)
+2. Partially correct - Right idea, minor errors
+3. Incorrect - Wrong meaning or major errors
+
+Provide:
+- isCorrect: boolean
+- explanation: Friendly, specific feedback
+- correctAnswer: Best translation (if wrong)
+- encouragement: Positive note
+
+Return JSON.`
+```
 
 ---
 
-## Edge Cases & Error Handling
+## Implementation Status
 
-### Edge Case 1: User Tries to Associate Cards Already in Another Lesson
+### ✅ Phase 1-4: Basic Lesson System (Completed)
 
-**Scenario**: User selects 10 cards, 3 are already in Lesson 2, wants to add all to Lesson 5.
+- [x] Database schema for Lesson, Card relationships
+- [x] Upload flow with AI context generation
+- [x] Lesson association (new/existing/none)
+- [x] Duplicate card handling
+- [x] Lesson detail pages with progress tracking
+- [x] Multi-select bulk operations
+- [x] Standard SRS review filtered by lesson
+- [x] Basic lesson context display
 
-**Handling**:
-- **UI**: Show warning in modal:
-  ```
-  ⚠️ 3 cards are already in Lesson 2: Shopping Vocabulary
+### 🚧 Phase 5: Interactive AI Lessons (In Progress)
 
-  ○ Keep in original lesson (only add 7 cards)
-  ○ Move to new lesson (all 10 cards)
-  ```
-- **API**: Accept `mode` parameter: `'add'` | `'move'`
-- **Database**:
-  - `'add'`: Only update cards with `lessonId = null`
-  - `'move'`: Update all cards regardless
+**What Was Implemented (Incorrectly)**:
+- ❌ "Narrative Mode" - Simple review with lesson notes displayed
+- ❌ Static lesson context shown in text box
+- ❌ Related cards shown when incorrect (client-side only)
 
-### Edge Case 2: AI Suggests Lesson with Only 3 Cards
+**What Needs to Be Removed**:
+- `NarrativeMode` component (src/components/review/narrative-mode.tsx)
+- "Learn by Lesson" review mode selector
+- Static lesson notes display during review
 
-**Scenario**: Not enough related cards for meaningful lesson.
+**What Needs to Be Built**:
+- [ ] Database migration: Add LessonPage, PageSegment, LessonProgress
+- [ ] API: Generate lesson pages (parallel)
+- [ ] API: Get page content
+- [ ] API: Evaluate answers with AI
+- [ ] API: Save/load progress
+- [ ] Component: Interactive lesson page navigation
+- [ ] Component: Segment renderer for all types
+- [ ] Component: Translation input with AI evaluation
+- [ ] Component: Fill-in-the-blank input
+- [ ] Component: Dynamic feedback insertion
+- [ ] Component: Progress tracker and completion
 
-**Handling**:
-- **AI Prompt**: Specify minimum 8 cards per lesson
-- **Post-processing**: Filter out suggestions with < 8 cards
-- **UI**: If < 3 suggestions after filtering, show message:
-  ```
-  "Not enough unassociated cards to create meaningful lessons.
-  Try uploading more notes or manually organizing existing cards."
-  ```
+### 🔮 Future Enhancements
 
-### Edge Case 3: Lesson Deleted Mid-Review
-
-**Scenario**: User reviewing Lesson 5, admin deletes it (in multi-user scenario).
-
-**Handling**:
-- **Database**: Cards have `onDelete: SetNull` for lesson FK
-- **Review Session**: Cards cached at session start, continue normally
-- **After Session**: Cards no longer associated, show warning:
-  ```
-  "⚠️ The lesson you were reviewing has been deleted.
-  Your progress has been saved, but cards are no longer grouped."
-  ```
-
-### Edge Case 4: Narrative Mode with Only 1 Card in Lesson
-
-**Scenario**: Lesson has insufficient cards for meaningful learning.
-
-**Handling**:
-- **UI**: Disable "Learn Lesson" button if < 5 cards
-- **Tooltip**: "Lessons need at least 5 cards for narrative mode"
-- **Alternative**: Show "Add More Cards" button
-
-### Edge Case 5: Upload Fails After Cards Created
-
-**Scenario**: Cards created successfully, but lesson association API call fails.
-
-**Handling**:
-- **Frontend**:
-  - Show toast: "Cards created, but lesson association failed"
-  - Offer "Retry" button to call association API again
-  - Store `cardIds` in localStorage for retry
-- **Backend**: Idempotent association endpoint (safe to call multiple times)
-
-### Edge Case 6: AI Returns Malformed JSON
-
-**Scenario**: Claude API returns invalid JSON structure.
-
-**Handling**:
-- **Parsing**: Wrap in try-catch
-- **Retry**: Attempt to clean and re-parse (remove markdown code blocks)
-- **Fallback**: Show error with raw response for debugging
-- **User Message**:
-  ```
-  "AI suggestions failed to generate properly.
-  Please try again or create lessons manually."
-  ```
-
-### Edge Case 7: User Has 500+ Cards, AI Timeout
-
-**Scenario**: Too many cards to analyze in single request.
-
-**Handling**:
-- **API**: Paginate analysis (analyze 100 cards at a time)
-- **Streaming**: Use streaming response to show progress
-- **UI**: Show progress bar: "Analyzing cards... 100/500"
-- **Batching**: Create multiple AI requests, combine results
+- [ ] AI suggest lessons from unassociated cards
+- [ ] AI expand lesson with related content
+- [ ] Lesson templates (HSK levels, topics)
+- [ ] Collaborative lesson sharing
+- [ ] Multimedia (images, audio, video)
+- [ ] Advanced analytics per lesson
 
 ---
 
-## Testing Strategy
+## Next Steps
 
-### Unit Tests
+1. **Remove Incorrect Implementation**
+   - Delete NarrativeMode component and related code
+   - Remove "narrative" mode from review page
 
-**SRS Algorithm (existing, verify not broken)**:
-- `calculateSRS()` with lesson-filtered cards
-- Verify SRS state transitions work same way
+2. **Database Migration**
+   - Add LessonPage, PageSegment, LessonProgress models
+   - Add SegmentType enum
 
-**Related Cards Function**:
-```typescript
-describe('getRelatedCards', () => {
-  it('returns cards with matching tags', () => {
-    const card = { hanzi: '菜单', tags: ['food', 'HSK-3'] }
-    const lessonCards = [
-      { hanzi: '点菜', tags: ['food'] },
-      { hanzi: '买', tags: ['shopping'] },
-    ]
-    const related = getRelatedCards(card, lessonCards)
-    expect(related).toContain(lessonCards[0])
-    expect(related).not.toContain(lessonCards[1])
-  })
-})
-```
+3. **API Implementation**
+   - Build page generation endpoint (parallel AI calls)
+   - Build page content endpoint
+   - Build evaluation endpoint
 
-### Integration Tests
+4. **Frontend Components**
+   - Create lesson learn page (/lessons/[id]/learn)
+   - Build segment renderer
+   - Implement page navigation
 
-**Lesson Association Flow**:
-```typescript
-describe('POST /api/cards/associate-lesson', () => {
-  it('associates multiple cards with lesson', async () => {
-    const cards = await createTestCards(3)
-    const lesson = await createTestLesson()
-
-    const response = await request(app)
-      .post('/api/cards/associate-lesson')
-      .send({ cardIds: cards.map(c => c.id), lessonId: lesson.id })
-
-    expect(response.status).toBe(200)
-    expect(response.body.updatedCount).toBe(3)
-
-    const updatedCards = await prisma.card.findMany({
-      where: { id: { in: cards.map(c => c.id) } }
-    })
-    updatedCards.forEach(card => {
-      expect(card.lessonId).toBe(lesson.id)
-    })
-  })
-})
-```
-
-### E2E Tests (Playwright)
-
-**Upload → Lesson Flow**:
-```typescript
-test('upload notes and create lesson', async ({ page }) => {
-  await page.goto('/upload')
-
-  // Paste notes
-  await page.fill('textarea', 'Test notes:\n你好 - hello')
-  await page.click('button:has-text("Parse with AI")')
-
-  // Wait for parsing
-  await page.waitForSelector('text=1 card parsed')
-
-  // Save cards
-  await page.click('button:has-text("Save Cards")')
-
-  // Association modal
-  await page.waitForSelector('text=Associate with Lesson')
-  await page.click('text=Create new lesson')
-  await page.fill('input[name="lessonNumber"]', '1')
-  await page.fill('input[name="lessonTitle"]', 'Test Lesson')
-  await page.click('button:has-text("Associate Cards")')
-
-  // Verify redirect to lesson detail
-  await page.waitForURL(/\/lessons\/\w+/)
-  await expect(page.locator('h1')).toContainText('Lesson 1: Test Lesson')
-})
-```
-
-**Narrative Review Flow**:
-```typescript
-test('review lesson in narrative mode', async ({ page }) => {
-  // Setup: Create lesson with 5 cards
-  const lesson = await setupTestLesson()
-
-  await page.goto(`/lessons/${lesson.id}`)
-  await page.click('button:has-text("Learn Lesson")')
-
-  // Review settings
-  await page.waitForSelector('text=Learn by Lesson')
-  await page.click('button:has-text("Start Learning")')
-
-  // First card
-  await page.waitForSelector('text=Lesson Notes')
-  await page.click('.flashcard') // Flip
-
-  // Answer incorrectly
-  await page.click('button:has-text("Again")')
-
-  // Verify feedback panel
-  await expect(page.locator('text=Let\'s review')).toBeVisible()
-  await expect(page.locator('text=Lesson Context')).toBeVisible()
-  await expect(page.locator('text=Related Cards')).toBeVisible()
-})
-```
-
-### Manual Testing Checklist
-
-- [ ] Upload notes without lesson association (skip option)
-- [ ] Upload notes and create new lesson
-- [ ] Upload notes and add to existing lesson
-- [ ] Upload notes with some duplicate cards
-- [ ] View lesson detail with 0 cards
-- [ ] View lesson detail with 100+ cards
-- [ ] Review lesson in standard mode
-- [ ] Review lesson in narrative mode
-- [ ] Answer correct in narrative mode (verify smooth flow)
-- [ ] Answer incorrect in narrative mode (verify feedback panel)
-- [ ] Related cards display correctly
-- [ ] Multi-select cards in deck, add to lesson
-- [ ] Multi-select cards in deck, create new lesson
-- [ ] Filter deck by lesson via URL param
-- [ ] AI suggest lessons with various deck sizes
-- [ ] AI expand lesson with/without available cards
-- [ ] AI generate lesson notes
-- [ ] Delete lesson (verify cards preserved with lessonId = null)
-- [ ] Lesson with prerequisite (future)
-- [ ] Lesson ordering drag-and-drop (future)
-
----
-
-## Future Enhancements
-
-### Phase 4 (Not in Initial Implementation)
-
-1. **Lesson Templates**
-   - Pre-built lesson structures for HSK levels 1-6
-   - Topic-based templates (travel, business, daily life)
-   - Import template and auto-populate with matching cards
-
-2. **Collaborative Lessons** (Multi-User)
-   - Share lesson with other users
-   - Public lesson library
-   - Clone others' lessons
-   - Lesson ratings and reviews
-
-3. **Adaptive Learning**
-   - AI adjusts lesson difficulty based on user performance
-   - Recommends next lesson based on mastery
-   - Personalized learning paths
-
-4. **Multimedia Enhancements**
-   - Attach images to lessons (visual learning)
-   - Audio recordings of lesson intro (native speaker)
-   - Video examples for grammar lessons
-
-5. **Gamification**
-   - Lesson completion achievements
-   - XP bonuses for finishing lessons in streak
-   - Leaderboards (lessons completed this month)
-   - Badges for lesson types (e.g., "HSK-3 Master")
-
-6. **Advanced Analytics**
-   - Time spent per lesson
-   - Accuracy trends per lesson
-   - Most difficult lessons (aggregate across users)
-   - Suggested review frequency per lesson
-
-7. **Export/Import**
-   - Export lesson as JSON/Anki deck
-   - Import lessons from file
-   - Share lesson via link
-
-8. **Lesson Builder UI**
-   - Visual drag-and-drop card organizer
-   - Timeline view of lesson sequence
-   - Card dependency graph (show relationships)
-
----
-
-## Appendix: Glossary
-
-**SRS (Spaced Repetition System)**: Algorithm that schedules card reviews based on user performance, optimizing long-term retention.
-
-**Card States**:
-- **NEW**: Never reviewed before
-- **LEARNING**: Being actively learned (short intervals)
-- **REVIEW**: In regular review rotation (medium intervals)
-- **LEARNED**: Mastered (long intervals, 5+ correct in a row)
-
-**Quality Ratings**:
-- **AGAIN (0)**: Completely forgot, reset to 1 day
-- **HARD (1)**: Correct but difficult, reduce ease factor
-- **GOOD (2)**: Correct with normal difficulty
-- **EASY (3)**: Perfect recall, increase interval
-
-**Narrative Mode**: Sequential review mode where cards are presented in a structured order with contextual explanations, rather than random SRS-driven order.
-
-**Related Cards**: Cards within the same lesson that share tags, type, or semantic relationships with the current card.
-
-**Lesson Mastery**: Percentage of cards in a lesson that have reached LEARNED state.
-
-**Prerequisites**: Lessons that must be completed before unlocking a subsequent lesson.
+5. **Testing**
+   - Test parallel page generation
+   - Test AI evaluation accuracy
+   - Test progress persistence
 
 ---
 
 ## Document Change Log
 
-| Version | Date       | Changes                                  |
-|---------|------------|------------------------------------------|
-| 1.0     | 2025-12-03 | Initial design document created          |
+| Version | Date       | Changes                                           |
+|---------|------------|---------------------------------------------------|
+| 1.0     | 2025-12-03 | Initial design document                           |
+| 2.0     | 2025-12-03 | Updated with interactive AI lesson system design  |
+|         |            | Removed incorrect "Narrative Mode" concept        |
+|         |            | Added multi-page segment-based learning flow      |
 
 ---
 

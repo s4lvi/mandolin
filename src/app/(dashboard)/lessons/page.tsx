@@ -114,7 +114,7 @@ export default function LessonsPage() {
                         className="flex-1"
                         onClick={(e) => {
                           e.preventDefault()
-                          window.location.href = `/review?lessonId=${lesson.id}&mode=narrative`
+                          window.location.href = `/lessons/${lesson.id}/learn`
                         }}
                       >
                         <Play className="h-3 w-3 mr-1" />

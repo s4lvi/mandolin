@@ -113,7 +113,7 @@ Respond with ONLY valid JSON, no other text:
   "translation": "English translation"
 }`
 
-export const LESSON_CONTEXT_PROMPT = `You are a Mandarin Chinese language learning assistant. Analyze the following lesson notes and generate a comprehensive lesson context summary that will be used during narrative learning to provide contextual explanations.
+export const LESSON_CONTEXT_PROMPT = `You are a Mandarin Chinese language learning assistant. Analyze the following lesson notes and generate a comprehensive lesson context summary that will be used to create interactive lessons with contextual explanations.
 
 The lesson context should be structured in Markdown format and include the following sections:
 
