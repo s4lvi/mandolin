@@ -114,19 +114,31 @@ export async function POST(
       })
     }
 
-    // Always delete existing pages before generating new ones (use transaction for safety)
-    await prisma.$transaction(async (tx) => {
-      // Delete segments first (in case cascade isn't working)
-      await tx.pageSegment.deleteMany({
-        where: {
-          page: { lessonId }
-        }
+    // If regenerate requested, delete all existing pages
+    if (regenerate && existingPages.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        await tx.pageSegment.deleteMany({
+          where: { page: { lessonId } }
+        })
+        await tx.lessonPage.deleteMany({
+          where: { lessonId }
+        })
       })
-      // Then delete pages
-      await tx.lessonPage.deleteMany({
-        where: { lessonId }
+    }
+
+    // If pages partially exist (not regenerating), return what we have
+    // rather than deleting and regenerating (which would invalidate progress)
+    if (!regenerate && existingPages.length > 0) {
+      return NextResponse.json({
+        lessonId,
+        totalPages: existingPages.length,
+        pages: existingPages.map((page) => ({
+          pageNumber: page.pageNumber,
+          segmentCount: page.segments.length,
+          types: page.segments.map((s) => s.type)
+        }))
       })
-    })
+    }
 
     // Build the prompt
     const lessonContext = lesson.notes || "No lesson context provided"

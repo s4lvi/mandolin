@@ -47,6 +47,7 @@ export default function UploadPage() {
   const [parsedCards, setParsedCards] = useState<ParsedCardWithDuplicate[]>([])
   const [generatedLessonContext, setGeneratedLessonContext] = useState("")
   const [showPreview, setShowPreview] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
 
   const parseNotesMutation = useParseNotes()
   const createCardsMutation = useCreateCardsBulk()
@@ -130,6 +131,9 @@ export default function UploadPage() {
   }
 
   const handleSaveCards = async () => {
+    if (isSaving) return
+    setIsSaving(true)
+
     const newCards = parsedCards
       .filter((card) => card.selected && !card.isDuplicate)
       .map((card) => ({
@@ -233,7 +237,7 @@ export default function UploadPage() {
               body: JSON.stringify({
                 cardIds: existingCardIds,
                 lessonId: finalLessonId,
-                mode: "move"  // Use 'move' to reassign cards even if they're already in another lesson
+                mode: "add"  // Use 'add' to avoid silently removing cards from their existing lesson
               })
             })
 
@@ -275,6 +279,8 @@ export default function UploadPage() {
       toast.error(
         error instanceof Error ? error.message : "Failed to save cards"
       )
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -299,9 +305,9 @@ export default function UploadPage() {
             </Button>
             <Button
               onClick={handleSaveCards}
-              disabled={createCardsMutation.isPending || selectedNewCards === 0}
+              disabled={isSaving || createCardsMutation.isPending || selectedNewCards === 0}
             >
-              {createCardsMutation.isPending ? (
+              {isSaving || createCardsMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                   Saving...

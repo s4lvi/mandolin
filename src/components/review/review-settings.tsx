@@ -97,13 +97,15 @@ export function ReviewSettings({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="classic">Classic (Self-Rating)</SelectItem>
-                <SelectItem value="test_easy">Test Mode (Multiple Choice)</SelectItem>
+                <SelectItem value="classic">Classic (Flip & Rate)</SelectItem>
+                <SelectItem value="recall">Recall (Type Answer)</SelectItem>
+                <SelectItem value="listening">Listening (Audio Only)</SelectItem>
+                <SelectItem value="test_easy">Test (Multiple Choice)</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          {reviewMode !== "classic" && (
+          {reviewMode === "test_easy" && (
             <div className="space-y-2">
               <Label>Test Direction</Label>
               <Select
@@ -122,7 +124,7 @@ export function ReviewSettings({
             </div>
           )}
 
-          {reviewMode === "classic" && (
+          {(reviewMode === "classic" || reviewMode === "recall") && (
             <div className="space-y-2">
               <Label>Card Face Display</Label>
               <Select
@@ -137,6 +139,7 @@ export function ReviewSettings({
                   <SelectItem value="pinyin">Pinyin Only</SelectItem>
                   <SelectItem value="both">Hanzi + Pinyin</SelectItem>
                   <SelectItem value="english">English Only</SelectItem>
+                  <SelectItem value="immersion">Immersion (Hanzi + Audio, No Pinyin)</SelectItem>
                   <SelectItem value="random">Random</SelectItem>
                 </SelectContent>
               </Select>

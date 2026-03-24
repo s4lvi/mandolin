@@ -2,7 +2,9 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
+import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +15,24 @@ import {
 import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
 import packageJson from "../../../package.json"
 
+function useDueCount() {
+  return useQuery({
+    queryKey: ["due-count"],
+    queryFn: async () => {
+      const res = await fetch("/api/review/due-count")
+      if (!res.ok) return null
+      const data = await res.json()
+      return data.dueCount as number
+    },
+    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
+    refetchInterval: 2 * 60 * 1000
+  })
+}
+
 // Navigation link with flip animation to Chinese
-function NavLink({ href, english, chinese, icon: Icon }: { href: string; english: string; chinese: string; icon?: any }) {
+function NavLink({ href, english, chinese, icon: Icon, badge }: { href: string; english: string; chinese: string; icon?: any; badge?: number | null }) {
   return (
-    <Link href={href} className="group flex items-center text-sm font-medium">
+    <Link href={href} className="group flex items-center text-sm font-medium gap-1">
       {Icon && <Icon className="h-4 w-4 mr-1 flex-shrink-0" />}
       <div className="relative h-6 overflow-hidden">
         <div className="transition-transform duration-300 group-hover:-translate-y-6">
@@ -28,12 +44,18 @@ function NavLink({ href, english, chinese, icon: Icon }: { href: string; english
           </div>
         </div>
       </div>
+      {badge != null && badge > 0 && (
+        <Badge variant="destructive" className="h-5 min-w-5 px-1 text-xs justify-center">
+          {badge > 99 ? "99+" : badge}
+        </Badge>
+      )}
     </Link>
   )
 }
 
 export function Navbar() {
   const { data: session } = useSession()
+  const { data: dueCount } = useDueCount()
 
   return (
     <header className="border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm">
@@ -84,6 +106,11 @@ export function Navbar() {
                     <GraduationCap className="h-4 w-4 mr-2" />
                     <span className="group-hover:hidden">Review</span>
                     <span className="hidden group-hover:inline text-primary font-semibold">复习</span>
+                    {dueCount != null && dueCount > 0 && (
+                      <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1 text-xs justify-center">
+                        {dueCount > 99 ? "99+" : dueCount}
+                      </Badge>
+                    )}
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -91,6 +118,13 @@ export function Navbar() {
                     <BookOpen className="h-4 w-4 mr-2" />
                     <span className="group-hover:hidden">Lessons</span>
                     <span className="hidden group-hover:inline text-primary font-semibold">课程</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/stories" className="flex items-center group">
+                    <BookOpen className="h-4 w-4 mr-2" />
+                    <span className="group-hover:hidden">Stories</span>
+                    <span className="hidden group-hover:inline text-primary font-semibold">故事</span>
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
@@ -145,8 +179,9 @@ export function Navbar() {
             <>
               <NavLink href="/deck" english="My Deck" chinese="我的卡片" icon={Layers} />
               <NavLink href="/upload" english="Upload Notes" chinese="上传笔记" icon={Upload} />
-              <NavLink href="/review" english="Review" chinese="复习" icon={GraduationCap} />
+              <NavLink href="/review" english="Review" chinese="复习" icon={GraduationCap} badge={dueCount} />
               <NavLink href="/lessons" english="Lessons" chinese="课程" icon={BookOpen} />
+              <NavLink href="/stories" english="Stories" chinese="故事" icon={BookOpen} />
               <NavLink href="/stats" english="Stats" chinese="统计" icon={BarChart3} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>

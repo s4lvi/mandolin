@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
-import { PREDEFINED_TAGS } from "@/lib/constants"
+import { PREDEFINED_TAGS, CLAUDE_MODEL } from "@/lib/constants"
 
 const anthropic = new Anthropic()
 
@@ -84,7 +84,7 @@ ${contextParts.join("\n")}
 Your response:`
 
     const response = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: CLAUDE_MODEL,
       max_tokens: 256,
       messages: [
         {

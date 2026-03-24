@@ -28,19 +28,19 @@ export function useTestQuestion(cardId: string, direction: string) {
   return useQuery({
     queryKey: ["test-question", cardId, direction],
     queryFn: () => fetchTestQuestion(cardId, direction),
-    staleTime: Infinity, // Questions are cached permanently
+    staleTime: 1000 * 60 * 30, // Rotate questions every 30 minutes
     gcTime: 1000 * 60 * 60 // 1 hour
   })
 }
 
-// Prefetch questions for entire session
+// Prefetch questions sequentially to avoid rate limits
 export function usePrefetchTestQuestions() {
   return useMutation({
     mutationFn: async ({ cardIds, direction }: PrefetchTestQuestionsRequest) => {
-      // Trigger fetches in parallel (will use cache if available)
-      await Promise.all(
-        cardIds.map(cardId => fetchTestQuestion(cardId, direction))
-      )
+      // Fetch one at a time to avoid concurrent Claude API calls
+      for (const cardId of cardIds) {
+        await fetchTestQuestion(cardId, direction)
+      }
     }
   })
 }

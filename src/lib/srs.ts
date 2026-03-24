@@ -187,6 +187,20 @@ export function getQualityLabel(quality: Quality): string {
   }
 }
 
+// Preview the interval that would result from a given quality rating
+export function previewInterval(card: SRSCard, quality: Quality): number {
+  return calculateSRS(card, quality).interval
+}
+
+// Format an interval as a human-readable string
+export function formatInterval(days: number): string {
+  if (days < 1) return "<1d"
+  if (days === 1) return "1d"
+  if (days < 30) return `${days}d`
+  if (days < 365) return `${Math.round(days / 30)}mo`
+  return `${(days / 365).toFixed(1)}y`
+}
+
 // Get quality color for display
 export function getQualityColor(quality: Quality): string {
   switch (quality) {

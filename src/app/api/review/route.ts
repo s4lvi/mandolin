@@ -68,29 +68,6 @@ export async function GET(req: Request) {
 
     const now = new Date()
 
-    // Build the full where clause for due/all cards
-    const fullWhere = allCards
-      ? where
-      : {
-          ...where,
-          OR: [
-            { nextReview: null }, // Never reviewed
-            { nextReview: { lte: now } }, // Due for review
-            { state: CardState.NEW } // New cards
-          ]
-        }
-
-    const orderBy = allCards
-      ? [
-          { lastReviewed: "asc" as const }, // Oldest reviewed first
-          { createdAt: "asc" as const }
-        ]
-      : [
-          { state: "asc" as const }, // NEW cards first
-          { nextReview: "asc" as const }, // Then by due date (oldest first)
-          { easeFactor: "asc" as const } // Then hardest cards (lowest ease factor)
-        ]
-
     const includeClause = {
       lesson: {
         select: { number: true, title: true }
@@ -102,81 +79,100 @@ export async function GET(req: Request) {
       }
     }
 
-    // Fetch priority and non-priority cards separately
-    // Aim for ~70% priority cards if available
-    const priorityLimit = Math.ceil(limit * 0.7)
-    const nonPriorityLimit = limit - priorityLimit
+    let cards: Awaited<ReturnType<typeof prisma.card.findMany>>
 
-    const [priorityCards, nonPriorityCards] = await Promise.all([
-      // Fetch priority cards
-      prisma.card.findMany({
-        where: {
-          ...fullWhere,
-          isPriority: true
-        },
+    if (allCards) {
+      // "All cards" mode: no SRS filtering
+      cards = await prisma.card.findMany({
+        where,
         include: includeClause,
-        orderBy,
-        take: priorityLimit
-      }),
-      // Fetch non-priority cards - get the full limit in case we need more
-      prisma.card.findMany({
-        where: {
-          ...fullWhere,
-          isPriority: false
-        },
-        include: includeClause,
-        orderBy,
-        take: limit // Fetch up to limit, we'll slice later
+        orderBy: [
+          { lastReviewed: "asc" as const },
+          { createdAt: "asc" as const }
+        ],
+        take: limit
       })
-    ])
-
-    // Combine cards based on how many priority cards we got
-    let cards: typeof priorityCards
-    if (priorityCards.length >= limit) {
-      // We have enough priority cards to fill the entire limit
-      cards = priorityCards.slice(0, limit)
     } else {
-      // Combine priority cards with non-priority cards to reach the limit
-      const remainingSlots = limit - priorityCards.length
-      cards = [...priorityCards, ...nonPriorityCards.slice(0, remainingSlots)]
+      // SRS mode: cap new cards at 30% of limit, fill rest with due review cards
+      const maxNewCards = Math.max(3, Math.ceil(limit * 0.3))
+
+      // Fetch new cards and due review cards in parallel
+      const [newCards, dueCards] = await Promise.all([
+        // New cards (never reviewed)
+        prisma.card.findMany({
+          where: {
+            ...where,
+            state: CardState.NEW
+          },
+          include: includeClause,
+          orderBy: [
+            { isPriority: "desc" as const },
+            { createdAt: "asc" as const }
+          ],
+          take: maxNewCards
+        }),
+        // Due review cards (have been reviewed before and are due)
+        prisma.card.findMany({
+          where: {
+            ...where,
+            state: { not: CardState.NEW },
+            OR: [
+              { nextReview: null },
+              { nextReview: { lte: now } }
+            ]
+          },
+          include: includeClause,
+          orderBy: [
+            { isPriority: "desc" as const },
+            { nextReview: "asc" as const },
+            { easeFactor: "asc" as const }
+          ],
+          take: limit
+        })
+      ])
+
+      // Combine: prioritize filling with due review cards, then add new cards
+      const reviewSlots = limit - Math.min(newCards.length, maxNewCards)
+      const selectedReview = dueCards.slice(0, reviewSlots)
+      const remainingSlots = limit - selectedReview.length
+      const selectedNew = newCards.slice(0, remainingSlots)
+
+      cards = [...selectedReview, ...selectedNew]
     }
 
-    // Get user stats for context
-    const userStats = await prisma.userStats.findUnique({
-      where: { userId: session.user.id }
-    })
-
-    // Get count of total due cards
-    const dueCount = await prisma.card.count({
-      where: {
-        ...where,
-        OR: [
-          { nextReview: null },
-          { nextReview: { lte: now } },
-          { state: "NEW" }
-        ]
-      }
-    })
-
-    // Get all tags used by user's cards
-    const availableTags = await prisma.tag.findMany({
-      where: {
-        cards: {
-          some: {
-            card: {
-              deckId: deck.id
+    // Run all supplementary queries in parallel
+    const [userStats, dueCount, totalCards, availableTags] = await Promise.all([
+      prisma.userStats.findUnique({
+        where: { userId: session.user.id }
+      }),
+      prisma.card.count({
+        where: {
+          ...where,
+          OR: [
+            { nextReview: null },
+            { nextReview: { lte: now } },
+            { state: "NEW" }
+          ]
+        }
+      }),
+      prisma.card.count({ where }),
+      prisma.tag.findMany({
+        where: {
+          cards: {
+            some: {
+              card: { deckId: deck.id }
             }
           }
-        }
-      },
-      orderBy: { name: "asc" }
-    })
+        },
+        orderBy: { name: "asc" }
+      })
+    ])
 
     return NextResponse.json({
       cards,
       userStats,
       dueCount,
-      totalCards: await prisma.card.count({ where }),
+      totalCards,
       availableTags
     })
   } catch (error) {

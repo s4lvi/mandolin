@@ -1,8 +1,10 @@
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Trophy, Flame, Star, Zap } from "lucide-react"
-import type { ReviewMode } from "@/types"
+import { Badge } from "@/components/ui/badge"
+import { Trophy, Flame, Star, Zap, RotateCcw, Volume2 } from "lucide-react"
+import { speakChinese } from "@/lib/speech"
+import type { Card as CardType, ReviewMode } from "@/types"
 
 interface SessionResults {
   again: number
@@ -18,6 +20,8 @@ interface SessionCompleteProps {
   streak: number
   level: number
   onRestart: () => void
+  missedCards?: CardType[]
+  onDrillMissed?: () => void
 }
 
 export function SessionComplete({
@@ -25,15 +29,15 @@ export function SessionComplete({
   reviewMode,
   streak,
   level,
-  onRestart
+  onRestart,
+  missedCards = [],
+  onDrillMissed
 }: SessionCompleteProps) {
   const router = useRouter()
   const total = results.again + results.hard + results.good + results.easy
 
-  // Calculate correct answers based on review mode
-  const correct = reviewMode === "classic"
-    ? results.good + results.easy  // Classic: good and easy are correct
-    : total - results.again         // Test: everything except "again" is correct
+  // Calculate correct answers: HARD, GOOD, and EASY all mean the user knew it
+  const correct = results.hard + results.good + results.easy
 
   const percentage = total > 0 ? Math.round((correct / total) * 100) : 0
 
@@ -100,6 +104,45 @@ export function SessionComplete({
               <div className="p-3 bg-green-50 rounded-lg">
                 <p className="text-2xl font-bold text-green-500">{correct}</p>
                 <p className="text-sm text-muted-foreground">Correct</p>
+              </div>
+            </div>
+          )}
+
+          {/* Missed cards drill */}
+          {missedCards.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-red-600">
+                  Cards to review ({missedCards.length})
+                </p>
+                {onDrillMissed && (
+                  <Button size="sm" variant="destructive" onClick={onDrillMissed}>
+                    <RotateCcw className="h-3 w-3 mr-1" />
+                    Drill These
+                  </Button>
+                )}
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {missedCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900/30"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-lg font-bold shrink-0">{card.hanzi}</span>
+                      <span className="text-sm text-muted-foreground truncate">{card.pinyin}</span>
+                      <span className="text-sm truncate">{card.english}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => speakChinese(card.hanzi)}
+                    >
+                      <Volume2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
               </div>
             </div>
           )}

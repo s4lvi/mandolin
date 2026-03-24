@@ -34,9 +34,8 @@ export function SessionHeader({
         </span>
         <span className="flex items-center gap-2">
           <span className="text-yellow-500">+{totalXp} XP</span>
-          <span className="text-green-500">{correctCount}</span>
-          <span>/</span>
-          <span className="text-red-500">{incorrectCount}</span>
+          <span className="text-green-500">{correctCount} correct</span>
+          <span className="text-red-500">{incorrectCount} missed</span>
         </span>
       </div>
       <ProgressBar value={progress} />

@@ -6,7 +6,7 @@ import { createLogger } from "@/lib/logger"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard } from "@/types"
-import { PARSE_NOTES_PROMPT, LESSON_CONTEXT_PROMPT } from "@/lib/constants"
+import { PARSE_NOTES_PROMPT, LESSON_CONTEXT_PROMPT, CLAUDE_MODEL } from "@/lib/constants"
 
 const logger = createLogger("api/parse-notes")
 const anthropic = new Anthropic()
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
             controller.enqueue(encoder.encode('{"status":"generating_context"}\n'))
 
             const contextStream = await anthropic.messages.stream({
-              model: "claude-sonnet-4-5-20250929",
+              model: CLAUDE_MODEL,
               max_tokens: 8192,
               messages: [
                 {
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
           controller.enqueue(encoder.encode('{"status":"parsing_cards"}\n'))
 
           const cardsStream = await anthropic.messages.stream({
-            model: "claude-sonnet-4-5-20250929",
+            model: CLAUDE_MODEL,
             max_tokens: 16384,
             messages: [
               {

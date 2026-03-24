@@ -26,6 +26,13 @@ interface Page {
   segments: Segment[]
 }
 
+interface LessonCard {
+  id: string
+  hanzi: string
+  pinyin: string
+  english: string
+}
+
 export default function InteractiveLessonPage({
   params
 }: {
@@ -40,34 +47,108 @@ export default function InteractiveLessonPage({
   const [currentPageNumber, setCurrentPageNumber] = useState(1)
   const [currentPage, setCurrentPage] = useState<Page | null>(null)
   const [isLoadingPage, setIsLoadingPage] = useState(false)
-  const [responses, setResponses] = useState<any[]>([])
+  const [allResponses, setAllResponses] = useState<Record<number, any[]>>({})
   const [isComplete, setIsComplete] = useState(false)
+  const [lessonCards, setLessonCards] = useState<LessonCard[]>([])
 
-  // Generate pages on mount
+  // Build hanzi → cardId map for SRS submission
+  const hanziToCardId = new Map(lessonCards.map(c => [c.hanzi, c.id]))
+
+  // Submit a review to the SRS system when a lesson exercise is answered
+  async function submitToSRS(segmentContent: any, isCorrect: boolean) {
+    // Try to match the segment to a card by hanzi from various content fields
+    const candidates = [
+      segmentContent?.hanzi,
+      segmentContent?.correctAnswer,
+      segmentContent?.sourceText, // For ZH→EN translations
+    ].filter(Boolean)
+
+    let cardId: string | undefined
+    for (const candidate of candidates) {
+      cardId = hanziToCardId.get(candidate)
+      if (cardId) break
+    }
+
+    if (!cardId) return // Can't match to a card
+
+    // Map: correct = GOOD (2), incorrect = AGAIN (0)
+    const quality = isCorrect ? 2 : 0
+
+    try {
+      await fetch("/api/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, quality })
+      })
+    } catch {
+      // SRS submission is best-effort; don't block the lesson flow
+    }
+  }
+
+  // Initialize: generate pages then load saved progress to resume
   useEffect(() => {
-    generatePages()
+    initializeLesson()
   }, [lessonId])
 
-  // Load page when page number changes
+  // Load page when page number changes (after initial setup)
   useEffect(() => {
     if (totalPages > 0) {
       loadPage(currentPageNumber)
     }
   }, [currentPageNumber, totalPages])
 
-  async function generatePages() {
+  async function initializeLesson() {
     try {
-      const res = await fetch(`/api/lessons/${lessonId}/generate-pages`, {
-        method: "POST"
-      })
+      // Generate pages and fetch lesson cards in parallel
+      const [genRes, lessonRes] = await Promise.all([
+        fetch(`/api/lessons/${lessonId}/generate-pages`, { method: "POST" }),
+        fetch(`/api/lessons/${lessonId}`)
+      ])
 
-      if (!res.ok) throw new Error("Failed to generate pages")
+      if (!genRes.ok) throw new Error("Failed to generate pages")
 
-      const data = await res.json()
-      setTotalPages(data.totalPages)
+      const genData = await genRes.json()
+      setTotalPages(genData.totalPages)
+
+      // Load lesson cards for SRS matching
+      if (lessonRes.ok) {
+        const lessonData = await lessonRes.json()
+        if (lessonData.lesson?.cards) {
+          setLessonCards(lessonData.lesson.cards.map((c: any) => ({
+            id: c.id,
+            hanzi: c.hanzi,
+            pinyin: c.pinyin,
+            english: c.english
+          })))
+        }
+      }
+
+      // Load saved progress to resume from where user left off
+      const progressRes = await fetch(`/api/lessons/progress?lessonId=${lessonId}`)
+      if (progressRes.ok) {
+        const progressData = await progressRes.json()
+        if (progressData.completedAt) {
+          // Already completed, start from page 1 for review
+          setCurrentPageNumber(1)
+        } else if (progressData.currentPage > 0 && progressData.totalPages > 0) {
+          // Resume from saved page
+          setCurrentPageNumber(Math.min(progressData.currentPage, genData.totalPages))
+        }
+        // Restore saved responses
+        if (progressData.responses && Array.isArray(progressData.responses)) {
+          const restored: Record<number, any[]> = {}
+          for (const resp of progressData.responses) {
+            const page = resp.page || 1
+            if (!restored[page]) restored[page] = []
+            restored[page].push(resp)
+          }
+          setAllResponses(restored)
+        }
+      }
+
       setIsGenerating(false)
     } catch (error) {
-      console.error("Error generating pages:", error)
+      console.error("Error initializing lesson:", error)
       toast.error("Failed to generate lesson pages")
       router.push(`/lessons/${lessonId}`)
     }
@@ -92,17 +173,28 @@ export default function InteractiveLessonPage({
     }
   }
 
-  async function handleAnswer(segmentId: string, isCorrect: boolean, userAnswer: string = "") {
-    setResponses((prev) => [
-      ...prev,
-      {
-        segmentId,
-        correct: isCorrect,
-        userAnswer
+  function addResponse(segmentId: string, isCorrect: boolean, userAnswer: string = "") {
+    setAllResponses((prev) => {
+      const pageResponses = prev[currentPageNumber] || []
+      return {
+        ...prev,
+        [currentPageNumber]: [
+          ...pageResponses,
+          { segmentId, correct: isCorrect, userAnswer, page: currentPageNumber }
+        ]
       }
-    ])
+    })
+  }
 
-    // Save progress
+  async function handleAnswer(segmentId: string, isCorrect: boolean, userAnswer: string = "") {
+    addResponse(segmentId, isCorrect, userAnswer)
+
+    // Find the segment content to match against cards for SRS
+    const segment = currentPage?.segments.find(s => s.id === segmentId)
+    if (segment) {
+      submitToSRS(segment.content, isCorrect)
+    }
+
     await saveProgress(currentPageNumber)
   }
 
@@ -128,18 +220,14 @@ export default function InteractiveLessonPage({
       if (!res.ok) throw new Error("Failed to evaluate answer")
 
       const result = await res.json()
+      addResponse(segmentId, result.correct, userAnswer)
 
-      // Record response
-      setResponses((prev) => [
-        ...prev,
-        {
-          segmentId,
-          correct: result.correct,
-          userAnswer
-        }
-      ])
+      // Submit to SRS — try to match via sourceText for translations
+      const segment = currentPage?.segments.find(s => s.id === segmentId)
+      if (segment) {
+        submitToSRS(segment.content, result.correct)
+      }
 
-      // Save progress
       await saveProgress(currentPageNumber)
 
       return result
@@ -151,6 +239,8 @@ export default function InteractiveLessonPage({
   }
 
   async function saveProgress(pageNumber: number) {
+    // Flatten all responses across all pages for persistence
+    const flatResponses = Object.values(allResponses).flat()
     try {
       await fetch("/api/lessons/progress", {
         method: "POST",
@@ -159,7 +249,7 @@ export default function InteractiveLessonPage({
           lessonId,
           currentPage: pageNumber,
           totalPages,
-          responses
+          responses: flatResponses
         })
       })
     } catch (error) {
@@ -169,8 +259,10 @@ export default function InteractiveLessonPage({
 
   function handleNext() {
     if (currentPageNumber < totalPages) {
-      setCurrentPageNumber((prev) => prev + 1)
-      setResponses([])
+      const nextPage = currentPageNumber + 1
+      setCurrentPageNumber(nextPage)
+      // Save progress with the new page number (don't reset responses)
+      saveProgress(nextPage)
     } else {
       // Lesson complete
       setIsComplete(true)
@@ -181,7 +273,7 @@ export default function InteractiveLessonPage({
   function handlePrevious() {
     if (currentPageNumber > 1) {
       setCurrentPageNumber((prev) => prev - 1)
-      setResponses([])
+      // Don't reset responses — they're preserved per page
     }
   }
 

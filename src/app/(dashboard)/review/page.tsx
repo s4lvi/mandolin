@@ -11,16 +11,23 @@ import { usePrefetchTestQuestions } from "@/hooks/use-test-questions"
 import { useLessons } from "@/hooks/use-lessons"
 import { Flashcard, Quality } from "@/components/review/flashcard"
 import { TestCard } from "@/components/review/test-card"
+import { RecallCard } from "@/components/review/recall-card"
+import { ListeningCard } from "@/components/review/listening-card"
 import { SessionComplete } from "@/components/review/session-complete"
 import { ReviewSettings } from "@/components/review/review-settings"
 import { SessionHeader } from "@/components/review/session-header"
 import { NoCardsView } from "@/components/review/no-cards-view"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { BookOpen } from "lucide-react"
+import { BookOpen, Undo2 } from "lucide-react"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
+
+interface LastAnswer {
+  cardId: string
+  quality: Quality
+  estimatedXp: number
+}
 
 interface SessionResults {
   again: number
@@ -59,6 +66,8 @@ export default function ReviewPage() {
   const [streak, setStreak] = useState(0)
   const [level, setLevel] = useState(1)
   const [sessionCards, setSessionCards] = useState<CardType[]>([])
+  const [missedCards, setMissedCards] = useState<CardType[]>([])
+  const [lastAnswer, setLastAnswer] = useState<LastAnswer | null>(null)
   const isProcessing = useRef(false)
 
   const {
@@ -87,12 +96,16 @@ export default function ReviewPage() {
     ? lessons.find(l => l.id === selectedLesson)
     : null
 
-  // Shuffle cards from session snapshot (frozen at session start)
+  // Shuffle cards from session snapshot (frozen at session start) using Fisher-Yates
   const shuffledCards = useMemo(() => {
     if (sessionCards.length === 0) return []
 
-    // Random shuffle
-    return [...sessionCards].sort(() => Math.random() - 0.5)
+    const arr = [...sessionCards]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
   }, [sessionCards])
 
   const currentCard = shuffledCards[currentIndex]
@@ -149,8 +162,19 @@ export default function ReviewPage() {
     setIsStarted(true)
     setCurrentIndex(0)
     setResults({ again: 0, hard: 0, good: 0, easy: 0, totalXp: 0 })
+    setMissedCards([])
     setExamples({})
     refetch()
+  }
+
+  const handleDrillMissed = () => {
+    if (missedCards.length === 0) return
+    setSessionCards(missedCards)
+    setIsStarted(true)
+    setCurrentIndex(0)
+    setResults({ again: 0, hard: 0, good: 0, easy: 0, totalXp: 0 })
+    setMissedCards([])
+    setExamples({})
   }
 
 
@@ -165,6 +189,14 @@ export default function ReviewPage() {
 
     // Optimistically update UI immediately
     const estimatedXp = quality === Quality.AGAIN ? 1 : quality === Quality.HARD ? 5 : quality === Quality.GOOD ? 10 : 15
+
+    // Track for undo (only the most recent answer can be undone)
+    setLastAnswer({ cardId: currentCard.id, quality, estimatedXp })
+
+    // Track missed cards for drill-again
+    if (quality === Quality.AGAIN) {
+      setMissedCards((prev) => [...prev, currentCard])
+    }
 
     setResults((prev) => ({
       again: prev.again + (quality === Quality.AGAIN ? 1 : 0),
@@ -198,15 +230,7 @@ export default function ReviewPage() {
           setStreak(result.stats.currentStreak)
           setLevel(result.stats.level)
 
-          // Show XP toast
-          if (result.xpEarned > 0) {
-            toast.success(`+${result.xpEarned} XP`, {
-              duration: 1500,
-              position: "top-center"
-            })
-          }
-
-          // Show achievement toast
+          // Show achievement toast (skip per-card XP toasts to avoid spam)
           if (result.newAchievements && result.newAchievements.length > 0) {
             for (const achievement of result.newAchievements) {
               toast.success(`Achievement Unlocked: ${achievement.name}!`, {
@@ -223,10 +247,32 @@ export default function ReviewPage() {
     )
   }
 
+  const handleUndo = () => {
+    if (!lastAnswer || currentIndex === 0) return
+
+    // Revert results
+    const q = lastAnswer.quality
+    setResults((prev) => ({
+      again: prev.again - (q === Quality.AGAIN ? 1 : 0),
+      hard: prev.hard - (q === Quality.HARD ? 1 : 0),
+      good: prev.good - (q === Quality.GOOD ? 1 : 0),
+      easy: prev.easy - (q === Quality.EASY ? 1 : 0),
+      totalXp: prev.totalXp - lastAnswer.estimatedXp
+    }))
+
+    // Go back to previous card
+    setCurrentIndex((prev) => prev - 1)
+    setLastAnswer(null)
+
+    // Note: the API submission already happened and can't be un-done from here.
+    // The next time the user rates this card, it will overwrite with a new review entry.
+    toast.info("Rating undone — rate this card again")
+  }
+
   const handleTestAnswer = (isCorrect: boolean, userAnswer: string) => {
     // Map test result to Quality
-    // Multiple choice test mode: correct = HARD (1), incorrect = AGAIN (0)
-    const quality = isCorrect ? Quality.HARD : Quality.AGAIN
+    // Multiple choice test mode: correct = GOOD (2), incorrect = AGAIN (0)
+    const quality = isCorrect ? Quality.GOOD : Quality.AGAIN
 
     // Use existing handleAnswer logic
     handleAnswer(quality)
@@ -260,6 +306,8 @@ export default function ReviewPage() {
           streak={streak}
           level={level}
           onRestart={handleStart}
+          missedCards={missedCards}
+          onDrillMissed={handleDrillMissed}
         />
       </ErrorBoundary>
     )
@@ -315,8 +363,8 @@ export default function ReviewPage() {
         currentIndex={currentIndex}
         totalCards={shuffledCards.length}
         totalXp={results.totalXp}
-        correctCount={results.good + results.easy}
-        incorrectCount={results.again + results.hard}
+        correctCount={results.hard + results.good + results.easy}
+        incorrectCount={results.again}
         progress={progress}
       />
 
@@ -341,6 +389,17 @@ export default function ReviewPage() {
               exampleSentence={examples[currentCard.id]}
               isGenerating={generateSentenceMutation.isPending}
             />
+          ) : reviewMode === "recall" ? (
+            <RecallCard
+              card={currentCard}
+              faceMode={actualFaceMode}
+              onAnswer={handleAnswer}
+            />
+          ) : reviewMode === "listening" ? (
+            <ListeningCard
+              card={currentCard}
+              onAnswer={handleAnswer}
+            />
           ) : (
             <TestCard
               card={currentCard}
@@ -352,7 +411,17 @@ export default function ReviewPage() {
         </>
       )}
 
-      <div className="text-center">
+      <div className="flex items-center justify-center gap-2">
+        {lastAnswer && currentIndex > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleUndo}
+          >
+            <Undo2 className="h-4 w-4 mr-1" />
+            Undo
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
@@ -360,6 +429,7 @@ export default function ReviewPage() {
             setIsStarted(false)
             setCurrentIndex(0)
             setSessionCards([])
+            setLastAnswer(null)
           }}
         >
           End Session

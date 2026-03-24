@@ -130,9 +130,17 @@ export default function DeckPage() {
     setSelectedCards(newSelected)
   }
 
-  const handleSelectAll = () => {
+  const handleSelectAllPage = () => {
     if (paginatedCards) {
-      setSelectedCards(new Set(paginatedCards.map(c => c.id)))
+      const newSelected = new Set(selectedCards)
+      paginatedCards.forEach(c => newSelected.add(c.id))
+      setSelectedCards(newSelected)
+    }
+  }
+
+  const handleSelectAllFiltered = () => {
+    if (filteredCards) {
+      setSelectedCards(new Set(filteredCards.map(c => c.id)))
     }
   }
 
@@ -178,10 +186,17 @@ export default function DeckPage() {
                 <span className="text-sm font-medium">
                   {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
                 </span>
-                {paginatedCards && selectedCards.size < paginatedCards.length && (
-                  <Button variant="ghost" size="sm" onClick={handleSelectAll}>
-                    Select All
-                  </Button>
+                {paginatedCards && (
+                  <span className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" onClick={handleSelectAllPage}>
+                      Select Page
+                    </Button>
+                    {filteredCards && filteredCards.length > CARDS_PER_PAGE && (
+                      <Button variant="ghost" size="sm" onClick={handleSelectAllFiltered}>
+                        Select All {filteredCards.length}
+                      </Button>
+                    )}
+                  </span>
                 )}
               </div>
               <div className="flex items-center gap-2">

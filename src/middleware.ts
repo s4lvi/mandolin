@@ -12,6 +12,7 @@ export const config = {
     "/deck/:path*",
     "/upload/:path*",
     "/review/:path*",
-    "/lessons/:path*"
+    "/lessons/:path*",
+    "/stories/:path*"
   ]
 }

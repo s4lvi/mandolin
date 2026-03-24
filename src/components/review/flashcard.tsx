@@ -1,12 +1,14 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Sparkles, Volume2 } from "lucide-react"
+import { Loader2, Sparkles, Volume2, Puzzle } from "lucide-react"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
+import { previewInterval, formatInterval, Quality as SRSQuality } from "@/lib/srs"
 
 // Quality ratings for SM-2 algorithm
 export enum Quality {
@@ -37,16 +39,23 @@ export function Flashcard({
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [showPinyin, setShowPinyin] = useState(faceMode !== "immersion")
 
   // Preload voices on mount (important for iOS)
   useEffect(() => {
     preloadVoices()
   }, [])
 
-  // Reset flip state when card changes
+  // Reset flip state and auto-play audio when card changes
   useEffect(() => {
     setIsFlipped(false)
-  }, [card.id])
+    setShowPinyin(faceMode !== "immersion")
+    // Auto-play pronunciation for the new card (slight delay for smooth transition)
+    const timer = setTimeout(() => {
+      speakChinese(card.hanzi)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [card.id, faceMode])
 
   const playAudio = async (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card flip
@@ -72,6 +81,8 @@ export function Flashcard({
         return { main: card.hanzi, sub: card.pinyin }
       case "english":
         return { main: card.english, sub: null }
+      case "immersion":
+        return { main: card.hanzi, sub: null }
       case "random":
         // This should be handled at the parent level
         return { main: card.hanzi, sub: card.pinyin }
@@ -81,7 +92,37 @@ export function Flashcard({
   }
 
   const front = getFront()
-  const isGrammarCard = card.type === "GRAMMAR"
+
+  // Fetch character decomposition (cached by react-query)
+  const [showDecomposition, setShowDecomposition] = useState(false)
+  const { data: decomposition, isLoading: isLoadingDecomp } = useQuery({
+    queryKey: ["decompose", card.hanzi],
+    queryFn: async () => {
+      const res = await fetch("/api/decompose", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hanzi: card.hanzi })
+      })
+      if (!res.ok) return null
+      return res.json()
+    },
+    staleTime: Infinity, // Character decomposition never changes
+    enabled: showDecomposition
+  })
+
+  // Compute actual SRS intervals for each quality button
+  const cardSRS = {
+    easeFactor: card.easeFactor ?? 2.5,
+    interval: card.interval ?? 0,
+    repetitions: card.repetitions ?? 0,
+    state: (card.state ?? "NEW") as "NEW" | "LEARNING" | "REVIEW" | "LEARNED"
+  }
+  const intervalLabels = {
+    again: formatInterval(previewInterval(cardSRS, SRSQuality.AGAIN)),
+    hard: formatInterval(previewInterval(cardSRS, SRSQuality.HARD)),
+    good: formatInterval(previewInterval(cardSRS, SRSQuality.GOOD)),
+    easy: formatInterval(previewInterval(cardSRS, SRSQuality.EASY)),
+  }
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -117,7 +158,7 @@ export function Flashcard({
                 >
                   {front.main}
                 </p>
-                {(faceMode === "both" || faceMode === "pinyin" || faceMode === "random") && (
+                {faceMode !== "english" && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -165,7 +206,16 @@ export function Flashcard({
                       <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
                     </Button>
                   </div>
-                  <p className="text-lg text-muted-foreground break-words">{card.pinyin}</p>
+                  {showPinyin ? (
+                    <p className="text-lg text-muted-foreground break-words">{card.pinyin}</p>
+                  ) : (
+                    <button
+                      className="text-sm text-primary/60 hover:text-primary underline underline-offset-2"
+                      onClick={(e) => { e.stopPropagation(); setShowPinyin(true) }}
+                    >
+                      tap for pinyin
+                    </button>
+                  )}
                 </div>
                 <div className="text-center mb-4">
                   <p className="text-xl break-words">{card.english}</p>
@@ -176,8 +226,8 @@ export function Flashcard({
                   </p>
                 )}
 
-                {/* Example sentence for grammar cards */}
-                {isGrammarCard && (
+                {/* Example sentence for any card */}
+                {(
                   <div className="mt-4 pt-4 border-t">
                     {exampleSentence ? (
                       <div className="text-center space-y-1">
@@ -216,6 +266,35 @@ export function Flashcard({
                   </div>
                 )}
 
+                {/* Character decomposition */}
+                <div className="mt-4 pt-4 border-t">
+                  {showDecomposition && decomposition ? (
+                    <div className="text-center space-y-1">
+                      <p className="text-sm font-medium">{decomposition.components}</p>
+                      <p className="text-xs text-muted-foreground">{decomposition.radicals}</p>
+                      <p className="text-xs text-muted-foreground italic">{decomposition.etymology}</p>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setShowDecomposition(true)
+                      }}
+                      disabled={isLoadingDecomp}
+                      className="w-full text-xs"
+                    >
+                      {isLoadingDecomp ? (
+                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Puzzle className="h-3 w-3 mr-1" />
+                      )}
+                      Character Breakdown
+                    </Button>
+                  )}
+                </div>
+
                 <div className="flex flex-wrap gap-1 justify-center mt-4">
                   <Badge variant="outline">{card.type.toLowerCase()}</Badge>
                   {card.lesson && (
@@ -242,7 +321,7 @@ export function Flashcard({
           >
             <div className="flex flex-col items-center">
               <span>Again</span>
-              <span className="text-xs opacity-70">&lt;1m</span>
+              <span className="text-xs opacity-70">{intervalLabels.again}</span>
             </div>
           </Button>
           <Button
@@ -256,7 +335,7 @@ export function Flashcard({
           >
             <div className="flex flex-col items-center">
               <span>Hard</span>
-              <span className="text-xs opacity-70">1d</span>
+              <span className="text-xs opacity-70">{intervalLabels.hard}</span>
             </div>
           </Button>
           <Button
@@ -270,7 +349,7 @@ export function Flashcard({
           >
             <div className="flex flex-col items-center">
               <span>Good</span>
-              <span className="text-xs opacity-70">3d</span>
+              <span className="text-xs opacity-70">{intervalLabels.good}</span>
             </div>
           </Button>
           <Button
@@ -283,7 +362,7 @@ export function Flashcard({
           >
             <div className="flex flex-col items-center">
               <span>Easy</span>
-              <span className="text-xs opacity-70">7d</span>
+              <span className="text-xs opacity-70">{intervalLabels.easy}</span>
             </div>
           </Button>
         </div>
