@@ -131,7 +131,7 @@ export default function UploadPage() {
     )
   }
 
-  const handleSaveCards = async () => {
+  const handleSaveCards = () => {
     if (isSaving) return
     setIsSaving(true)
 
@@ -146,7 +146,6 @@ export default function UploadPage() {
         tags: card.suggestedTags
       }))
 
-    // Associate ALL duplicate cards with lesson (regardless of selection)
     const duplicateCards = parsedCards
       .filter((card) => card.isDuplicate)
 
@@ -154,135 +153,90 @@ export default function UploadPage() {
 
     if (totalToProcess === 0) {
       toast.error("No cards to save")
+      setIsSaving(false)
       return
     }
 
-    try {
-      let finalLessonId: string | undefined = undefined
+    // Redirect immediately — save happens in background
+    const selectedCount = newCards.length
+    const dupeCount = lessonMode !== "none" ? duplicateCards.length : 0
+    const destination = lessonMode !== "none" ? (lessonMode === "existing" ? `/lessons/${selectedLessonId}` : "/lessons") : "/deck"
 
-      // Handle lesson creation or update based on lesson mode
-      if (lessonMode === "new") {
-        // Create new lesson with generated context
-        const lesson = await createLessonMutation.mutateAsync({
-          number: parseInt(lessonNumber),
-          title: lessonTitle || undefined,
-          notes: generatedLessonContext || undefined
-        })
-        finalLessonId = lesson.id
-        toast.success(`Created Lesson ${lesson.number}`)
-      } else if (lessonMode === "existing") {
-        // Merge new context with existing lesson using AI
-        if (selectedLessonId && generatedLessonContext) {
-          try {
-            const mergeResponse = await fetch(`/api/lessons/${selectedLessonId}/merge-context`, {
+    toast.success(
+      `Saving ${selectedCount} card${selectedCount !== 1 ? "s" : ""}${dupeCount > 0 ? ` + ${dupeCount} duplicate${dupeCount !== 1 ? "s" : ""}` : ""}...`,
+      { description: "Cards will appear in your deck shortly", duration: 5000 }
+    )
+    router.push(destination)
+
+    // Fire-and-forget: save in background
+    ;(async () => {
+      try {
+        let finalLessonId: string | undefined = undefined
+
+        if (lessonMode === "new") {
+          const lesson = await createLessonMutation.mutateAsync({
+            number: parseInt(lessonNumber),
+            title: lessonTitle || undefined,
+            notes: generatedLessonContext || undefined
+          })
+          finalLessonId = lesson.id
+        } else if (lessonMode === "existing") {
+          finalLessonId = selectedLessonId
+          // Merge context in background — don't block on it
+          if (selectedLessonId && generatedLessonContext) {
+            fetch(`/api/lessons/${selectedLessonId}/merge-context`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({ newContext: generatedLessonContext })
-            })
-
-            if (!mergeResponse.ok) {
-              const errorData = await mergeResponse.json()
-              throw new Error(errorData.error || "Failed to merge context")
-            }
-
-            toast.success(`Merged lesson context`)
-          } catch (error) {
-            console.error("Error merging context:", error)
-            toast.warning("Could not merge context, appending instead")
-            // Fallback to simple append if merge fails
-            const lesson = lessons?.find((l) => l.id === selectedLessonId)
-            const updatedNotes = lesson?.notes
-              ? `${lesson.notes}\n\n---\n\n${generatedLessonContext}`
-              : generatedLessonContext
-
-            await updateLessonMutation.mutateAsync({
-              lessonId: selectedLessonId,
-              data: { notes: updatedNotes }
-            })
+            }).catch((err) => console.error("Background context merge failed:", err))
           }
         }
-        finalLessonId = selectedLessonId
-      }
 
-      let createdCount = 0
-      let associatedCount = 0
-
-      // Create new cards with lesson association
-      if (newCards.length > 0) {
-        const result = await createCardsMutation.mutateAsync({
-          cards: newCards,
-          lessonId: finalLessonId
-        })
-        createdCount = result.created
-      }
-
-      // Associate existing duplicate cards with the lesson
-      if (duplicateCards.length > 0 && finalLessonId) {
-        try {
-          // Fetch existing cards by hanzi to get their IDs
-          const response = await fetch("/api/cards")
-          if (!response.ok) {
-            throw new Error("Failed to fetch cards for duplicate checking")
-          }
-          const allCards = await response.json()
-
-          const duplicateHanzi = new Set(duplicateCards.map(c => c.hanzi))
-          const existingCardIds = allCards.cards
-            .filter((c: any) => duplicateHanzi.has(c.hanzi))
-            .map((c: any) => c.id)
-
-          if (existingCardIds.length > 0) {
-            const associateResponse = await fetch("/api/cards/associate-lesson", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                cardIds: existingCardIds,
-                lessonId: finalLessonId,
-                mode: "add"  // Use 'add' to avoid silently removing cards from their existing lesson
-              })
-            })
-
-            if (!associateResponse.ok) {
-              const errorData = await associateResponse.json()
-              throw new Error(errorData.error || "Failed to associate duplicate cards")
-            }
-
-            const associateResult = await associateResponse.json()
-            associatedCount = associateResult.updatedCount
-          }
-        } catch (error) {
-          console.error("Error associating duplicate cards:", error)
-          toast.warning(
-            error instanceof Error
-              ? `Some duplicate cards may not be associated: ${error.message}`
-              : "Some duplicate cards may not be associated with the lesson"
-          )
+        // Create new cards
+        if (newCards.length > 0) {
+          await createCardsMutation.mutateAsync({
+            cards: newCards,
+            lessonId: finalLessonId
+          })
         }
-      }
 
-      // Show comprehensive success message
-      const messages = []
-      if (createdCount > 0) messages.push(`${createdCount} new card${createdCount !== 1 ? 's' : ''}`)
-      if (associatedCount > 0) messages.push(`${associatedCount} existing card${associatedCount !== 1 ? 's' : ''}`)
+        // Associate duplicates with lesson
+        if (duplicateCards.length > 0 && finalLessonId) {
+          try {
+            const response = await fetch("/api/cards")
+            if (response.ok) {
+              const allCards = await response.json()
+              const duplicateHanzi = new Set(duplicateCards.map(c => c.hanzi))
+              const existingCardIds = allCards.cards
+                .filter((c: { hanzi: string }) => duplicateHanzi.has(c.hanzi))
+                .map((c: { id: string }) => c.id)
 
-      if (messages.length > 0) {
-        const action = finalLessonId ? 'added to lesson' : 'created'
-        toast.success(`${messages.join(' and ')} ${action}`)
-      }
+              if (existingCardIds.length > 0) {
+                await fetch("/api/cards/associate-lesson", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    cardIds: existingCardIds,
+                    lessonId: finalLessonId,
+                    mode: "add"
+                  })
+                })
+              }
+            }
+          } catch (err) {
+            console.error("Background duplicate association failed:", err)
+          }
+        }
 
-      // Redirect to lesson detail if lesson was created, otherwise to deck
-      if (finalLessonId) {
-        router.push(`/lessons/${finalLessonId}`)
-      } else {
-        router.push("/deck")
+        toast.success("Cards saved successfully!", { duration: 3000 })
+      } catch (error) {
+        console.error("Background save failed:", error)
+        toast.error(
+          error instanceof Error ? error.message : "Some cards may not have saved — check your deck",
+          { duration: 8000 }
+        )
       }
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Failed to save cards"
-      )
-    } finally {
-      setIsSaving(false)
-    }
+    })()
   }
 
   const selectedNewCards = parsedCards.filter((c) => c.selected && !c.isDuplicate).length
