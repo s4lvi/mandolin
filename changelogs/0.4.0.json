@@ -1,0 +1,23 @@
+{
+  "version": "0.4.0",
+  "title": "Immersion Learning & New Review Modes",
+  "changes": [
+    "Added Recall mode: type your answer from memory with auto-grading",
+    "Added Listening mode: audio-only card front for sound recognition practice",
+    "Added Immersion face mode: hanzi + audio only, pinyin hidden behind tap-to-reveal",
+    "Added Short Story mode: AI generates reading practice using your vocabulary",
+    "Added character decomposition: see radical/component breakdowns on any card",
+    "Added wrong-card drill: review missed cards immediately after a session",
+    "Added undo button for accidental review ratings",
+    "Added due cards badge in the navigation bar",
+    "Example sentences now available for all card types, not just grammar",
+    "Audio auto-plays when each new card appears",
+    "Fixed SRS: test mode correct answers now properly advance card intervals",
+    "Fixed flashcard buttons showing actual review intervals instead of hardcoded labels",
+    "Fixed interactive lessons now update SRS and earn XP",
+    "Fixed lesson progress preserved across page navigation and browser sessions",
+    "Improved review card selection: new cards capped at 30% to prevent backlog",
+    "Performance: parallelized database queries and reduced API overhead",
+    "Upgraded AI model to Claude Sonnet 4.6"
+  ]
+}
