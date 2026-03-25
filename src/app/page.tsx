@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/layout/navbar"
-import { BookOpen, Upload, Brain, Tags, Flame, Star, Zap, Target, GraduationCap, Layers } from "lucide-react"
+import { BookOpen, Upload, Brain, Tags, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Volume2, Puzzle, ArrowRight } from "lucide-react"
 
 // Progress bar component
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -203,17 +203,23 @@ function MarketingPage() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center">
+          <p className="text-6xl mb-6 opacity-80">
+            芒果林
+          </p>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Master Mandarin with
-            <span className="text-primary"> AI-Powered</span> Flashcards
+            Learn Mandarin the way
+            <span className="text-primary"> your brain actually works</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Upload your lesson notes and let AI create personalized flashcards.
-            Build your vocabulary systematically with smart review sessions.
+            Upload your class notes. AI turns them into flashcards, interactive lessons,
+            and short stories — then drills them into long-term memory with spaced repetition.
           </p>
           <div className="flex gap-4 justify-center">
             <Link href="/signup">
-              <Button size="lg">Get Started Free</Button>
+              <Button size="lg" className="gap-2">
+                Get Started Free
+                <ArrowRight className="h-4 w-4" />
+              </Button>
             </Link>
             <Link href="/login">
               <Button variant="outline" size="lg">Sign In</Button>
@@ -222,12 +228,38 @@ function MarketingPage() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-16 px-4 bg-gradient-to-br from-orange-50/20 via-white to-green-50/20">
+      {/* How It Works */}
+      <section className="py-12 px-4">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
-            Everything you need to learn Mandarin
+          <h2 className="text-3xl font-bold text-center mb-10">How it works</h2>
+          <div className="grid md:grid-cols-4 gap-6 max-w-4xl mx-auto">
+            {[
+              { step: "1", icon: Upload, title: "Upload Notes", desc: "Paste your lesson notes or vocabulary list" },
+              { step: "2", icon: Brain, title: "AI Parses", desc: "Cards are created with pinyin, types, and tags" },
+              { step: "3", icon: GraduationCap, title: "Study", desc: "Review with flashcards, quizzes, or stories" },
+              { step: "4", icon: Target, title: "Remember", desc: "Spaced repetition schedules optimal review times" },
+            ].map(({ step, icon: Icon, title, desc }) => (
+              <div key={step} className="text-center">
+                <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-3">
+                  <Icon className="h-6 w-6 text-primary" />
+                </div>
+                <p className="font-semibold mb-1">{title}</p>
+                <p className="text-sm text-muted-foreground">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-16 px-4 bg-gradient-to-br from-orange-50/30 via-white to-green-50/30 dark:from-orange-950/10 dark:via-background dark:to-green-950/10">
+        <div className="container mx-auto">
+          <h2 className="text-3xl font-bold text-center mb-4">
+            More than flashcards
           </h2>
+          <p className="text-center text-muted-foreground mb-12 max-w-xl mx-auto">
+            Six ways to study, all powered by AI and adapted to your vocabulary
+          </p>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             <Card>
               <CardHeader>
@@ -236,8 +268,34 @@ function MarketingPage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Upload your lesson notes and AI automatically creates flashcards
-                  for vocabulary, grammar points, and phrases.
+                  Paste lesson notes in any format — AI extracts vocabulary, grammar,
+                  and phrases into structured flashcards with pinyin and tags.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <Headphones className="h-10 w-10 text-primary mb-2" />
+                <CardTitle>Immersion & Listening Mode</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Train without the pinyin crutch. Audio-only cards force you to
+                  connect sound directly to characters. Tap to reveal pinyin only when stuck.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <PenLine className="h-10 w-10 text-primary mb-2" />
+                <CardTitle>Recall & Test Modes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Type answers from memory for active recall, or choose from
+                  AI-generated multiple choice questions. Four review modes total.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -245,25 +303,12 @@ function MarketingPage() {
             <Card>
               <CardHeader>
                 <BookOpen className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>Flexible Review</CardTitle>
+                <CardTitle>AI Short Stories</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Choose how to study - show pinyin, hanzi, both, or English.
-                  Track your progress with each card.
-                </CardDescription>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <Brain className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>AI Examples</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <CardDescription>
-                  Get AI-generated example sentences for grammar points
-                  using vocabulary you already know.
+                  Read AI-generated stories built from words you actually know.
+                  Sentence-by-sentence audio with tap-to-reveal translations.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -271,25 +316,25 @@ function MarketingPage() {
             <Card>
               <CardHeader>
                 <GraduationCap className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>Interactive AI Lessons</CardTitle>
+                <CardTitle>Interactive Lessons</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Learn with AI-generated multi-page lessons featuring quizzes,
-                  fill-in-the-blank exercises, and translation practice.
+                  AI generates multi-page lessons with explanations, quizzes,
+                  fill-in-the-blank, and translation exercises — all feeding back into SRS.
                 </CardDescription>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader>
-                <Tags className="h-10 w-10 text-primary mb-2" />
-                <CardTitle>Organize by Lesson</CardTitle>
+                <Puzzle className="h-10 w-10 text-primary mb-2" />
+                <CardTitle>Character Decomposition</CardTitle>
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Cards are automatically tagged by lesson number and category.
-                  Filter your deck to focus on specific topics.
+                  See how characters are built from radicals and components.
+                  Understand why characters look the way they do.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -297,17 +342,47 @@ function MarketingPage() {
         </div>
       </section>
 
+      {/* Social proof / stats teaser */}
+      <section className="py-12 px-4">
+        <div className="container mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto text-center">
+            <div>
+              <p className="text-3xl font-bold text-primary">4</p>
+              <p className="text-sm text-muted-foreground">Review modes</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">SM-2</p>
+              <p className="text-sm text-muted-foreground">Spaced repetition</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">AI</p>
+              <p className="text-sm text-muted-foreground">Powered by Claude</p>
+            </div>
+            <div>
+              <p className="text-3xl font-bold text-primary">Free</p>
+              <p className="text-sm text-muted-foreground">No credit card</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-16 px-4">
         <div className="container mx-auto text-center">
+          <p className="text-4xl mb-4">
+            开始学习
+          </p>
           <h2 className="text-3xl font-bold mb-4">
-            Start building your Mandarin vocabulary today
+            Start learning today
           </h2>
           <p className="text-muted-foreground mb-8">
-            Free to use. No credit card required.
+            Upload your first set of notes and have flashcards in under a minute.
           </p>
           <Link href="/signup">
-            <Button size="lg">Create Your Account</Button>
+            <Button size="lg" className="gap-2">
+              Create Your Account
+              <ArrowRight className="h-4 w-4" />
+            </Button>
           </Link>
         </div>
       </section>
@@ -333,8 +408,9 @@ export default function HomePage() {
       )}
 
       <footer className="border-t py-8 px-4">
-        <div className="container mx-auto text-center text-sm text-muted-foreground">
-          Mangolin - Mandarin Flashcard Study Tool
+        <div className="container mx-auto flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <p>Mangolin 芒果林 &mdash; AI-powered Mandarin learning</p>
+          <p>Built with Next.js &amp; Claude</p>
         </div>
       </footer>
     </div>

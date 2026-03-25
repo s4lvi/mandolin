@@ -126,7 +126,18 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
       }
     }
 
-    return NextResponse.json(story)
+    // Save story to database
+    const saved = await prisma.story.create({
+      data: {
+        userId: session.user.id,
+        title: story.title,
+        titlePinyin: story.titlePinyin,
+        titleEnglish: story.titleEnglish,
+        sentences: story.sentences
+      }
+    })
+
+    return NextResponse.json({ ...story, id: saved.id })
   } catch (error) {
     console.error("Error generating story:", error)
     return NextResponse.json(

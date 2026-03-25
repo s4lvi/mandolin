@@ -27,6 +27,7 @@ model User {
   reviewHistory   ReviewHistory[]
   feedback        Feedback[]
   lessonProgress  LessonProgress[]
+  stories         Story[]
 }
 
 model Account {
@@ -349,4 +350,19 @@ model LessonProgress {
   @@unique([userId, lessonId])
   @@index([userId])
   @@index([lessonId])
+}
+
+model Story {
+  id             String   @id @default(cuid())
+  userId         String
+  title          String
+  titlePinyin    String
+  titleEnglish   String
+  sentences      Json     // Array of {hanzi, pinyin, english, newWords?}
+  createdAt      DateTime @default(now())
+
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([createdAt])
 }

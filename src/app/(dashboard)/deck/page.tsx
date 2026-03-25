@@ -25,7 +25,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight } from "lucide-react"
+import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
@@ -45,6 +45,7 @@ export default function DeckPage() {
   const [selectedCards, setSelectedCards] = useState<Set<string>>(new Set())
   const [showAddToLessonModal, setShowAddToLessonModal] = useState(false)
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false)
+  const [showPinyin, setShowPinyin] = useState(true)
 
   const { data: cards, isLoading } = useCards({
     lessonId: lessonIdFromUrl || undefined
@@ -244,6 +245,14 @@ export default function DeckPage() {
             <SelectItem value="IDIOM">Idiom</SelectItem>
           </SelectContent>
         </Select>
+        <Button
+          variant={showPinyin ? "outline" : "default"}
+          size="icon"
+          onClick={() => setShowPinyin(!showPinyin)}
+          title={showPinyin ? "Hide pinyin" : "Show pinyin"}
+        >
+          {showPinyin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </Button>
       </div>
 
       {currentLesson && (
@@ -326,6 +335,7 @@ export default function DeckPage() {
                 selectionMode={selectionMode}
                 isSelected={selectedCards.has(card.id)}
                 onToggleSelect={handleToggleCard}
+                showPinyin={showPinyin}
               />
             ))}
           </div>

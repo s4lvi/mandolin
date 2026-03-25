@@ -25,6 +25,7 @@ interface CardItemProps {
   selectionMode?: boolean
   isSelected?: boolean
   onToggleSelect?: (cardId: string) => void
+  showPinyin?: boolean
 }
 
 const typeColors = {
@@ -40,7 +41,8 @@ export function CardItem({
   onTagClick,
   selectionMode = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  showPinyin = true
 }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
@@ -112,7 +114,9 @@ export function CardItem({
               >
                 <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
               </Button>
-              <span className="text-sm text-muted-foreground">{card.pinyin}</span>
+              {showPinyin && (
+                <span className="text-sm text-muted-foreground">{card.pinyin}</span>
+              )}
             </div>
             <p className="text-sm mb-2">{card.english}</p>
             {card.notes && (
