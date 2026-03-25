@@ -45,64 +45,70 @@ export async function POST(req: Request) {
 
           let lessonContext = ""
 
-          // Generate lesson context if lesson mode is not "none"
-          if (data.lessonMode && data.lessonMode !== "none") {
-            controller.enqueue(encoder.encode('{"status":"generating_context"}\n'))
+          const needsContext = data.lessonMode && data.lessonMode !== "none"
 
-            const contextStream = await anthropic.messages.stream({
+          // Run context generation and card parsing in PARALLEL when both are needed
+          controller.enqueue(encoder.encode('{"status":"parsing_cards"}\n'))
+
+          const contextPromise = needsContext
+            ? (async () => {
+                const contextStream = await anthropic.messages.stream({
+                  model: CLAUDE_MODEL,
+                  max_tokens: 4096,
+                  messages: [
+                    {
+                      role: "user",
+                      content: `${LESSON_CONTEXT_PROMPT}\n\nLesson Notes:\n${data.notes}`
+                    }
+                  ]
+                })
+
+                let contextText = ""
+                for await (const event of contextStream) {
+                  if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+                    contextText += event.delta.text
+                  }
+                }
+
+                const contextMessage = await contextStream.finalMessage()
+                if (contextMessage.stop_reason === "max_tokens") {
+                  logger.warn("Lesson context was truncated", { deckId: deck.id })
+                }
+                return contextText.trim()
+              })()
+            : Promise.resolve("")
+
+          const cardsPromise = (async () => {
+            const cardsStream = await anthropic.messages.stream({
               model: CLAUDE_MODEL,
-              max_tokens: 8192,
+              max_tokens: 16384,
               messages: [
                 {
                   role: "user",
-                  content: `${LESSON_CONTEXT_PROMPT}\n\nLesson Notes:\n${data.notes}`
+                  content: `${PARSE_NOTES_PROMPT}\n\nLesson Notes:\n${data.notes}`
                 }
               ]
             })
 
-            let contextText = ""
-            for await (const event of contextStream) {
+            let fullText = ""
+            for await (const event of cardsStream) {
               if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-                contextText += event.delta.text
-                controller.enqueue(encoder.encode('{"status":"generating_context"}\n'))
+                fullText += event.delta.text
+                controller.enqueue(encoder.encode('{"status":"streaming"}\n'))
               }
             }
+            return { text: fullText, finalMessage: await cardsStream.finalMessage() }
+          })()
 
-            const contextMessage = await contextStream.finalMessage()
-            if (contextMessage.stop_reason === "max_tokens") {
-              logger.warn("Lesson context was truncated", { deckId: deck.id })
-            }
-
-            lessonContext = contextText.trim()
+          // Wait for both to complete
+          const [contextResult, cardsResult] = await Promise.all([contextPromise, cardsPromise])
+          lessonContext = contextResult
+          if (needsContext) {
             logger.info("Lesson context generated", { deckId: deck.id, length: lessonContext.length })
           }
 
-          // Parse cards
-          controller.enqueue(encoder.encode('{"status":"parsing_cards"}\n'))
-
-          const cardsStream = await anthropic.messages.stream({
-            model: CLAUDE_MODEL,
-            max_tokens: 16384,
-            messages: [
-              {
-                role: "user",
-                content: `${PARSE_NOTES_PROMPT}\n\nLesson Notes:\n${data.notes}`
-              }
-            ]
-          })
-
-          let fullText = ""
-
-          // Collect the streamed response
-          for await (const event of cardsStream) {
-            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
-              fullText += event.delta.text
-              // Send heartbeat every so often to keep connection alive
-              controller.enqueue(encoder.encode('{"status":"streaming"}\n'))
-            }
-          }
-
-          const finalMessage = await cardsStream.finalMessage()
+          const fullText = cardsResult.text
+          const finalMessage = cardsResult.finalMessage
 
           // Check if response was truncated
           if (finalMessage.stop_reason === "max_tokens") {

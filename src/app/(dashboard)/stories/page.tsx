@@ -140,9 +140,47 @@ export default function StoriesPage() {
         const data = await res.json()
         throw new Error(data.error || "Failed to generate story")
       }
-      const data = await res.json()
-      setActiveStory(data)
-      queryClient.invalidateQueries({ queryKey: ["stories"] })
+
+      // Handle NDJSON streaming response
+      const reader = res.body?.getReader()
+      const decoder = new TextDecoder()
+
+      if (!reader) throw new Error("No response body")
+
+      let buffer = ""
+      let story: Story | null = null
+
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+
+        buffer += decoder.decode(value, { stream: true })
+        const lines = buffer.split("\n")
+        buffer = lines.pop() || "" // Keep incomplete last line
+
+        for (const line of lines) {
+          if (!line.trim()) continue
+          try {
+            const data = JSON.parse(line)
+            if (data.error) throw new Error(data.error)
+            if (data.sentences) {
+              story = data // Final story payload
+            }
+            // Status messages ("generating", "streaming") are ignored — just keep waiting
+          } catch (e) {
+            if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
+              throw e
+            }
+          }
+        }
+      }
+
+      if (story) {
+        setActiveStory(story)
+        queryClient.invalidateQueries({ queryKey: ["stories"] })
+      } else {
+        throw new Error("No story received")
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to generate story")
     } finally {

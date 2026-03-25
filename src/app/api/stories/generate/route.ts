@@ -35,14 +35,14 @@ export async function POST() {
         english: true
       },
       orderBy: { lastReviewed: "desc" },
-      take: 50 // Use most recently reviewed cards
+      take: 25 // Use most recently reviewed cards (trimmed for speed)
     })
 
     // Fallback to all cards if no reviewed cards yet
     const storyCards = cards.length > 0 ? cards : await prisma.card.findMany({
       where: { deckId: deck.id },
       select: { hanzi: true, pinyin: true, english: true },
-      take: 30
+      take: 20
     })
 
     if (storyCards.length < 3) {
@@ -56,13 +56,7 @@ export async function POST() {
       .map(c => `${c.hanzi} (${c.pinyin}): ${c.english}`)
       .join("\n")
 
-    const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 2048,
-      messages: [
-        {
-          role: "user",
-          content: `You are a Chinese language teacher creating a short reading exercise.
+    const storyPrompt = `You are a Chinese language teacher creating a short reading exercise.
 
 **Student's vocabulary:**
 ${vocabList}
@@ -89,55 +83,76 @@ Guidelines:
 - Create a coherent, interesting narrative (daily life, school, travel, etc.)
 - Every sentence should use at least one word from the student's vocabulary
 - Include some dialogue for variety
-- Mark paragraph breaks by leaving the sentences naturally grouped
 
-CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside string values. Use Chinese quotation marks (「」or "") for dialogue instead of " quotes. Ensure all JSON string values are properly escaped.`
-        }
-      ]
-    })
+CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside string values. Use Chinese quotation marks for dialogue. Ensure all JSON string values are properly escaped.`
 
-    const content = response.content[0]
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type")
-    }
+    // Stream the response for faster perceived speed
+    const encoder = new TextEncoder()
+    const userId = session.user.id
 
-    const jsonText = stripMarkdownCodeBlock(content.text)
-
-    let story
-    try {
-      story = JSON.parse(jsonText)
-    } catch (parseError) {
-      console.error("Failed to parse story JSON. Raw text:", content.text.substring(0, 500))
-      console.error("Parse error:", parseError)
-
-      // Try to fix common JSON issues: unescaped quotes in Chinese text
-      // by finding the JSON object boundaries and re-parsing
-      const firstBrace = jsonText.indexOf("{")
-      const lastBrace = jsonText.lastIndexOf("}")
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        const trimmed = jsonText.substring(firstBrace, lastBrace + 1)
+    const responseStream = new ReadableStream({
+      async start(controller) {
         try {
-          story = JSON.parse(trimmed)
-        } catch {
-          throw new Error("AI returned invalid JSON that could not be repaired")
-        }
-      } else {
-        throw new Error("AI response did not contain valid JSON")
-      }
-    }
+          controller.enqueue(encoder.encode('{"status":"generating"}\n'))
 
-    // Save story to database
-    const saved = await prisma.story.create({
-      data: {
-        userId: session.user.id,
-        title: story.title,
-        titlePinyin: story.titlePinyin,
-        titleEnglish: story.titleEnglish,
-        sentences: story.sentences
+          const stream = await anthropic.messages.stream({
+            model: CLAUDE_MODEL,
+            max_tokens: 2048,
+            messages: [{ role: "user", content: storyPrompt }]
+          })
+
+          let fullText = ""
+          for await (const event of stream) {
+            if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
+              fullText += event.delta.text
+              controller.enqueue(encoder.encode('{"status":"streaming"}\n'))
+            }
+          }
+
+          const jsonText = stripMarkdownCodeBlock(fullText)
+
+          let story
+          try {
+            story = JSON.parse(jsonText)
+          } catch {
+            const firstBrace = jsonText.indexOf("{")
+            const lastBrace = jsonText.lastIndexOf("}")
+            if (firstBrace !== -1 && lastBrace > firstBrace) {
+              story = JSON.parse(jsonText.substring(firstBrace, lastBrace + 1))
+            } else {
+              throw new Error("AI returned invalid JSON")
+            }
+          }
+
+          // Save to database
+          const saved = await prisma.story.create({
+            data: {
+              userId,
+              title: story.title,
+              titlePinyin: story.titlePinyin,
+              titleEnglish: story.titleEnglish,
+              sentences: story.sentences
+            }
+          })
+
+          controller.enqueue(encoder.encode(JSON.stringify({ ...story, id: saved.id }) + '\n'))
+          controller.close()
+        } catch (error) {
+          console.error("Error generating story:", error)
+          controller.enqueue(encoder.encode(JSON.stringify({
+            error: error instanceof Error ? error.message : "Failed to generate story"
+          }) + '\n'))
+          controller.close()
+        }
       }
     })
 
-    return NextResponse.json({ ...story, id: saved.id })
+    return new Response(responseStream, {
+      headers: {
+        "Content-Type": "application/x-ndjson",
+        "Transfer-Encoding": "chunked"
+      }
+    })
   } catch (error) {
     console.error("Error generating story:", error)
     return NextResponse.json(

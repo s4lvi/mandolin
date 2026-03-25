@@ -28,8 +28,8 @@ export function useTestQuestion(cardId: string, direction: string) {
   return useQuery({
     queryKey: ["test-question", cardId, direction],
     queryFn: () => fetchTestQuestion(cardId, direction),
-    staleTime: 1000 * 60 * 30, // Rotate questions every 30 minutes
-    gcTime: 1000 * 60 * 60 // 1 hour
+    staleTime: 1000 * 60 * 60, // Questions are DB-cached server-side, keep client cache 1 hour
+    gcTime: 1000 * 60 * 120 // 2 hours
   })
 }
 
