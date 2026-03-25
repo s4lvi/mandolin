@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import Anthropic from "@anthropic-ai/sdk"
 import { CLAUDE_MODEL } from "@/lib/constants"
+import { stripMarkdownCodeBlock } from "@/lib/api-helpers"
 import { z } from "zod"
 
 const anthropic = new Anthropic()
@@ -53,12 +54,7 @@ Keep each field to ONE short line. Be concise.`
       throw new Error("Unexpected response type")
     }
 
-    let jsonText = content.text.trim()
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim()
-    }
-
+    const jsonText = stripMarkdownCodeBlock(content.text)
     const result = JSON.parse(jsonText)
 
     // Cache it

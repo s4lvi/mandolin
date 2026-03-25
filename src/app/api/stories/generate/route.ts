@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { CLAUDE_MODEL } from "@/lib/constants"
+import { stripMarkdownCodeBlock } from "@/lib/api-helpers"
 
 const anthropic = new Anthropic()
 
@@ -88,7 +89,9 @@ Guidelines:
 - Create a coherent, interesting narrative (daily life, school, travel, etc.)
 - Every sentence should use at least one word from the student's vocabulary
 - Include some dialogue for variety
-- Mark paragraph breaks by leaving the sentences naturally grouped`
+- Mark paragraph breaks by leaving the sentences naturally grouped
+
+CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside string values. Use Chinese quotation marks (「」or "") for dialogue instead of " quotes. Ensure all JSON string values are properly escaped.`
         }
       ]
     })
@@ -98,19 +101,36 @@ Guidelines:
       throw new Error("Unexpected response type")
     }
 
-    let jsonText = content.text.trim()
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim()
-    }
+    const jsonText = stripMarkdownCodeBlock(content.text)
 
-    const story = JSON.parse(jsonText)
+    let story
+    try {
+      story = JSON.parse(jsonText)
+    } catch (parseError) {
+      console.error("Failed to parse story JSON. Raw text:", content.text.substring(0, 500))
+      console.error("Parse error:", parseError)
+
+      // Try to fix common JSON issues: unescaped quotes in Chinese text
+      // by finding the JSON object boundaries and re-parsing
+      const firstBrace = jsonText.indexOf("{")
+      const lastBrace = jsonText.lastIndexOf("}")
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const trimmed = jsonText.substring(firstBrace, lastBrace + 1)
+        try {
+          story = JSON.parse(trimmed)
+        } catch {
+          throw new Error("AI returned invalid JSON that could not be repaired")
+        }
+      } else {
+        throw new Error("AI response did not contain valid JSON")
+      }
+    }
 
     return NextResponse.json(story)
   } catch (error) {
     console.error("Error generating story:", error)
     return NextResponse.json(
-      { error: "Failed to generate story" },
+      { error: error instanceof Error ? error.message : "Failed to generate story" },
       { status: 500 }
     )
   }
