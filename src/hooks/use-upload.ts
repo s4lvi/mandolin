@@ -1,9 +1,15 @@
 "use client"
 
+import { useState } from "react"
 import { useMutation } from "@tanstack/react-query"
 import type { ParseNotesRequest, ParseNotesResponse } from "@/types/api-responses"
 
-async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse> {
+export type ParseStatus = "idle" | "processing" | "generating_context" | "parsing_cards" | "streaming"
+
+async function parseNotesStreaming(
+  input: ParseNotesRequest,
+  onStatus: (status: ParseStatus) => void
+): Promise<ParseNotesResponse> {
   const res = await fetch("/api/parse-notes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -15,7 +21,6 @@ async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse>
     throw new Error(error.error || "Failed to parse notes")
   }
 
-  // Handle streaming NDJSON response
   const reader = res.body?.getReader()
   if (!reader) {
     throw new Error("No response body")
@@ -31,9 +36,8 @@ async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse>
 
     buffer += decoder.decode(value, { stream: true })
 
-    // Process complete lines
     const lines = buffer.split("\n")
-    buffer = lines.pop() || "" // Keep incomplete line in buffer
+    buffer = lines.pop() || ""
 
     for (const line of lines) {
       if (!line.trim()) continue
@@ -41,19 +45,20 @@ async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse>
       try {
         const data = JSON.parse(line)
 
-        // Check for errors
         if (data.error) {
           throw new Error(data.error)
         }
 
-        // Check for final result (has cards array)
+        // Surface status updates
+        if (data.status) {
+          onStatus(data.status as ParseStatus)
+        }
+
         if (data.cards) {
           result = data
         }
-        // Otherwise it's a status update, ignore
       } catch (e) {
         if (e instanceof SyntaxError) {
-          // Ignore JSON parse errors for status updates
           continue
         }
         throw e
@@ -61,7 +66,6 @@ async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse>
     }
   }
 
-  // Process any remaining buffer
   if (buffer.trim()) {
     try {
       const data = JSON.parse(buffer)
@@ -80,11 +84,18 @@ async function parseNotes(input: ParseNotesRequest): Promise<ParseNotesResponse>
     throw new Error("No valid response received")
   }
 
+  onStatus("idle")
   return result
 }
 
 export function useParseNotes() {
-  return useMutation({
-    mutationFn: parseNotes
+  const [parseStatus, setParseStatus] = useState<ParseStatus>("idle")
+
+  const mutation = useMutation({
+    mutationFn: (input: ParseNotesRequest) =>
+      parseNotesStreaming(input, setParseStatus),
+    onError: () => setParseStatus("idle")
   })
+
+  return { ...mutation, parseStatus }
 }

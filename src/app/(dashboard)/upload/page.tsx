@@ -28,7 +28,8 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Upload, Loader2, Check, X, AlertCircle } from "lucide-react"
+import { Upload, Loader2, Check, X } from "lucide-react"
+import { AILoading } from "@/components/ui/ai-loading"
 import { toast } from "sonner"
 import type { ParsedCard, CardType } from "@/types"
 
@@ -49,7 +50,7 @@ export default function UploadPage() {
   const [showPreview, setShowPreview] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
 
-  const parseNotesMutation = useParseNotes()
+  const { parseStatus, ...parseNotesMutation } = useParseNotes()
   const createCardsMutation = useCreateCardsBulk()
   const createLessonMutation = useCreateLesson()
   const updateLessonMutation = useUpdateLesson()
@@ -510,23 +511,27 @@ Phrases:
             className="min-h-[300px] font-mono text-sm"
           />
           <Separator />
+          {parseNotesMutation.isPending ? (
+            <AILoading
+              status={parseStatus}
+              statusLabels={{
+                generating_context: "Generating lesson context",
+                parsing_cards: "Extracting flashcards from your notes",
+                streaming: "AI is building your cards",
+              }}
+            />
+          ) : (
           <Button
             onClick={handleParse}
-            disabled={parseNotesMutation.isPending || !notes.trim()}
+            disabled={!notes.trim()}
             className="w-full"
           >
-            {parseNotesMutation.isPending ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Parsing with AI...
-              </>
-            ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
                 Parse Notes
               </>
-            )}
           </Button>
+          )}
         </CardContent>
       </Card>
     </div>

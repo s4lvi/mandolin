@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Loader2, Volume2, BookOpen, Eye, EyeOff, RotateCcw, Trash2, Clock } from "lucide-react"
+import { AILoading } from "@/components/ui/ai-loading"
 import { speakChinese } from "@/lib/speech"
 import { toast } from "sonner"
 import type { StoryDisplayMode } from "@/types"
@@ -319,6 +320,14 @@ export default function StoriesPage() {
           )}
         </Button>
       </div>
+
+      {/* AI loading overlay */}
+      {isGenerating && (
+        <AILoading
+          status="generating"
+          statusLabels={{ generating: "Writing your story" }}
+        />
+      )}
 
       {/* Display mode selector */}
       <div className="flex items-center gap-2">

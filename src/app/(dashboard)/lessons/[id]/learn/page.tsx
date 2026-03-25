@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, ArrowRight, Loader2, CheckCircle } from "lucide-react"
+import { AILoading } from "@/components/ui/ai-loading"
 import { TextSegment } from "@/components/lessons/interactive/text-segment"
 import { FlashcardSegment } from "@/components/lessons/interactive/flashcard-segment"
 import { MultipleChoiceSegment } from "@/components/lessons/interactive/multiple-choice-segment"
@@ -280,13 +281,12 @@ export default function InteractiveLessonPage({
   if (isGenerating) {
     return (
       <div className="max-w-3xl mx-auto py-12">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-          <h2 className="text-2xl font-bold">Generating Your Interactive Lesson</h2>
-          <p className="text-muted-foreground">
-            Creating educational content with AI...
-          </p>
-          <Progress value={33} className="w-full max-w-md mx-auto" />
+        <div className="space-y-4">
+          <h2 className="text-2xl font-bold text-center">Generating Your Interactive Lesson</h2>
+          <AILoading
+            status="generating"
+            statusLabels={{ generating: "Creating exercises and content" }}
+          />
         </div>
       </div>
     )
