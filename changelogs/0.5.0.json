@@ -1,0 +1,18 @@
+{
+  "version": "0.5.0",
+  "title": "Performance, Saved Stories & UI Polish",
+  "changes": [
+    "Stories are now saved and can be re-read from the Stories page",
+    "Added pinyin show/hide toggle on the deck view",
+    "Refreshed landing page with new features, how-it-works flow, and Chinese typography",
+    "AI loading screens now show live status updates, progress steps, and study tips",
+    "Saving cards is now instant — redirects immediately while cards save in the background",
+    "Parse notes runs context generation and card parsing in parallel (roughly 2x faster)",
+    "Story generation uses streaming to keep the connection alive during long AI responses",
+    "Upgraded all AI calls to Claude Sonnet 4.6",
+    "Centralized model config — all AI calls use a single constant for easy updates",
+    "Parallelized database queries in the review API for faster load times",
+    "Added lightweight due-count endpoint for the navbar badge (no longer hits full review API)",
+    "Fixed double-click protection on save buttons to prevent duplicate submissions"
+  ]
+}
