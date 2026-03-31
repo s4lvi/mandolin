@@ -3,8 +3,7 @@
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useParseNotes } from "@/hooks/use-upload"
-import { useCreateCardsBulk } from "@/hooks/use-cards"
-import { useLessons, useCreateLesson, useUpdateLesson } from "@/hooks/use-lessons"
+import { useLessons } from "@/hooks/use-lessons"
 import { getNextLessonNumber } from "@/lib/lesson-helpers"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
@@ -28,7 +27,7 @@ import {
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
-import { Upload, Loader2, Check, X } from "lucide-react"
+import { Upload, Check, X } from "lucide-react"
 import { AILoading } from "@/components/ui/ai-loading"
 import { toast } from "sonner"
 import type { ParsedCard, CardType } from "@/types"
@@ -51,10 +50,18 @@ export default function UploadPage() {
   const [isSaving, setIsSaving] = useState(false)
 
   const { parseStatus, ...parseNotesMutation } = useParseNotes()
-  const createCardsMutation = useCreateCardsBulk()
-  const createLessonMutation = useCreateLesson()
-  const updateLessonMutation = useUpdateLesson()
   const { data: lessons } = useLessons()
+
+  // Warn user before navigating away during AI parsing
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (parseNotesMutation.isPending) {
+        e.preventDefault()
+      }
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload)
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload)
+  }, [parseNotesMutation.isPending])
 
   // Set default lesson number when component mounts or lessons load
   useEffect(() => {
@@ -146,10 +153,11 @@ export default function UploadPage() {
         tags: card.suggestedTags
       }))
 
-    const duplicateCards = parsedCards
+    const duplicateHanzi = parsedCards
       .filter((card) => card.isDuplicate)
+      .map((card) => card.hanzi)
 
-    const totalToProcess = newCards.length + (lessonMode !== "none" ? duplicateCards.length : 0)
+    const totalToProcess = newCards.length + (lessonMode !== "none" ? duplicateHanzi.length : 0)
 
     if (totalToProcess === 0) {
       toast.error("No cards to save")
@@ -157,86 +165,38 @@ export default function UploadPage() {
       return
     }
 
-    // Redirect immediately — save happens in background
-    const selectedCount = newCards.length
-    const dupeCount = lessonMode !== "none" ? duplicateCards.length : 0
-    const destination = lessonMode !== "none" ? (lessonMode === "existing" ? `/lessons/${selectedLessonId}` : "/lessons") : "/deck"
+    // Fire the save to the server — this runs server-side even if we navigate away
+    fetch("/api/cards/save-parsed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        cards: newCards,
+        duplicateHanzi: lessonMode !== "none" ? duplicateHanzi : [],
+        lessonMode,
+        lessonNumber: lessonNumber ? parseInt(lessonNumber) : undefined,
+        lessonTitle: lessonTitle || undefined,
+        lessonContext: generatedLessonContext || undefined,
+        existingLessonId: lessonMode === "existing" ? selectedLessonId : undefined
+      }),
+      // keepalive ensures the request completes even if the page navigates away
+      keepalive: true
+    }).catch((err) => {
+      console.error("Save request failed:", err)
+      toast.error("Some cards may not have saved — check your deck", { duration: 8000 })
+    })
+
+    // Redirect immediately
+    const destination = lessonMode === "existing"
+      ? `/lessons/${selectedLessonId}`
+      : lessonMode === "new"
+        ? "/lessons"
+        : "/deck"
 
     toast.success(
-      `Saving ${selectedCount} card${selectedCount !== 1 ? "s" : ""}${dupeCount > 0 ? ` + ${dupeCount} duplicate${dupeCount !== 1 ? "s" : ""}` : ""}...`,
+      `Saving ${newCards.length} card${newCards.length !== 1 ? "s" : ""}...`,
       { description: "Cards will appear in your deck shortly", duration: 5000 }
     )
     router.push(destination)
-
-    // Fire-and-forget: save in background
-    ;(async () => {
-      try {
-        let finalLessonId: string | undefined = undefined
-
-        if (lessonMode === "new") {
-          const lesson = await createLessonMutation.mutateAsync({
-            number: parseInt(lessonNumber),
-            title: lessonTitle || undefined,
-            notes: generatedLessonContext || undefined
-          })
-          finalLessonId = lesson.id
-        } else if (lessonMode === "existing") {
-          finalLessonId = selectedLessonId
-          // Merge context in background — don't block on it
-          if (selectedLessonId && generatedLessonContext) {
-            fetch(`/api/lessons/${selectedLessonId}/merge-context`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ newContext: generatedLessonContext })
-            }).catch((err) => console.error("Background context merge failed:", err))
-          }
-        }
-
-        // Create new cards
-        if (newCards.length > 0) {
-          await createCardsMutation.mutateAsync({
-            cards: newCards,
-            lessonId: finalLessonId
-          })
-        }
-
-        // Associate duplicates with lesson
-        if (duplicateCards.length > 0 && finalLessonId) {
-          try {
-            const response = await fetch("/api/cards")
-            if (response.ok) {
-              const allCards = await response.json()
-              const duplicateHanzi = new Set(duplicateCards.map(c => c.hanzi))
-              const existingCardIds = allCards.cards
-                .filter((c: { hanzi: string }) => duplicateHanzi.has(c.hanzi))
-                .map((c: { id: string }) => c.id)
-
-              if (existingCardIds.length > 0) {
-                await fetch("/api/cards/associate-lesson", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    cardIds: existingCardIds,
-                    lessonId: finalLessonId,
-                    mode: "add"
-                  })
-                })
-              }
-            }
-          } catch (err) {
-            console.error("Background duplicate association failed:", err)
-          }
-        }
-
-        toast.success("Cards saved successfully!", { duration: 3000 })
-      } catch (error) {
-        console.error("Background save failed:", error)
-        toast.error(
-          error instanceof Error ? error.message : "Some cards may not have saved — check your deck",
-          { duration: 8000 }
-        )
-      }
-    })()
   }
 
   const selectedNewCards = parsedCards.filter((c) => c.selected && !c.isDuplicate).length
@@ -260,16 +220,9 @@ export default function UploadPage() {
             </Button>
             <Button
               onClick={handleSaveCards}
-              disabled={isSaving || createCardsMutation.isPending || selectedNewCards === 0}
+              disabled={isSaving || selectedNewCards === 0}
             >
-              {isSaving || createCardsMutation.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                `Save ${selectedNewCards} Card${selectedNewCards !== 1 ? 's' : ''}${duplicateCards > 0 && lessonMode !== "none" ? ` + ${duplicateCards} Duplicate${duplicateCards !== 1 ? 's' : ''}` : ''}`
-              )}
+              {`Save ${selectedNewCards} Card${selectedNewCards !== 1 ? 's' : ''}${duplicateCards > 0 && lessonMode !== "none" ? ` + ${duplicateCards} Duplicate${duplicateCards !== 1 ? 's' : ''}` : ''}`}
             </Button>
           </div>
         </div>
