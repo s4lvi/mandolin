@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/layout/navbar"
 import { BookOpen, Upload, Brain, Tags, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Volume2, Puzzle, ArrowRight } from "lucide-react"
+import { BottomTabBar } from "@/components/layout/bottom-tab-bar"
 
 // Progress bar component
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -402,7 +403,9 @@ export default function HomePage() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
         </div>
       ) : session ? (
-        <Dashboard />
+        <div className="pb-24 md:pb-0">
+          <Dashboard />
+        </div>
       ) : (
         <MarketingPage />
       )}
@@ -413,6 +416,8 @@ export default function HomePage() {
           <p>Built with Next.js &amp; Claude</p>
         </div>
       </footer>
+
+      {session && <BottomTabBar />}
     </div>
   )
 }
