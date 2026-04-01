@@ -1,9 +1,15 @@
 "use client"
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { initCapacitor } from "@/lib/capacitor"
 
 export function QueryProvider({ children }: { children: React.ReactNode }) {
+  // Initialize Capacitor native plugins on mount (no-ops on web)
+  useEffect(() => {
+    initCapacitor()
+  }, [])
+
   const [queryClient] = useState(
     () =>
       new QueryClient({

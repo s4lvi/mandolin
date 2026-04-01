@@ -18,7 +18,16 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Mangolin - Mandarin Flashcard Study Tool",
-  description: "AI-powered flashcard application for Mandarin Chinese language learning"
+  description: "AI-powered flashcard application for Mandarin Chinese language learning",
+  viewport: "width=device-width, initial-scale=1, viewport-fit=cover",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Mangolin"
+  },
+  formatDetection: {
+    telephone: false
+  }
 }
 
 export default function RootLayout({
@@ -28,8 +37,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <AuthProvider>
           <QueryProvider>
