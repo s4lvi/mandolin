@@ -297,15 +297,21 @@ export function ReviewSettings({
             </div>
           )}
 
+        </CardContent>
+      </Card>
+
+      {/* Sticky start button */}
+      <div className="sticky bottom-20 md:bottom-4 z-10">
+        <div className="bg-gradient-to-t from-background via-background to-transparent pt-4 -mt-2">
           <Button
-            className="w-full"
+            className="w-full h-12 md:h-10 text-base md:text-sm"
             onClick={onStart}
             disabled={isLoading}
           >
             {isLoading ? "Loading..." : "Start Review"}
           </Button>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

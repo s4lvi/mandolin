@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Loader2, Volume2, BookOpen, Eye, EyeOff, RotateCcw, Trash2, Clock } from "lucide-react"
+import { StoryListSkeleton } from "@/components/ui/skeleton"
 import { AILoading } from "@/components/ui/ai-loading"
 import { speakChinese } from "@/lib/speech"
 import { toast } from "sonner"
@@ -58,45 +59,46 @@ function SentenceDisplay({
   }
 
   return (
-    <div className="group py-3 px-4 rounded-lg hover:bg-muted/50 transition-colors">
+    <div className="group py-3 px-3 md:px-4 rounded-lg hover:bg-muted/50 transition-colors">
       <div className="flex items-start gap-3">
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0 mt-1"
+          className="h-11 w-11 shrink-0 mt-0.5"
           onClick={playAudio}
           disabled={isPlaying}
         >
-          <Volume2 className={`h-4 w-4 ${isPlaying ? "animate-pulse text-primary" : ""}`} />
+          <Volume2 className={`h-5 w-5 ${isPlaying ? "animate-pulse text-primary" : ""}`} />
         </Button>
 
         <div className="flex-1 min-w-0">
-          {/* Hanzi — always shown */}
-          <p className="text-xl leading-relaxed break-words">{sentence.hanzi}</p>
+          {/* Hanzi — 22-24px for readability */}
+          <p className="text-[22px] md:text-2xl leading-relaxed break-words">{sentence.hanzi}</p>
 
-          {/* Pinyin — shown or tap-to-reveal */}
-          {showPinyin ? (
-            <p className="text-sm text-muted-foreground mt-1 break-words">{sentence.pinyin}</p>
-          ) : (
-            <button
-              className="text-xs text-primary/50 hover:text-primary mt-1"
-              onClick={() => setShowPinyin(true)}
-            >
-              show pinyin
-            </button>
-          )}
+          {/* Reveal buttons — pill-shaped for easy tapping */}
+          <div className="flex flex-wrap gap-2 mt-2">
+            {showPinyin ? (
+              <p className="text-sm text-muted-foreground break-words">{sentence.pinyin}</p>
+            ) : (
+              <button
+                className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary/70 hover:bg-primary/10 active:bg-primary/20 min-h-[32px]"
+                onClick={() => setShowPinyin(true)}
+              >
+                pinyin
+              </button>
+            )}
 
-          {/* English — always tap-to-reveal */}
-          {showEnglish ? (
-            <p className="text-sm text-blue-600 dark:text-blue-400 mt-1 break-words">{sentence.english}</p>
-          ) : (
-            <button
-              className="text-xs text-blue-500/50 hover:text-blue-500 mt-1"
-              onClick={() => setShowEnglish(true)}
-            >
-              show translation
-            </button>
-          )}
+            {showEnglish ? (
+              <p className="text-sm text-blue-600 dark:text-blue-400 break-words">{sentence.english}</p>
+            ) : (
+              <button
+                className="text-xs px-3 py-1.5 rounded-full border border-blue-500/30 text-blue-500/70 hover:bg-blue-500/10 active:bg-blue-500/20 min-h-[32px]"
+                onClick={() => setShowEnglish(true)}
+              >
+                english
+              </button>
+            )}
+          </div>
 
           {/* New words indicator */}
           {sentence.newWords && sentence.newWords.length > 0 && (
@@ -224,9 +226,9 @@ export default function StoriesPage() {
   if (activeStory) {
     return (
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="space-y-3">
           <div>
-            <h1 className="text-3xl font-bold">{activeStory.title}</h1>
+            <h1 className="text-2xl md:text-3xl font-bold">{activeStory.title}</h1>
             {displayMode === "hanzi_pinyin_audio" && (
               <p className="text-muted-foreground">{activeStory.titlePinyin}</p>
             )}
@@ -238,6 +240,7 @@ export default function StoriesPage() {
               size="sm"
               onClick={playAllSentences}
               disabled={isPlayingAll}
+              className="min-h-[40px]"
             >
               <Volume2 className={`h-4 w-4 mr-1 ${isPlayingAll ? "animate-pulse" : ""}`} />
               {isPlayingAll ? "Playing..." : "Read Aloud"}
@@ -245,6 +248,7 @@ export default function StoriesPage() {
             <Button
               variant="outline"
               size="sm"
+              className="min-h-[40px]"
               onClick={() => setActiveStory(null)}
             >
               Back
@@ -352,9 +356,7 @@ export default function StoriesPage() {
 
       {/* Saved stories */}
       {isLoadingStories ? (
-        <div className="text-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
-        </div>
+        <StoryListSkeleton />
       ) : savedStories.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">

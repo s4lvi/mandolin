@@ -85,12 +85,14 @@
 }
 
 .dark {
-  --background: oklch(0.18 0.01 30);
-  --foreground: oklch(0.98 0.005 85);
-  --card: oklch(0.23 0.01 30);
-  --card-foreground: oklch(0.98 0.005 85);
-  --popover: oklch(0.23 0.01 30);
-  --popover-foreground: oklch(0.98 0.005 85);
+  /* OLED-safe: #121212 equivalent, not pure black (prevents smearing) */
+  --background: oklch(0.15 0.005 30);
+  /* Dimmed white: #E0E0E0 equivalent, not pure white (prevents halation) */
+  --foreground: oklch(0.90 0.005 85);
+  --card: oklch(0.20 0.005 30);
+  --card-foreground: oklch(0.90 0.005 85);
+  --popover: oklch(0.20 0.005 30);
+  --popover-foreground: oklch(0.90 0.005 85);
   /* Mango Orange Primary (brighter in dark mode) */
   --primary: oklch(0.72 0.20 45);
   --primary-foreground: oklch(0.15 0.01 30);
@@ -127,7 +129,30 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* Remove 300ms tap delay on touch devices */
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
+  /* Minimum touch target size on touch devices */
+  @media (pointer: coarse) {
+    button, [role="button"] {
+      min-height: 44px;
+    }
+  }
+  /* Hide bottom tab bar when keyboard is open (set by capacitor.ts) */
+  body.keyboard-open .keyboard-hide {
+    display: none !important;
+  }
+  /* Dark mode: slightly increase letter-spacing for OLED readability */
+  .dark {
+    letter-spacing: 0.01em;
   }
 }

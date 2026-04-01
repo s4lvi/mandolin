@@ -27,15 +27,18 @@ export function SessionHeader({
   progress
 }: SessionHeaderProps) {
   return (
-    <div className="space-y-2">
+    <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm py-2 -mx-1 px-1 space-y-2">
       <div className="flex justify-between text-sm text-muted-foreground">
         <span>
           {currentIndex + 1} of {totalCards}
         </span>
         <span className="flex items-center gap-2">
-          <span className="text-yellow-500">+{totalXp} XP</span>
-          <span className="text-green-500">{correctCount} correct</span>
-          <span className="text-red-500">{incorrectCount} missed</span>
+          <span className="text-yellow-500">+{totalXp}</span>
+          <span className="hidden md:inline text-green-500">{correctCount} correct</span>
+          <span className="hidden md:inline text-red-500">{incorrectCount} missed</span>
+          <span className="md:hidden text-green-500">{correctCount}</span>
+          <span className="md:hidden">/</span>
+          <span className="md:hidden text-red-500">{incorrectCount}</span>
         </span>
       </div>
       <ProgressBar value={progress} />

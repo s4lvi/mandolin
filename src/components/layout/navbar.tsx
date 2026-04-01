@@ -2,7 +2,6 @@
 
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
-import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -12,22 +11,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { User, LogOut, BarChart3, Menu, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
+import { User, LogOut, BarChart3, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
+import { useDueCount } from "@/hooks/use-due-count"
 import packageJson from "../../../package.json"
-
-function useDueCount() {
-  return useQuery({
-    queryKey: ["due-count"],
-    queryFn: async () => {
-      const res = await fetch("/api/review/due-count")
-      if (!res.ok) return null
-      const data = await res.json()
-      return data.dueCount as number
-    },
-    staleTime: 2 * 60 * 1000, // Cache for 2 minutes
-    refetchInterval: 2 * 60 * 1000
-  })
-}
 
 // Navigation link with flip animation to Chinese
 function NavLink({ href, english, chinese, icon: Icon, badge }: { href: string; english: string; chinese: string; icon?: any; badge?: number | null }) {
@@ -77,94 +63,12 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Mobile Navigation */}
+        {/* Mobile: just auth buttons for unauthenticated users (bottom tabs handle nav) */}
         <div className="md:hidden">
-          {session ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm">
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link href="/deck" className="flex items-center group">
-                    <Layers className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">My Deck</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">我的卡片</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/upload" className="flex items-center group">
-                    <Upload className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Upload Notes</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">上传笔记</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/review" className="flex items-center group">
-                    <GraduationCap className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Review</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">复习</span>
-                    {dueCount != null && dueCount > 0 && (
-                      <Badge variant="destructive" className="ml-auto h-5 min-w-5 px-1 text-xs justify-center">
-                        {dueCount > 99 ? "99+" : dueCount}
-                      </Badge>
-                    )}
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/lessons" className="flex items-center group">
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Lessons</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">课程</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/stories" className="flex items-center group">
-                    <BookOpen className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Stories</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">故事</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/stats" className="flex items-center group">
-                    <BarChart3 className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Stats</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">统计</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link href="/profile" className="flex items-center group">
-                    <Settings className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">Profile</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">个人资料</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/changelog" className="flex items-center group">
-                    <Sparkles className="h-4 w-4 mr-2" />
-                    <span className="group-hover:hidden">What's New</span>
-                    <span className="hidden group-hover:inline text-primary font-semibold">更新日志</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem disabled className="text-xs">
-                  {session.user?.email}
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => signOut({ callbackUrl: "/" })}>
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : (
+          {!session && (
             <div className="flex items-center gap-2">
               <Link href="/login">
-                <Button variant="ghost" size="sm">
-                  Sign in
-                </Button>
+                <Button variant="ghost" size="sm">Sign in</Button>
               </Link>
               <Link href="/signup">
                 <Button size="sm">Get started</Button>

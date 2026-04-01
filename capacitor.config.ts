@@ -5,9 +5,10 @@ const config: CapacitorConfig = {
   appName: 'Mangolin',
   webDir: 'out',
   server: {
-    // Point to your production server — the app loads from here
-    url: 'https://mangolin.net',
-    cleartext: false
+    // Development: point to local server (simulator can reach localhost)
+    // Production: change to your deployed URL (e.g. https://mangolin.net)
+    url: 'http://localhost:3003',
+    cleartext: true // Allow HTTP for local dev
   },
   plugins: {
     SplashScreen: {

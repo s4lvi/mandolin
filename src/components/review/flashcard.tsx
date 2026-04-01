@@ -6,9 +6,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Sparkles, Volume2, Puzzle } from "lucide-react"
+import { AnswerButtons } from "./answer-buttons"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
 import { previewInterval, formatInterval, Quality as SRSQuality } from "@/lib/srs"
+import { useSwipe } from "@/hooks/use-swipe"
+import { isNative } from "@/lib/capacitor"
 
 // Quality ratings for SM-2 algorithm
 export enum Quality {
@@ -40,6 +43,31 @@ export function Flashcard({
   const [isFlipped, setIsFlipped] = useState(false)
   const [isPlaying, setIsPlaying] = useState(false)
   const [showPinyin, setShowPinyin] = useState(faceMode !== "immersion")
+
+  // Swipe gestures: left = Again, right = Good (only when flipped)
+  const { swipeHandlers, swipeStyle, swipeOverlay } = useSwipe({
+    onSwipeLeft: () => {
+      if (isFlipped) {
+        triggerHaptic()
+        onAnswer(Quality.AGAIN)
+      }
+    },
+    onSwipeRight: () => {
+      if (isFlipped) {
+        triggerHaptic()
+        onAnswer(Quality.GOOD)
+      }
+    },
+    enabled: isFlipped
+  })
+
+  const triggerHaptic = async () => {
+    if (!isNative()) return
+    try {
+      const { Haptics, ImpactStyle } = await import("@capacitor/haptics")
+      Haptics.impact({ style: ImpactStyle.Medium })
+    } catch {}
+  }
 
   // Preload voices on mount (important for iOS)
   useEffect(() => {
@@ -128,8 +156,17 @@ export function Flashcard({
     <div className="w-full max-w-md mx-auto">
       <div
         className="relative cursor-pointer perspective-1000"
-        onClick={() => setIsFlipped(!isFlipped)}
-        style={{ perspective: "1000px" }}
+        onClick={() => {
+          setIsFlipped(!isFlipped)
+          // Light haptic on card flip
+          if (isNative()) {
+            import("@capacitor/haptics").then(({ Haptics, ImpactStyle }) =>
+              Haptics.impact({ style: ImpactStyle.Light })
+            ).catch(() => {})
+          }
+        }}
+        style={{ perspective: "1000px", ...swipeStyle, backgroundColor: swipeOverlay }}
+        {...swipeHandlers}
       >
         <div
           className={`relative transition-transform duration-500 transform-style-preserve-3d ${
@@ -142,7 +179,7 @@ export function Flashcard({
         >
           {/* Front */}
           <Card
-            className={`min-h-[300px] flex items-center justify-center ${
+            className={`min-h-[250px] md:min-h-[300px] flex items-center justify-center ${
               isFlipped ? "invisible" : ""
             }`}
             style={{
@@ -153,7 +190,7 @@ export function Flashcard({
               <div className="flex items-center justify-center gap-3">
                 <p
                   className={`font-bold ${
-                    faceMode === "english" ? "text-2xl" : "text-4xl"
+                    faceMode === "english" ? "text-xl md:text-2xl" : "text-3xl md:text-4xl"
                   }`}
                 >
                   {front.main}
@@ -182,7 +219,7 @@ export function Flashcard({
 
           {/* Back */}
           <Card
-            className={`min-h-[300px] max-h-[400px] absolute inset-0 ${
+            className={`min-h-[250px] md:min-h-[300px] max-h-[400px] absolute inset-0 ${
               isFlipped ? "" : "invisible"
             }`}
             style={{
@@ -309,62 +346,12 @@ export function Flashcard({
 
       {/* Answer buttons */}
       {isFlipped && (
-        <div className="grid grid-cols-4 gap-2 mt-6">
-          <Button
-            variant="outline"
-            className="border-red-500 text-red-500 hover:bg-red-50 text-sm px-2"
+        <div className="mt-3 md:mt-6">
+          <AnswerButtons
+            onAnswer={onAnswer}
             disabled={isSubmitting}
-            onClick={(e) => {
-              e.stopPropagation()
-              onAnswer(Quality.AGAIN)
-            }}
-          >
-            <div className="flex flex-col items-center">
-              <span>Again</span>
-              <span className="text-xs opacity-70">{intervalLabels.again}</span>
-            </div>
-          </Button>
-          <Button
-            variant="outline"
-            className="border-orange-500 text-orange-500 hover:bg-orange-50 text-sm px-2"
-            disabled={isSubmitting}
-            onClick={(e) => {
-              e.stopPropagation()
-              onAnswer(Quality.HARD)
-            }}
-          >
-            <div className="flex flex-col items-center">
-              <span>Hard</span>
-              <span className="text-xs opacity-70">{intervalLabels.hard}</span>
-            </div>
-          </Button>
-          <Button
-            variant="outline"
-            className="border-green-500 text-green-500 hover:bg-green-50 text-sm px-2"
-            disabled={isSubmitting}
-            onClick={(e) => {
-              e.stopPropagation()
-              onAnswer(Quality.GOOD)
-            }}
-          >
-            <div className="flex flex-col items-center">
-              <span>Good</span>
-              <span className="text-xs opacity-70">{intervalLabels.good}</span>
-            </div>
-          </Button>
-          <Button
-            className="bg-blue-600 hover:bg-blue-700 text-sm px-2"
-            disabled={isSubmitting}
-            onClick={(e) => {
-              e.stopPropagation()
-              onAnswer(Quality.EASY)
-            }}
-          >
-            <div className="flex flex-col items-center">
-              <span>Easy</span>
-              <span className="text-xs opacity-70">{intervalLabels.easy}</span>
-            </div>
-          </Button>
+            intervalLabels={intervalLabels}
+          />
         </div>
       )}
     </div>

@@ -299,6 +299,14 @@ export default function UploadPage() {
         <p className="text-muted-foreground">
           Paste your lesson notes and let AI create flashcards automatically
         </p>
+        {/* Step indicator */}
+        <div className="flex items-center gap-2 mt-3">
+          <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${!showPreview ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>1</div>
+          <div className="h-px flex-1 bg-border" />
+          <div className={`flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold ${showPreview ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>2</div>
+          <div className="h-px flex-1 bg-border" />
+          <div className="flex items-center justify-center h-6 w-6 rounded-full text-xs font-bold bg-muted text-muted-foreground">3</div>
+        </div>
       </div>
 
       <Card>
@@ -334,7 +342,7 @@ export default function UploadPage() {
           </div>
 
           {lessonMode === "new" && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="lessonNumber">
                   Lesson Number <span className="text-destructive">*</span>
@@ -415,7 +423,8 @@ Phrases:
 - 请问，...在哪儿？- Excuse me, where is...?`}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            className="min-h-[300px] font-mono text-sm"
+            className="min-h-[180px] md:min-h-[300px] font-mono text-sm"
+            style={{ fieldSizing: "content" } as React.CSSProperties}
           />
           <Separator />
           {parseNotesMutation.isPending ? (

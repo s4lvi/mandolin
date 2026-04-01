@@ -26,6 +26,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
+import { CardListSkeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
@@ -158,19 +159,19 @@ export default function DeckPage() {
         <div className="flex gap-2">
           {!selectionMode && (
             <>
-              <Button variant="outline" onClick={handleToggleSelectionMode}>
+              <Button variant="outline" size="sm" onClick={handleToggleSelectionMode} className="hidden sm:flex">
                 Select Cards
               </Button>
               <Link href="/upload">
-                <Button variant="outline">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Notes
+                <Button variant="outline" size="sm">
+                  <Upload className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Upload</span>
                 </Button>
               </Link>
               <Link href="/deck/add">
-                <Button>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Cards
+                <Button size="sm">
+                  <Plus className="h-4 w-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Add Cards</span>
                 </Button>
               </Link>
             </>
@@ -289,9 +290,7 @@ export default function DeckPage() {
       )}
 
       {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading cards...</p>
-        </div>
+        <CardListSkeleton />
       ) : filteredCards?.length === 0 ? (
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

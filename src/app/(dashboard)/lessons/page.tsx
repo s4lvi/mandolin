@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { BookOpen, ArrowRight, Play, Plus, Upload, CheckCircle } from "lucide-react"
+import { LessonListSkeleton } from "@/components/ui/skeleton"
 import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
 
 export default function LessonsPage() {
@@ -41,9 +42,7 @@ export default function LessonsPage() {
       </div>
 
       {isLoading ? (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">Loading lessons...</p>
-        </div>
+        <LessonListSkeleton />
       ) : !lessons || !Array.isArray(lessons) || lessons.length === 0 ? (
         <div className="text-center py-12">
           <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />

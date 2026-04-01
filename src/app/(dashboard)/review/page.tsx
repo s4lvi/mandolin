@@ -20,6 +20,7 @@ import { NoCardsView } from "@/components/review/no-cards-view"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Undo2 } from "lucide-react"
+import { isNative } from "@/lib/capacitor"
 import { toast } from "sonner"
 import type { Card as CardType, FaceMode, ExampleSentence, ReviewMode, TestDirection } from "@/types"
 
@@ -230,6 +231,13 @@ export default function ReviewPage() {
           setStreak(result.stats.currentStreak)
           setLevel(result.stats.level)
 
+          // Haptic on correct answer
+          if (quality >= Quality.GOOD && isNative()) {
+            import("@capacitor/haptics").then(({ Haptics, NotificationType }) =>
+              Haptics.notification({ type: NotificationType.Success })
+            ).catch(() => {})
+          }
+
           // Show achievement toast (skip per-card XP toasts to avoid spam)
           if (result.newAchievements && result.newAchievements.length > 0) {
             for (const achievement of result.newAchievements) {
@@ -358,7 +366,7 @@ export default function ReviewPage() {
   // Review session view
   return (
     <ErrorBoundary>
-    <div className="max-w-md mx-auto space-y-6">
+    <div className="max-w-md mx-auto space-y-4 md:space-y-6 px-1">
       <SessionHeader
         currentIndex={currentIndex}
         totalCards={shuffledCards.length}

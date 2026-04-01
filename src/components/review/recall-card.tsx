@@ -8,13 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Check, X, Volume2 } from "lucide-react"
 import type { Card as CardType, FaceMode } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
-
-export enum Quality {
-  AGAIN = 0,
-  HARD = 1,
-  GOOD = 2,
-  EASY = 3
-}
+import { AnswerButtons, Quality } from "./answer-buttons"
 
 interface RecallCardProps {
   card: CardType
@@ -157,35 +151,7 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
 
             {/* Self-grade buttons */}
             <p className="text-xs text-center text-muted-foreground mb-2">How well did you know this?</p>
-            <div className="grid grid-cols-4 gap-2">
-              <Button
-                variant="outline"
-                className="border-red-500 text-red-500 hover:bg-red-50 text-sm"
-                onClick={() => onAnswer(Quality.AGAIN)}
-              >
-                Again
-              </Button>
-              <Button
-                variant="outline"
-                className="border-orange-500 text-orange-500 hover:bg-orange-50 text-sm"
-                onClick={() => onAnswer(Quality.HARD)}
-              >
-                Hard
-              </Button>
-              <Button
-                variant="outline"
-                className="border-green-500 text-green-500 hover:bg-green-50 text-sm"
-                onClick={() => onAnswer(Quality.GOOD)}
-              >
-                Good
-              </Button>
-              <Button
-                className="bg-blue-600 hover:bg-blue-700 text-sm"
-                onClick={() => onAnswer(Quality.EASY)}
-              >
-                Easy
-              </Button>
-            </div>
+            <AnswerButtons onAnswer={onAnswer} />
           </div>
         </CardContent>
       </Card>
