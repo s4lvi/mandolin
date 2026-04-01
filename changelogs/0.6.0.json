@@ -1,0 +1,18 @@
+{
+  "version": "0.6.0",
+  "title": "Mobile-First Redesign",
+  "changes": [
+    "New bottom tab navigation on mobile (Home, Review, Learn, Stats) with due-count badge",
+    "Swipe left/right on flashcards to rate them (Again or Good)",
+    "3 answer buttons on mobile (Again/Good/Easy) for faster one-handed review",
+    "Sticky progress header and start button during review sessions",
+    "Skeleton loading screens replace 'Loading...' text across all list pages",
+    "OLED-safe dark mode colors prevent screen smearing",
+    "Haptic feedback on card flips, correct answers, and swipe gestures (native app)",
+    "Touch-optimized buttons with 44px minimum tap targets",
+    "Upload flow now shows a 3-step progress indicator",
+    "Larger Chinese character text (22px) in story reading mode",
+    "Pill-shaped tap-to-reveal buttons for pinyin and translations in stories",
+    "iOS and Android native app support via Capacitor"
+  ]
+}

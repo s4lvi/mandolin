@@ -1,7 +1,7 @@
 # Mandolin Code Patterns & Guidelines
 
-**Last Updated**: 2025-11-24
-**Version**: 1.1.0
+**Last Updated**: 2026-04-01
+**Version**: 2.0.0
 
 This living document defines coding standards, patterns, and best practices for the Mandolin Mandarin flashcard learning application. All contributors should follow these guidelines to maintain consistency and code quality.
 
@@ -34,10 +34,17 @@ Mandolin is a Mandarin Chinese learning application that uses AI-powered flashca
 
 **Key Features**:
 - AI-powered card generation from lesson notes
-- Spaced repetition algorithm (SM-2)
-- Multiple review modes (classic flashcards, multiple choice tests)
-- Achievement system with XP and streaks
+- Spaced repetition algorithm (SM-2) with real-time interval previews
+- Four review modes (classic, recall, listening, test) with swipe gestures
+- Immersion mode (hanzi + audio, no pinyin crutch)
+- AI short stories using known vocabulary
+- Character decomposition (radical/component breakdown)
+- Interactive AI lessons with quizzes and translation exercises
+- Achievement system with XP, streaks, and daily goals
 - Audio pronunciation using Web Speech API
+- Mobile-first design with bottom tab navigation
+- Native iOS/Android app via Capacitor
+- OLED-safe dark mode, haptic feedback, skeleton loading
 
 ---
 
@@ -51,16 +58,17 @@ Mandolin is a Mandarin Chinese learning application that uses AI-powered flashca
 
 ### Frontend
 - **UI Framework**: React 19
-- **Styling**: Tailwind CSS + shadcn/ui
+- **Styling**: Tailwind CSS 4 + shadcn/ui
 - **State Management**: React Query (TanStack Query)
 - **Form Handling**: React Hook Form + Zod
 - **Theme**: next-themes
+- **Mobile**: Capacitor (iOS/Android native shell)
 
 ### Backend
 - **Database**: PostgreSQL (Supabase)
 - **ORM**: Prisma
-- **Authentication**: NextAuth.js
-- **AI**: Anthropic Claude API
+- **Authentication**: NextAuth.js v5
+- **AI**: Anthropic Claude API (Sonnet 4.6, centralized via `CLAUDE_MODEL` constant)
 - **Password Hashing**: bcryptjs
 
 ---
@@ -72,57 +80,51 @@ Mandolin is a Mandarin Chinese learning application that uses AI-powered flashca
 ```
 src/
 ├── app/                          # Next.js App Router pages
-│   ├── (auth)/                   # Grouped auth routes
-│   │   ├── login/
-│   │   └── signup/
-│   ├── (dashboard)/              # Grouped dashboard routes
-│   │   ├── deck/
-│   │   ├── lessons/
-│   │   ├── review/
-│   │   └── upload/
+│   ├── (auth)/                   # Auth routes (login, signup)
+│   ├── (dashboard)/              # Protected routes
+│   │   ├── deck/                 # Card deck + add/edit
+│   │   ├── review/               # Review sessions
+│   │   ├── upload/               # Note upload & AI parsing
+│   │   ├── lessons/              # Lesson list, detail, interactive learn
+│   │   ├── stories/              # AI short stories
+│   │   ├── stats/                # Statistics & achievements
+│   │   └── profile/              # User settings
 │   ├── api/                      # API routes
-│   │   ├── auth/
-│   │   ├── cards/
-│   │   └── review/
-│   ├── layout.tsx                # Root layout
+│   │   ├── cards/                # CRUD, bulk, save-parsed, associate-lesson
+│   │   ├── decompose/            # Character decomposition
+│   │   ├── lessons/              # Lessons, pages, progress, evaluation
+│   │   ├── review/               # SRS review + due-count
+│   │   ├── stories/              # Story generation + listing
+│   │   └── ...                   # auth, changelog, feedback, stats
+│   ├── layout.tsx                # Root layout (safe areas, providers)
 │   └── page.tsx                  # Landing page
-├── components/                   # React components
-│   ├── auth/                     # Authentication components
-│   ├── cards/                    # Card-related components
-│   ├── layout/                   # Layout components (navbar, etc.)
-│   ├── providers/                # Context providers
-│   ├── review/                   # Review session components
-│   ├── ui/                       # shadcn/ui components
-│   └── upload/                   # Upload-related components
-├── hooks/                        # Custom React hooks
-│   ├── use-cards.ts
-│   ├── use-review.ts
-│   └── use-test-questions.ts
-├── lib/                          # Utility functions and shared logic
-│   ├── constants/                # Constants and configuration
-│   ├── ai.ts                     # AI integration (Anthropic)
-│   ├── api-helpers.ts            # API route helpers
-│   ├── auth.ts                   # NextAuth configuration
-│   ├── constants.ts              # App constants
-│   ├── env.ts                    # Environment validation
-│   ├── logger.ts                 # Structured logging
-│   ├── prisma.ts                 # Prisma client instance
-│   ├── speech.ts                 # Web Speech API wrapper
-│   ├── srs.ts                    # Spaced repetition algorithm
-│   └── utils.ts                  # Generic utilities
-├── types/                        # TypeScript type definitions
-│   ├── api-responses.ts          # API response types
-│   └── index.ts                  # Shared types
-└── validations/                  # Zod schemas (future)
-    └── card.ts
-
-docs/                             # Documentation
-├── CODE_PATTERNS.md              # This file
-└── API.md                        # API documentation (future)
-
-prisma/
-├── schema.prisma                 # Database schema
-└── migrations/                   # Database migrations
+├── components/
+│   ├── layout/                   # Navbar (desktop), bottom-tab-bar (mobile)
+│   ├── review/                   # flashcard, recall-card, listening-card,
+│   │                             #   test-card, answer-buttons, session-*
+│   ├── ui/                       # shadcn/ui + skeleton, ai-loading
+│   ├── cards/                    # card-item, card-form
+│   ├── lessons/                  # Interactive lesson segments, modals
+│   └── ...                       # auth, changelog, feedback, welcome
+├── hooks/
+│   ├── use-cards.ts              # Card CRUD mutations
+│   ├── use-review.ts             # Review session queries
+│   ├── use-swipe.ts              # Touch swipe gesture hook
+│   ├── use-due-count.ts          # Due card count (navbar + tab bar)
+│   ├── use-upload.ts             # Note parsing with streaming status
+│   └── use-test-questions.ts     # Test question fetch/cache
+├── lib/
+│   ├── ai.ts                     # Claude API integration
+│   ├── capacitor.ts              # Native plugin init (Capacitor)
+│   ├── speech.ts                 # Chinese text-to-speech
+│   ├── srs.ts                    # SM-2 algorithm + interval preview
+│   ├── constants.ts              # CLAUDE_MODEL, prompts, config
+│   ├── api-helpers.ts            # Auth helpers, markdown stripping
+│   └── ...                       # auth, prisma, logger, error-handler, env
+├── types/                        # TypeScript types
+├── prisma/schema.prisma          # Database schema (18 models)
+├── capacitor.config.ts           # Native app configuration
+└── changelogs/                   # Version changelog JSON files
 ```
 
 ### File Naming Conventions
@@ -1658,6 +1660,13 @@ Before submitting a PR, ensure:
 ---
 
 ## Changelog
+
+### Version 2.0.0 (2026-04-01)
+- Updated project overview with all new features (stories, immersion, recall, listening, decomposition, swipe, Capacitor)
+- Updated tech stack (Claude Sonnet 4.6, Tailwind 4, Capacitor, NextAuth v5)
+- Rewrote directory structure to reflect current codebase (18 Prisma models, new hooks, components, API routes)
+- Added mobile-first patterns: bottom tab bar, shared answer buttons, swipe gestures, haptic feedback, skeleton loading
+- Added Capacitor/native app context
 
 ### Version 1.1.0 (2025-11-24)
 - Added comprehensive Changelog & Versioning System section

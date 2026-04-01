@@ -6,33 +6,48 @@ An AI-powered flashcard application for Mandarin Chinese language learning. Uplo
 
 ### AI-Powered Learning
 - **Smart Note Parsing**: Upload lesson notes and automatically generate flashcards for vocabulary, grammar points, phrases, and idioms
-- **AI Example Sentences**: Generate contextual example sentences for grammar points using vocabulary you already know
-- **Test Question Generation**: AI creates multiple-choice questions with plausible distractors for effective testing
+- **AI Example Sentences**: Generate contextual example sentences for any card type
+- **AI Short Stories**: Read AI-generated stories built from your known vocabulary with sentence-by-sentence audio
+- **Character Decomposition**: See radical/component breakdowns for any Chinese character
+- **Test Question Generation**: AI creates multiple-choice questions with plausible distractors
+- **Interactive AI Lessons**: Multi-page lessons with quizzes, fill-in-the-blank, and translation exercises
 
 ### Review & Study Modes
-- **Spaced Repetition System**: SM-2 algorithm automatically schedules reviews at optimal intervals for long-term retention
-- **Classic Flashcards**: Flip cards to test yourself with customizable face modes (pinyin, hanzi, both, english, or random)
-- **Multiple Choice Tests**: Quiz yourself with AI-generated questions at easy or hard difficulty levels
-- **Flexible Filtering**: Review by lesson, card type, tags, or specific card states
+- **Classic Flashcards**: Flip cards with customizable face modes (pinyin, hanzi, both, english, immersion, or random)
+- **Recall Mode**: Type your answer from memory with auto-grading and self-rating
+- **Listening Mode**: Audio-only card front for sound recognition practice
+- **Immersion Mode**: Hanzi + audio only, pinyin hidden behind tap-to-reveal
+- **Multiple Choice Tests**: Quiz yourself with AI-generated questions
+- **Spaced Repetition System**: SM-2 algorithm schedules reviews at optimal intervals
+- **Swipe Gestures**: Swipe left (Again) or right (Good) on flashcards
+- **Wrong-Card Drill**: Review missed cards immediately after a session
+- **Undo Support**: Undo accidental review ratings
 
 ### Progress Tracking & Gamification
-- **XP & Levels**: Earn experience points for each review and level up as you progress
+- **XP & Levels**: Earn experience points for each review and level up
 - **Achievement System**: Unlock achievements for reaching milestones
 - **Streak Tracking**: Build and maintain daily study streaks
-- **Statistics Dashboard**: Track your progress with detailed stats including accuracy, cards learned, and review history
+- **Statistics Dashboard**: Detailed stats including accuracy, cards learned, review history, and 30-day heatmap
 - **Daily Goals**: Set and track daily review targets
+- **Due Cards Badge**: Navigation badge shows how many cards are due
 
 ### Organization & Management
 - **Lesson Organization**: Cards automatically tagged by lesson number and organized by topics
+- **Short Stories**: AI-generated reading practice saved for re-reading
 - **Manual Card Management**: Create, edit, and delete flashcards with full control
 - **Tag System**: Categorize cards by HSK level, parts of speech, topics, and custom tags
-- **Duplicate Detection**: Prevents duplicate cards when importing or creating new ones
+- **Duplicate Detection**: Prevents duplicate cards when importing
+- **Pinyin Toggle**: Show/hide pinyin across the deck view
 
 ### User Experience
-- **Versioning System**: See "What's New" updates when new features are released
-- **Feedback System**: Report bugs, request features, or send general feedback directly in the app
-- **Dark Mode**: Comfortable viewing in any lighting condition
-- **Responsive Design**: Works seamlessly on desktop, tablet, and mobile devices
+- **Mobile-First Design**: Bottom tab navigation, touch-optimized buttons, swipe gestures
+- **iOS & Android App**: Native app shell via Capacitor (App Store / Play Store ready)
+- **OLED-Safe Dark Mode**: Optimized dark colors prevent smearing on OLED screens
+- **Haptic Feedback**: Tactile feedback on card flips, correct answers, and gestures (native)
+- **Skeleton Loading**: Shimmer placeholders while content loads
+- **Optimistic Saves**: Cards save in the background, instant redirect after upload
+- **Versioning System**: "What's New" modal for release updates
+- **Feedback System**: Report bugs or request features in-app
 
 ## Tech Stack
 
@@ -42,8 +57,9 @@ An AI-powered flashcard application for Mandarin Chinese language learning. Uplo
 - **Database**: PostgreSQL with Prisma ORM
 - **Authentication**: NextAuth.js v5
 - **Styling**: Tailwind CSS 4 + shadcn/ui
-- **AI**: Anthropic Claude API (Sonnet 4.5)
+- **AI**: Anthropic Claude API (Sonnet 4.6)
 - **State Management**: TanStack Query (React Query)
+- **Mobile**: Capacitor (iOS & Android native shell)
 
 ## Getting Started
 
@@ -184,32 +200,29 @@ Phrases:
 
 ### Reviewing Cards
 
-**Classic Flashcard Mode:**
-1. Navigate to **Review**
-2. Choose review mode: **Classic**
-3. Configure settings:
-   - Face mode (what to show on front: pinyin, hanzi, both, english, random)
-   - Number of cards
-   - Filter by lesson, tags, or card type
-4. Click "Start Review"
-5. Tap/click to flip card
-6. Rate your answer: Again, Hard, Good, or Easy
-7. The SM-2 algorithm schedules the next review automatically
+Four review modes are available:
 
-**Test Mode:**
-1. Navigate to **Review**
-2. Choose review mode: **Test** (Easy or Hard difficulty)
-3. Configure filters and number of cards
-4. AI generates multiple-choice questions
-5. Select your answer
-6. See if you're correct
-7. Click "Next" to continue
+- **Classic**: Flip cards and self-rate (Again/Good/Easy on mobile, +Hard on desktop). Swipe left/right as a shortcut.
+- **Recall**: Type your answer from memory, auto-graded with fuzzy matching, then self-rate.
+- **Listening**: Audio plays with a blank screen. Recall the character from sound alone, then reveal.
+- **Test**: AI-generated multiple choice questions.
+
+All modes support filtering by lesson, card type, and tags. The SM-2 algorithm schedules next review automatically. Cards you miss are collected for a drill-again session at the end.
+
+### Reading Stories
+
+1. Navigate to **Stories** (Learn tab on mobile)
+2. Click **New Story** to generate a story from your vocabulary
+3. Toggle between **Immersion** (hanzi + audio only) and **With Pinyin** modes
+4. Tap pill buttons to reveal pinyin or English per sentence
+5. Use **Read Aloud** for sentence-by-sentence audio playback
+6. Previously generated stories are saved and can be re-read anytime
 
 ### Tracking Progress
 
-- **Dashboard**: View your XP, level, streak, and daily goal progress
-- **Stats Page**: See detailed statistics, achievements, and review history
-- **Achievements**: Unlock achievements for milestones (First Review, Week Warrior, etc.)
+- **Dashboard**: XP, level, streak, daily goal, card progress breakdown
+- **Stats Page**: Accuracy, achievements, review history, 30-day activity heatmap
+- **Due Badge**: Navigation bar shows how many cards are due for review
 
 ## Project Structure
 
@@ -217,56 +230,49 @@ Phrases:
 src/
 ├── app/                          # Next.js App Router
 │   ├── (auth)/                   # Auth routes (login, signup)
-│   ├── (dashboard)/              # Protected routes (deck, review, upload, etc.)
+│   ├── (dashboard)/              # Protected routes
+│   │   ├── deck/                 # Card deck management
+│   │   ├── review/               # Review sessions
+│   │   ├── upload/               # Note upload & parsing
+│   │   ├── lessons/              # Lesson list, detail, interactive learn
+│   │   ├── stories/              # AI-generated reading practice
+│   │   ├── stats/                # Statistics & achievements
+│   │   └── profile/              # User settings
 │   ├── api/                      # API routes
-│   │   ├── auth/                 # NextAuth endpoints
-│   │   ├── cards/                # Card CRUD operations
-│   │   ├── changelog/            # Versioning system
-│   │   ├── feedback/             # User feedback
-│   │   ├── generate-sentence/    # AI sentence generation
-│   │   ├── lessons/              # Lesson management
-│   │   ├── parse-notes/          # AI note parsing
-│   │   ├── review/               # Review session & SRS
-│   │   ├── stats/                # User statistics
-│   │   └── test-questions/       # Test question generation
-│   ├── layout.tsx                # Root layout
-│   └── page.tsx                  # Landing page
-├── components/                   # React components
-│   ├── ui/                       # shadcn/ui components
-│   ├── auth/                     # Authentication components
-│   ├── cards/                    # Card management
-│   ├── changelog/                # What's New modal
-│   ├── feedback/                 # Feedback system
-│   ├── layout/                   # Navbar, sidebar
-│   ├── providers/                # Context providers
-│   ├── review/                   # Review session components
-│   ├── upload/                   # Note upload components
-│   └── welcome/                  # Welcome modal
-├── hooks/                        # Custom React hooks
-│   ├── use-cards.ts             # Card data fetching
-│   ├── use-review.ts            # Review session logic
-│   └── use-test-questions.ts    # Test question handling
-├── lib/                          # Shared utilities
+│   │   ├── cards/                # Card CRUD, bulk create, save-parsed
+│   │   ├── decompose/            # Character decomposition
+│   │   ├── lessons/              # Lesson management & page generation
+│   │   ├── review/               # Review session, SRS, due-count
+│   │   ├── stories/              # Story generation & listing
+│   │   └── ...                   # auth, changelog, feedback, stats, etc.
+│   ├── layout.tsx                # Root layout (safe areas, providers)
+│   └── page.tsx                  # Landing page (dashboard / marketing)
+├── components/
+│   ├── layout/                   # Navbar, bottom tab bar
+│   ├── review/                   # Flashcard, recall, listening, test, answer buttons
+│   ├── ui/                       # shadcn/ui + skeleton, ai-loading
+│   ├── cards/                    # Card item, card form
+│   ├── lessons/                  # Lesson segments, modals
+│   └── ...                       # auth, changelog, feedback, welcome, stories
+├── hooks/
+│   ├── use-cards.ts             # Card CRUD
+│   ├── use-review.ts            # Review session
+│   ├── use-swipe.ts             # Touch swipe gestures
+│   ├── use-due-count.ts         # Due card count (shared)
+│   ├── use-upload.ts            # Note parsing with status
+│   └── use-test-questions.ts    # Test question fetching
+├── lib/
 │   ├── ai.ts                    # Claude API integration
-│   ├── api-helpers.ts           # API route helpers
-│   ├── auth.ts                  # NextAuth configuration
-│   ├── error-handler.ts         # Centralized error handling
-│   ├── logger.ts                # Structured logging
-│   ├── prisma.ts                # Prisma client singleton
-│   ├── srs.ts                   # SM-2 algorithm implementation
-│   └── utils.ts                 # General utilities
+│   ├── capacitor.ts             # Native plugin initialization
+│   ├── speech.ts                # Web Speech API (Chinese TTS)
+│   ├── srs.ts                   # SM-2 algorithm + interval preview
+│   ├── constants.ts             # CLAUDE_MODEL, prompts, config
+│   └── ...                      # auth, prisma, logger, error-handler, utils
 ├── types/                        # TypeScript types
-│   ├── api-responses.ts         # API response types
-│   └── index.ts                 # Shared types
-├── prisma/
-│   ├── schema.prisma            # Database schema
-│   └── seed.ts                  # Database seeding
-├── scripts/
-│   └── insert-changelog.ts      # Changelog insertion script
-├── changelogs/                   # Version changelog files
-└── docs/
-    └── CODE_PATTERNS.md         # Development guidelines
-
+├── prisma/schema.prisma          # Database schema (18 models)
+├── capacitor.config.ts           # Capacitor native app config
+├── changelogs/                   # Version changelog JSON files
+└── docs/CODE_PATTERNS.md         # Development guidelines
 ```
 
 ## Development
@@ -312,6 +318,29 @@ npm run dev
 
 > **Note**: Always run `npx prisma generate` after pulling schema changes, or you'll get "Unknown field" errors from Prisma.
 
+## Mobile App (Capacitor)
+
+The app runs as a native iOS/Android app via Capacitor, loading from the production server.
+
+### Development
+
+```bash
+# Sync config and plugins to native projects
+npx cap sync
+
+# Open in Xcode (iOS)
+npx cap open ios
+
+# Open in Android Studio
+npx cap open android
+```
+
+For local development, update `capacitor.config.ts` to point `server.url` at `http://localhost:3000`.
+
+### Publishing
+
+Requires Apple Developer ($99/yr) and/or Google Play Developer ($25) accounts. The native projects in `ios/` and `android/` are gitignored and generated by `npx cap add ios/android`.
+
 ## Contributing
 
 Contributions are welcome! Please:
@@ -336,3 +365,4 @@ Built with:
 - [shadcn/ui](https://ui.shadcn.com/) - UI components
 - [TanStack Query](https://tanstack.com/query) - Data fetching
 - [NextAuth.js](https://next-auth.js.org/) - Authentication
+- [Capacitor](https://capacitorjs.com/) - Native mobile app shell
