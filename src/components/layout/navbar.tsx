@@ -63,8 +63,8 @@ export function Navbar() {
           </div>
         </Link>
 
-        {/* Mobile: just auth buttons for unauthenticated users (bottom tabs handle nav) */}
-        <div className="md:hidden">
+        {/* Mobile/tablet: just auth buttons for unauthenticated users (bottom tabs handle nav) */}
+        <div className="lg:hidden">
           {!session && (
             <div className="flex items-center gap-2">
               <Link href="/login">
@@ -78,11 +78,11 @@ export function Navbar() {
         </div>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center gap-6">
+        <nav className="hidden lg:flex items-center gap-4">
           {session ? (
             <>
-              <NavLink href="/deck" english="My Deck" chinese="我的卡片" icon={Layers} />
-              <NavLink href="/upload" english="Upload Notes" chinese="上传笔记" icon={Upload} />
+              <NavLink href="/deck" english="Deck" chinese="卡片" icon={Layers} />
+              <NavLink href="/upload" english="Upload" chinese="上传" icon={Upload} />
               <NavLink href="/review" english="Review" chinese="复习" icon={GraduationCap} badge={dueCount} />
               <NavLink href="/lessons" english="Lessons" chinese="课程" icon={BookOpen} />
               <NavLink href="/stories" english="Stories" chinese="故事" icon={BookOpen} />

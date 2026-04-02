@@ -23,7 +23,7 @@ export default async function DashboardLayout({
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50/30 via-yellow-50/20 to-green-50/30 dark:from-orange-950/10 dark:via-yellow-950/5 dark:to-green-950/10">
       <Navbar />
-      <main className="container mx-auto px-3 py-4 md:px-4 md:py-8 pb-24 md:pb-8">
+      <main className="container mx-auto px-3 py-4 lg:px-4 lg:py-8 pb-24 lg:pb-8">
         <DashboardProvider hasSeenWelcome={hasSeenWelcome}>
           {children}
         </DashboardProvider>
