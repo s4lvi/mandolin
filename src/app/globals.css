@@ -144,6 +144,14 @@
   /* Touch target sizing is handled per-component via Tailwind min-h classes
      (e.g. min-h-[44px] on answer-buttons, bottom-tab-bar, etc.)
      rather than a blanket rule that breaks checkboxes and small controls */
+
+  /* Navbar background fade on mobile when scrolled */
+  @media (max-width: 1023px) {
+    .navbar-bg-scrolled {
+      -webkit-mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+      mask-image: linear-gradient(to bottom, black 50%, transparent 100%);
+    }
+  }
   /* Hide bottom tab bar when keyboard is open (set by capacitor.ts) */
   body.keyboard-open .keyboard-hide {
     display: none !important;

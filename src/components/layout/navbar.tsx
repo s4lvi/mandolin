@@ -54,19 +54,15 @@ export function Navbar() {
   }, [])
 
   return (
-    <header
-      className={`sticky top-0 z-40 transition-all duration-300 ${
-        scrolled
-          ? "lg:border-b lg:bg-gradient-to-r lg:from-orange-50 lg:via-yellow-50 lg:to-green-50 lg:dark:from-orange-950/20 lg:dark:via-yellow-950/20 lg:dark:to-green-950/20 lg:backdrop-blur-sm"
-          : "border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm"
-      }`}
-      style={scrolled ? {
-        // On mobile when scrolled: gradient mask fading to transparent at bottom
-        WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
-        maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
-      } : undefined}
-    >
-      <div className={`container mx-auto px-4 flex items-center justify-between transition-all duration-300 ${
+    <header className="sticky top-0 z-40">
+      {/* Background layer — fades to transparent at bottom when scrolled on mobile */}
+      <div
+        className={`absolute inset-0 transition-all duration-300 border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm ${
+          scrolled ? "navbar-bg-scrolled" : ""
+        }`}
+      />
+      {/* Content layer — always fully visible */}
+      <div className={`relative container mx-auto px-4 flex items-center justify-between transition-all duration-300 ${
         scrolled ? "h-10 lg:h-16" : "h-16"
       }`}>
         <Link href="/" className="flex items-center gap-2 lg:gap-3 transition-transform hover:scale-105 group">
