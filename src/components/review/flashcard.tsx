@@ -179,14 +179,14 @@ export function Flashcard({
         >
           {/* Front */}
           <Card
-            className={`min-h-[250px] md:min-h-[300px] flex items-center justify-center ${
+            className={`min-h-[180px] sm:min-h-[250px] flex items-center justify-center ${
               isFlipped ? "invisible" : ""
             }`}
             style={{
               backfaceVisibility: "hidden"
             }}
           >
-            <CardContent className="text-center p-8">
+            <CardContent className="text-center p-4 sm:p-8">
               <div className="flex items-center justify-center gap-3">
                 <p
                   className={`font-bold ${
@@ -219,7 +219,7 @@ export function Flashcard({
 
           {/* Back */}
           <Card
-            className={`min-h-[250px] md:min-h-[300px] max-h-[400px] absolute inset-0 ${
+            className={`min-h-[180px] sm:min-h-[250px] absolute inset-0 ${
               isFlipped ? "" : "invisible"
             }`}
             style={{
@@ -227,8 +227,8 @@ export function Flashcard({
               transform: "rotateY(180deg)"
             }}
           >
-            <CardContent className="p-6 h-full flex flex-col overflow-hidden">
-              <div className="flex-1 overflow-y-auto">
+            <CardContent className="p-4 sm:p-6 flex flex-col">
+              <div className="flex-1">
                 <div className="text-center mb-4">
                   <div className="flex items-center justify-center gap-2">
                     <p className="text-3xl font-bold break-words">{card.hanzi}</p>

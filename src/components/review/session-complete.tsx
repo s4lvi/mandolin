@@ -49,13 +49,13 @@ export function SessionComplete({
           <CardTitle>Session Complete!</CardTitle>
           <CardDescription>Great work reviewing your cards</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-4 sm:space-y-6">
           {/* XP and Stats */}
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div className="p-3 bg-yellow-50 rounded-lg">
-              <Zap className="h-5 w-5 text-yellow-500 mx-auto mb-1" />
-              <p className="text-xl font-bold text-yellow-600">+{results.totalXp}</p>
-              <p className="text-xs text-muted-foreground">XP Earned</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4 text-center">
+            <div className="p-2 sm:p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg">
+              <Zap className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 mx-auto mb-1" />
+              <p className="text-lg sm:text-xl font-bold text-yellow-600">+{results.totalXp}</p>
+              <p className="text-xs text-muted-foreground">XP</p>
             </div>
             <div className="p-3 bg-orange-50 rounded-lg">
               <Flame className="h-5 w-5 text-orange-500 mx-auto mb-1" />
@@ -122,8 +122,8 @@ export function SessionComplete({
                   </Button>
                 )}
               </div>
-              <div className="space-y-2 max-h-48 overflow-y-auto">
-                {missedCards.map((card) => (
+              <div className="space-y-2">
+                {missedCards.slice(0, 4).map((card) => (
                   <div
                     key={card.id}
                     className="flex items-center justify-between p-2 bg-red-50 dark:bg-red-950/20 rounded-lg border border-red-200 dark:border-red-900/30"
@@ -143,26 +143,31 @@ export function SessionComplete({
                     </Button>
                   </div>
                 ))}
+              {missedCards.length > 4 && (
+                <p className="text-xs text-muted-foreground text-center">
+                  +{missedCards.length - 4} more
+                </p>
+              )}
               </div>
             </div>
           )}
 
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 min-h-[44px]"
               onClick={() => router.push("/deck")}
             >
               Back to Deck
             </Button>
             <Button
               variant="outline"
-              className="flex-1"
+              className="flex-1 min-h-[44px]"
               onClick={() => router.push("/stats")}
             >
               View Stats
             </Button>
-            <Button className="flex-1" onClick={onRestart}>
+            <Button className="flex-1 min-h-[44px]" onClick={onRestart}>
               Again
             </Button>
           </div>

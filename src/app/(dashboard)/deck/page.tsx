@@ -155,7 +155,7 @@ export default function DeckPage() {
     <ErrorBoundary>
       <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h1 className="text-3xl font-bold">My Deck</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">My Deck</h1>
         <div className="flex gap-2">
           {!selectionMode && (
             <>
@@ -235,7 +235,7 @@ export default function DeckPage() {
           />
         </div>
         <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[140px] sm:w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
@@ -324,7 +324,7 @@ export default function DeckPage() {
             )}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
             {paginatedCards?.map((card) => (
               <CardItem
                 key={card.id}

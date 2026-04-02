@@ -29,8 +29,8 @@ export function TestCard({ card, mode, direction, onAnswer }: TestCardProps) {
 
   if (isLoading) {
     return (
-      <Card className="min-h-[300px]">
-        <CardContent className="flex flex-col items-center justify-center min-h-[300px] p-8">
+      <Card className="min-h-0">
+        <CardContent className="flex flex-col items-center justify-center min-h-0 p-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
           <p className="text-muted-foreground">Generating question...</p>
         </CardContent>
@@ -40,8 +40,8 @@ export function TestCard({ card, mode, direction, onAnswer }: TestCardProps) {
 
   if (error || !data) {
     return (
-      <Card className="min-h-[300px]">
-        <CardContent className="flex flex-col items-center justify-center min-h-[300px] p-8">
+      <Card className="min-h-0">
+        <CardContent className="flex flex-col items-center justify-center min-h-0 p-8">
           <p className="text-center text-red-500 mb-4">
             Failed to load question. Please try again.
           </p>

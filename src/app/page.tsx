@@ -131,7 +131,7 @@ function Dashboard() {
             <CardDescription>{cardStats.total} total cards in your deck</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-5 gap-2 text-center text-sm">
+            <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-sm">
               <div className="p-2 bg-blue-50 rounded">
                 <p className="font-bold text-blue-600">{cardStats.new}</p>
                 <p className="text-xs text-muted-foreground">New</p>

@@ -110,14 +110,14 @@ export default function StatsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">My Stats</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">My Stats</h1>
         <p className="text-muted-foreground">
           Track your learning progress and achievements
         </p>
       </div>
 
       {/* Main Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
         <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-900/30">
           <CardContent className="p-4 text-center">
             <Zap className="h-8 w-8 text-yellow-600 dark:text-yellow-500 mx-auto mb-2" />
@@ -187,31 +187,31 @@ export default function StatsPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            <div className="grid grid-cols-5 gap-2 text-center">
-              <div className="p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg" title="Never reviewed before">
-                <BookOpen className="h-5 w-5 text-blue-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{cardStats.new}</p>
-                <p className="text-xs text-muted-foreground">New</p>
+            <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center">
+              <div className="p-2 sm:p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg" title="Never reviewed before">
+                <BookOpen className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-base sm:text-lg font-bold">{cardStats.new}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">New</p>
               </div>
-              <div className="p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg" title="In initial learning phase (short intervals)">
-                <Clock className="h-5 w-5 text-yellow-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{cardStats.learning}</p>
-                <p className="text-xs text-muted-foreground">Learning</p>
+              <div className="p-2 sm:p-3 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg" title="In initial learning phase">
+                <Clock className="h-4 w-4 sm:h-5 sm:w-5 text-yellow-500 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-base sm:text-lg font-bold">{cardStats.learning}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Learning</p>
               </div>
-              <div className="p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg" title="Being reviewed at medium intervals">
-                <TrendingUp className="h-5 w-5 text-orange-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{cardStats.review}</p>
-                <p className="text-xs text-muted-foreground">Review</p>
+              <div className="p-2 sm:p-3 bg-orange-50 dark:bg-orange-950/20 rounded-lg" title="Being reviewed at medium intervals">
+                <TrendingUp className="h-4 w-4 sm:h-5 sm:w-5 text-orange-500 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-base sm:text-lg font-bold">{cardStats.review}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Review</p>
               </div>
-              <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg" title="Successfully learned (long intervals)">
-                <CheckCircle className="h-5 w-5 text-green-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{cardStats.learned}</p>
-                <p className="text-xs text-muted-foreground">Learned</p>
+              <div className="p-2 sm:p-3 bg-green-50 dark:bg-green-950/20 rounded-lg" title="Successfully learned">
+                <CheckCircle className="h-4 w-4 sm:h-5 sm:w-5 text-green-500 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-base sm:text-lg font-bold">{cardStats.learned}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Learned</p>
               </div>
-              <div className="p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg" title="Cards ready to review today">
-                <Target className="h-5 w-5 text-purple-500 mx-auto mb-1" />
-                <p className="text-lg font-bold">{cardStats.dueToday}</p>
-                <p className="text-xs text-muted-foreground">Due</p>
+              <div className="p-2 sm:p-3 bg-purple-50 dark:bg-purple-950/20 rounded-lg" title="Cards ready to review today">
+                <Target className="h-4 w-4 sm:h-5 sm:w-5 text-purple-500 mx-auto mb-0.5 sm:mb-1" />
+                <p className="text-base sm:text-lg font-bold">{cardStats.dueToday}</p>
+                <p className="text-[10px] sm:text-xs text-muted-foreground">Due</p>
               </div>
             </div>
             <p className="text-xs text-muted-foreground text-center pt-2 border-t">

@@ -208,7 +208,7 @@ export default function UploadPage() {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Review Parsed Cards</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold">Review Parsed Cards</h1>
             <p className="text-muted-foreground">
               {selectedNewCards} of {totalNewCards} new card{totalNewCards !== 1 ? 's' : ''} selected to save
               {duplicateCards > 0 && lessonMode !== "none" && ` • ${duplicateCards} duplicate${duplicateCards !== 1 ? 's' : ''} will be associated with lesson`}
@@ -295,7 +295,7 @@ export default function UploadPage() {
     <ErrorBoundary>
       <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Upload Lesson Notes</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Upload Lesson Notes</h1>
         <p className="text-muted-foreground">
           Paste your lesson notes and let AI create flashcards automatically
         </p>

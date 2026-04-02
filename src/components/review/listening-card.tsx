@@ -45,8 +45,8 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
 
   if (isRevealed) {
     return (
-      <Card className="min-h-[300px]">
-        <CardContent className="p-8">
+      <Card className="min-h-0">
+        <CardContent className="p-4 sm:p-6">
           <div className="text-center mb-6">
             <div className="flex items-center justify-center gap-2 mb-2">
               <p className="text-4xl font-bold">{card.hanzi}</p>
@@ -83,13 +83,13 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
 
   // Audio-only front — no text shown
   return (
-    <Card className="min-h-[300px]">
-      <CardContent className="flex flex-col items-center justify-center min-h-[300px] p-8">
+    <Card className="min-h-0">
+      <CardContent className="flex flex-col items-center justify-center py-8 px-4 sm:px-8">
         <p className="text-sm text-muted-foreground mb-6">Listen and recall</p>
         <Button
           variant="outline"
           size="lg"
-          className="rounded-full h-24 w-24 mb-6"
+          className="rounded-full h-20 w-20 sm:h-24 sm:w-24 mb-4 sm:mb-6"
           onClick={playAudio}
           disabled={isPlaying}
         >

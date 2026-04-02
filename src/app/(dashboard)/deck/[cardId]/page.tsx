@@ -85,7 +85,7 @@ export default function EditCardPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-3xl font-bold">Edit Card</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Edit Card</h1>
           <p className="text-muted-foreground">
             Update card details for &ldquo;{card.hanzi}&rdquo;
           </p>

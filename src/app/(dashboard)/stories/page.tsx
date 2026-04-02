@@ -302,7 +302,7 @@ export default function StoriesPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Short Stories</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Short Stories</h1>
           <p className="text-muted-foreground">
             AI-generated reading practice using your vocabulary
           </p>

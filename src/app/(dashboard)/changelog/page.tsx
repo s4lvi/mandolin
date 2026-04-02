@@ -39,7 +39,7 @@ export default function ChangelogPage() {
       <div className="flex items-center gap-3">
         <Sparkles className="h-8 w-8 text-primary" />
         <div>
-          <h1 className="text-3xl font-bold">What's New</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">What's New</h1>
           <p className="text-muted-foreground">
             Version history and feature updates
           </p>

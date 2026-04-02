@@ -99,8 +99,8 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
 
   if (submitted) {
     return (
-      <Card className={`min-h-[300px] ${isCorrect ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
-        <CardContent className="p-8">
+      <Card className={`min-h-0 ${isCorrect ? "border-green-500 bg-green-50 dark:bg-green-950/20" : "border-red-500 bg-red-50 dark:bg-red-950/20"}`}>
+        <CardContent className="p-4 sm:p-6">
           <div className="text-center mb-6">
             {isCorrect ? (
               <div className="flex flex-col items-center">
@@ -159,8 +159,8 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
   }
 
   return (
-    <Card className="min-h-[300px]">
-      <CardContent className="p-8">
+    <Card className="min-h-0">
+      <CardContent className="p-4 sm:p-6">
         <div className="text-center mb-8">
           <p className="text-xs text-muted-foreground mb-2">{promptLabel}</p>
           <div className="flex items-center justify-center gap-2">

@@ -22,7 +22,7 @@ export default function LessonsPage() {
       <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold">Lessons</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">Lessons</h1>
           <p className="text-muted-foreground">
             Organize your cards into structured learning paths
           </p>
@@ -55,7 +55,7 @@ export default function LessonsPage() {
           </Link>
         </div>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 md:gap-4 md:grid-cols-2 lg:grid-cols-3">
           {lessons.map((lesson) => {
             const cardCount = lesson._count?.cards || 0
             const lessonProgress = lesson.lessonProgress
