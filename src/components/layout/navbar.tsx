@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
@@ -42,17 +43,45 @@ function NavLink({ href, english, chinese, icon: Icon, badge }: { href: string; 
 export function Navbar() {
   const { data: session } = useSession()
   const { data: dueCount } = useDueCount()
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20)
+    }
+    window.addEventListener("scroll", handleScroll, { passive: true })
+    return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
 
   return (
-    <header className="border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-3 transition-transform hover:scale-105 group">
-          <img src="/logo.png" alt="Mangolin" className="h-14 w-14" />
-          <div className="flex flex-col -space-y-1">
-            <span className="text-2xl font-bold tracking-tight bg-gradient-to-r from-orange-600 via-red-500 to-orange-600 bg-clip-text text-transparent group-hover:from-orange-500 group-hover:via-red-400 group-hover:to-orange-500 transition-all">
+    <header
+      className={`sticky top-0 z-40 transition-all duration-300 ${
+        scrolled
+          ? "lg:border-b lg:bg-gradient-to-r lg:from-orange-50 lg:via-yellow-50 lg:to-green-50 lg:dark:from-orange-950/20 lg:dark:via-yellow-950/20 lg:dark:to-green-950/20 lg:backdrop-blur-sm"
+          : "border-b bg-gradient-to-r from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/20 dark:to-green-950/20 backdrop-blur-sm"
+      }`}
+      style={scrolled ? {
+        // On mobile when scrolled: gradient mask fading to transparent at bottom
+        WebkitMaskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+        maskImage: "linear-gradient(to bottom, black 60%, transparent 100%)",
+      } : undefined}
+    >
+      <div className={`container mx-auto px-4 flex items-center justify-between transition-all duration-300 ${
+        scrolled ? "h-10 lg:h-16" : "h-16"
+      }`}>
+        <Link href="/" className="flex items-center gap-2 lg:gap-3 transition-transform hover:scale-105 group">
+          <img
+            src="/logo.png"
+            alt="Mangolin"
+            className={`transition-all duration-300 ${scrolled ? "h-8 w-8 lg:h-14 lg:w-14" : "h-14 w-14"}`}
+          />
+          <div className={`flex flex-col transition-all duration-300 ${scrolled ? "-space-y-0.5" : "-space-y-1"}`}>
+            <span className={`font-bold tracking-tight bg-gradient-to-r from-orange-600 via-red-500 to-orange-600 bg-clip-text text-transparent transition-all duration-300 ${
+              scrolled ? "text-lg lg:text-2xl" : "text-2xl"
+            }`}>
               Mangolin
             </span>
-            <div className="flex items-baseline gap-2">
+            <div className={`flex items-baseline gap-2 transition-all duration-300 ${scrolled ? "hidden lg:flex" : "flex"}`}>
               <span className="text-sm font-medium text-muted-foreground tracking-wider">
                 芒果林
               </span>
