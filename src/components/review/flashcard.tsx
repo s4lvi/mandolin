@@ -152,207 +152,168 @@ export function Flashcard({
     easy: formatInterval(previewInterval(cardSRS, SRSQuality.EASY)),
   }
 
+  const handleCardTap = () => {
+    if (!isFlipped) {
+      setIsFlipped(true)
+      if (isNative()) {
+        import("@capacitor/haptics").then(({ Haptics, ImpactStyle }) =>
+          Haptics.impact({ style: ImpactStyle.Light })
+        ).catch(() => {})
+      }
+    }
+  }
+
   return (
-    <div className="w-full max-w-md mx-auto">
-      <div
-        className="relative cursor-pointer perspective-1000"
-        onClick={() => {
-          setIsFlipped(!isFlipped)
-          // Light haptic on card flip
-          if (isNative()) {
-            import("@capacitor/haptics").then(({ Haptics, ImpactStyle }) =>
-              Haptics.impact({ style: ImpactStyle.Light })
-            ).catch(() => {})
-          }
-        }}
-        style={{ perspective: "1000px", ...swipeStyle, backgroundColor: swipeOverlay }}
-        {...swipeHandlers}
-      >
-        <div
-          className={`relative transition-transform duration-500 transform-style-preserve-3d ${
-            isFlipped ? "rotate-y-180" : ""
-          }`}
-          style={{
-            transformStyle: "preserve-3d",
-            transform: isFlipped ? "rotateY(180deg)" : "rotateY(0)"
-          }}
+    <div
+      className="w-full max-w-md mx-auto"
+      style={swipeStyle}
+      {...swipeHandlers}
+    >
+      {!isFlipped ? (
+        /* Front */
+        <Card
+          className="cursor-pointer active:scale-[0.98] transition-transform"
+          onClick={handleCardTap}
+          style={{ backgroundColor: swipeOverlay }}
         >
-          {/* Front */}
-          <Card
-            className={`min-h-[180px] sm:min-h-[250px] flex items-center justify-center ${
-              isFlipped ? "invisible" : ""
-            }`}
-            style={{
-              backfaceVisibility: "hidden"
-            }}
-          >
-            <CardContent className="text-center p-4 sm:p-8">
-              <div className="flex items-center justify-center gap-3">
-                <p
-                  className={`font-bold ${
-                    faceMode === "english" ? "text-xl md:text-2xl" : "text-3xl md:text-4xl"
-                  }`}
+          <CardContent className="text-center py-8 sm:py-12 px-4">
+            <div className="flex items-center justify-center gap-3">
+              <p
+                className={`font-bold ${
+                  faceMode === "english" ? "text-xl md:text-2xl" : "text-3xl md:text-4xl"
+                }`}
+              >
+                {front.main}
+              </p>
+              {faceMode !== "english" && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={playAudio}
+                  disabled={isPlaying}
                 >
-                  {front.main}
-                </p>
-                {faceMode !== "english" && (
+                  <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} />
+                </Button>
+              )}
+            </div>
+            {front.sub && (
+              <p className="text-lg text-muted-foreground mt-2">{front.sub}</p>
+            )}
+            <p className="text-sm text-muted-foreground mt-6">
+              Tap to flip
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        /* Back — no absolute positioning, sizes to content naturally */
+        <>
+          <Card style={{ backgroundColor: swipeOverlay }}>
+            <CardContent className="p-4 sm:p-6">
+              <div className="text-center mb-3">
+                <div className="flex items-center justify-center gap-2">
+                  <p className="text-2xl sm:text-3xl font-bold break-words">{card.hanzi}</p>
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-8 w-8 shrink-0"
+                    className="h-7 w-7 shrink-0"
                     onClick={playAudio}
                     disabled={isPlaying}
-                    title="Play pronunciation"
                   >
-                    <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} />
+                    <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
                   </Button>
+                </div>
+                {showPinyin ? (
+                  <p className="text-base sm:text-lg text-muted-foreground">{card.pinyin}</p>
+                ) : (
+                  <button
+                    className="text-sm text-primary/60 hover:text-primary underline underline-offset-2"
+                    onClick={() => setShowPinyin(true)}
+                  >
+                    tap for pinyin
+                  </button>
                 )}
               </div>
-              {front.sub && (
-                <p className="text-lg text-muted-foreground mt-2">{front.sub}</p>
+
+              <p className="text-lg sm:text-xl text-center mb-2">{card.english}</p>
+
+              {card.notes && (
+                <p className="text-sm text-muted-foreground text-center mb-2 line-clamp-2">
+                  {card.notes}
+                </p>
               )}
-              <p className="text-sm text-muted-foreground mt-6">
-                Tap to flip
-              </p>
-            </CardContent>
-          </Card>
 
-          {/* Back */}
-          <Card
-            className={`min-h-[180px] sm:min-h-[250px] absolute inset-0 ${
-              isFlipped ? "" : "invisible"
-            }`}
-            style={{
-              backfaceVisibility: "hidden",
-              transform: "rotateY(180deg)"
-            }}
-          >
-            <CardContent className="p-4 sm:p-6 flex flex-col">
-              <div className="flex-1">
-                <div className="text-center mb-4">
-                  <div className="flex items-center justify-center gap-2">
-                    <p className="text-3xl font-bold break-words">{card.hanzi}</p>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 shrink-0"
-                      onClick={playAudio}
-                      disabled={isPlaying}
-                      title="Play pronunciation"
-                    >
-                      <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
-                    </Button>
-                  </div>
-                  {showPinyin ? (
-                    <p className="text-lg text-muted-foreground break-words">{card.pinyin}</p>
-                  ) : (
-                    <button
-                      className="text-sm text-primary/60 hover:text-primary underline underline-offset-2"
-                      onClick={(e) => { e.stopPropagation(); setShowPinyin(true) }}
-                    >
-                      tap for pinyin
-                    </button>
-                  )}
-                </div>
-                <div className="text-center mb-4">
-                  <p className="text-xl break-words">{card.english}</p>
-                </div>
-                {card.notes && (
-                  <p className="text-sm text-muted-foreground text-center mb-4 break-words">
-                    {card.notes}
-                  </p>
+              <div className="flex flex-wrap gap-1 justify-center">
+                <Badge variant="outline" className="text-xs">{card.type.toLowerCase()}</Badge>
+                {card.lesson && (
+                  <Badge variant="secondary" className="text-xs">L{card.lesson.number}</Badge>
                 )}
-
-                {/* Example sentence for any card */}
-                {(
-                  <div className="mt-4 pt-4 border-t">
-                    {exampleSentence ? (
-                      <div className="text-center space-y-1">
-                        <p className="text-base font-medium break-words">
-                          {exampleSentence.sentence}
-                        </p>
-                        <p className="text-xs text-muted-foreground break-words">
-                          {exampleSentence.pinyin}
-                        </p>
-                        <p className="text-xs break-words">{exampleSentence.translation}</p>
-                      </div>
-                    ) : (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onGenerateExample?.()
-                        }}
-                        disabled={isGenerating}
-                        className="w-full"
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                            Generating...
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="h-4 w-4 mr-2" />
-                            Generate Example
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                )}
-
-                {/* Character decomposition */}
-                <div className="mt-4 pt-4 border-t">
-                  {showDecomposition && decomposition ? (
-                    <div className="text-center space-y-1">
-                      <p className="text-sm font-medium">{decomposition.components}</p>
-                      <p className="text-xs text-muted-foreground">{decomposition.radicals}</p>
-                      <p className="text-xs text-muted-foreground italic">{decomposition.etymology}</p>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setShowDecomposition(true)
-                      }}
-                      disabled={isLoadingDecomp}
-                      className="w-full text-xs"
-                    >
-                      {isLoadingDecomp ? (
-                        <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                      ) : (
-                        <Puzzle className="h-3 w-3 mr-1" />
-                      )}
-                      Character Breakdown
-                    </Button>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap gap-1 justify-center mt-4">
-                  <Badge variant="outline">{card.type.toLowerCase()}</Badge>
-                  {card.lesson && (
-                    <Badge variant="secondary">Lesson {card.lesson.number}</Badge>
-                  )}
-                </div>
               </div>
             </CardContent>
           </Card>
-        </div>
-      </div>
 
-      {/* Answer buttons */}
-      {isFlipped && (
-        <div className="mt-3 md:mt-6">
-          <AnswerButtons
-            onAnswer={onAnswer}
-            disabled={isSubmitting}
-            intervalLabels={intervalLabels}
-          />
-        </div>
+          {/* Answer buttons — directly below card, no overlap */}
+          <div className="mt-2 sm:mt-3">
+            <AnswerButtons
+              onAnswer={onAnswer}
+              disabled={isSubmitting}
+              intervalLabels={intervalLabels}
+            />
+          </div>
+
+          {/* Optional extras — compact row below buttons */}
+          <div className="flex gap-2 mt-2">
+            {!exampleSentence && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onGenerateExample?.()}
+                disabled={isGenerating}
+                className="flex-1 text-xs h-8"
+              >
+                {isGenerating ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3 w-3 mr-1" />
+                )}
+                Example
+              </Button>
+            )}
+            {!showDecomposition ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowDecomposition(true)}
+                disabled={isLoadingDecomp}
+                className="flex-1 text-xs h-8"
+              >
+                {isLoadingDecomp ? (
+                  <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                ) : (
+                  <Puzzle className="h-3 w-3 mr-1" />
+                )}
+                Breakdown
+              </Button>
+            ) : null}
+          </div>
+
+          {/* Expandable content — shown only when requested */}
+          {exampleSentence && (
+            <div className="mt-2 p-3 bg-muted/50 rounded-lg text-center space-y-1">
+              <p className="text-sm font-medium">{exampleSentence.sentence}</p>
+              <p className="text-xs text-muted-foreground">{exampleSentence.pinyin}</p>
+              <p className="text-xs">{exampleSentence.translation}</p>
+            </div>
+          )}
+
+          {showDecomposition && decomposition && (
+            <div className="mt-2 p-3 bg-muted/50 rounded-lg text-center space-y-1">
+              <p className="text-sm font-medium">{decomposition.components}</p>
+              <p className="text-xs text-muted-foreground">{decomposition.radicals}</p>
+              <p className="text-xs text-muted-foreground italic">{decomposition.etymology}</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
