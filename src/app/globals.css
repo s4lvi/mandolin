@@ -141,12 +141,9 @@
   button, a, [role="button"], input, select, textarea {
     touch-action: manipulation;
   }
-  /* Minimum touch target size on touch devices */
-  @media (pointer: coarse) {
-    button, [role="button"] {
-      min-height: 44px;
-    }
-  }
+  /* Touch target sizing is handled per-component via Tailwind min-h classes
+     (e.g. min-h-[44px] on answer-buttons, bottom-tab-bar, etc.)
+     rather than a blanket rule that breaks checkboxes and small controls */
   /* Hide bottom tab bar when keyboard is open (set by capacitor.ts) */
   body.keyboard-open .keyboard-hide {
     display: none !important;

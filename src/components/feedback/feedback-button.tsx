@@ -13,7 +13,7 @@ export function FeedbackButton() {
       <Button
         onClick={() => setOpen(true)}
         size="lg"
-        className="fixed bottom-6 right-6 rounded-full h-14 w-14 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-50 bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+        className="fixed bottom-24 lg:bottom-6 right-4 lg:right-6 rounded-full h-14 w-14 shadow-lg hover:shadow-xl transition-all hover:scale-110 z-40 bg-gradient-to-br from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
         aria-label="Send feedback"
       >
         <MessageCircle className="h-6 w-6" />
