@@ -22,8 +22,8 @@ export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProp
 
   return (
     <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px]" showCloseButton={false}>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col" showCloseButton={false}>
+        <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
             What's New in v{changelog.version}
@@ -31,7 +31,7 @@ export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProp
           <DialogDescription>{changelog.title}</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
+        <div className="overflow-y-auto flex-1 min-h-0 py-4">
           <div className="bg-muted p-4 rounded-lg space-y-3">
             {changelog.changes.map((change, index) => (
               <div key={index} className="flex items-start gap-3">
@@ -48,8 +48,8 @@ export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProp
           </p>
         </div>
 
-        <div className="flex justify-end">
-          <Button onClick={onComplete}>
+        <div className="flex justify-end shrink-0 pt-2 border-t">
+          <Button onClick={onComplete} className="min-h-[44px]">
             Got it!
             <Check className="h-4 w-4 ml-2" />
           </Button>
