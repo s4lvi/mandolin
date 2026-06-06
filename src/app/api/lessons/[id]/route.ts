@@ -44,6 +44,9 @@ export async function GET(
         progress: {
           where: { userId: session.user.id }
         },
+        publishedLesson: {
+          select: { id: true, title: true, addCount: true }
+        },
         _count: {
           select: { pages: true }
         }
@@ -163,7 +166,8 @@ export async function DELETE(
 
     // Verify lesson exists and belongs to user
     const lesson = await prisma.lesson.findUnique({
-      where: { id: lessonId }
+      where: { id: lessonId },
+      include: { publishedLesson: { select: { id: true } } }
     })
 
     if (!lesson) {
@@ -172,6 +176,13 @@ export async function DELETE(
 
     if (lesson.deckId !== deck.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
+    }
+
+    if (lesson.publishedLesson) {
+      return NextResponse.json(
+        { error: "Cannot delete a published lesson. Unpublish it first." },
+        { status: 400 }
+      )
     }
 
     // Delete lesson (cards will have lessonId set to null due to onDelete: SetNull)

@@ -13,6 +13,8 @@ export const config = {
     "/upload/:path*",
     "/review/:path*",
     "/lessons/:path*",
-    "/stories/:path*"
+    "/stories/:path*",
+    "/courses/:path*",
+    "/community/:path*"
   ]
 }

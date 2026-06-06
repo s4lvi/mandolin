@@ -1,4 +1,5 @@
-import { PrismaClient } from "@prisma/client"
+import { PrismaClient, CardType } from "@prisma/client"
+import { HSK1_COURSE, HSK1_LESSONS } from "./data/hsk1"
 
 const prisma = new PrismaClient()
 
@@ -190,6 +191,51 @@ async function main() {
   }
 
   console.log("Seeded achievements successfully")
+
+  // Seed HSK 1 course
+  const existingCourse = await prisma.course.findUnique({
+    where: { slug: HSK1_COURSE.slug }
+  })
+
+  if (!existingCourse) {
+    const course = await prisma.course.create({
+      data: {
+        slug: HSK1_COURSE.slug,
+        title: HSK1_COURSE.title,
+        description: HSK1_COURSE.description,
+        level: HSK1_COURSE.level,
+        isBuiltIn: HSK1_COURSE.isBuiltIn,
+        totalLessons: HSK1_LESSONS.length,
+      }
+    })
+
+    for (const lessonData of HSK1_LESSONS) {
+      await prisma.courseLesson.create({
+        data: {
+          courseId: course.id,
+          order: lessonData.order,
+          title: lessonData.title,
+          description: lessonData.description,
+          notes: lessonData.notes,
+          cards: {
+            create: lessonData.cards.map((card, index) => ({
+              hanzi: card.hanzi,
+              pinyin: card.pinyin,
+              english: card.english,
+              notes: card.notes,
+              type: card.type as CardType,
+              order: index,
+              tags: card.tags,
+            }))
+          }
+        }
+      })
+    }
+
+    console.log(`Seeded HSK 1 course: ${HSK1_LESSONS.length} lessons, ${HSK1_LESSONS.reduce((sum, l) => sum + l.cards.length, 0)} cards`)
+  } else {
+    console.log("HSK 1 course already exists, skipping")
+  }
 }
 
 main()

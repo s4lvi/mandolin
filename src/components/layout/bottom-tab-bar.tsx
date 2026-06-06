@@ -41,7 +41,7 @@ export function BottomTabBar() {
       href: "/lessons",
       label: "Learn",
       icon: BookOpen,
-      matchPaths: ["/lessons", "/stories", "/upload"]
+      matchPaths: ["/lessons", "/stories", "/courses", "/community"]
     },
     {
       href: "/stats",

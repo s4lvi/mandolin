@@ -4,7 +4,8 @@ import Anthropic from "@anthropic-ai/sdk"
 import { SegmentType, Prisma } from "@prisma/client"
 import { getAuthenticatedUserDeck, stripMarkdownCodeBlock } from "@/lib/api-helpers"
 import { CLAUDE_MODEL, LESSON_TOTAL_PAGES } from "@/lib/constants"
-import { aiPagesResponseSchema } from "@/lib/validations/lesson"
+import { aiPagesResponseSchema, pageResponseSchema } from "@/lib/validations/lesson"
+import { z } from "zod"
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY!
@@ -176,8 +177,39 @@ export async function POST(
 
     // Parse and validate the AI response
     const jsonText = stripMarkdownCodeBlock(fullResponse)
-    const rawParsed = JSON.parse(jsonText)
-    const parsed = aiPagesResponseSchema.parse(rawParsed)
+    let rawParsed
+    try {
+      rawParsed = JSON.parse(jsonText)
+    } catch {
+      // Try to extract JSON from the response
+      const firstBrace = jsonText.indexOf("{")
+      const lastBrace = jsonText.lastIndexOf("}")
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        rawParsed = JSON.parse(jsonText.substring(firstBrace, lastBrace + 1))
+      } else {
+        throw new Error("AI response was not valid JSON")
+      }
+    }
+
+    let parsed
+    const strict = aiPagesResponseSchema.safeParse(rawParsed)
+    if (strict.success) {
+      parsed = strict.data
+    } else {
+      // Salvage: validate pages individually and keep only the well-formed ones,
+      // rather than forwarding unvalidated data into the database.
+      console.error("AI response failed schema validation:", strict.error)
+      const candidatePages = Array.isArray(rawParsed?.pages) ? rawParsed.pages : []
+      const validPages = candidatePages
+        .map((p: unknown) => pageResponseSchema.safeParse(p))
+        .filter((r: { success: boolean }) => r.success)
+        .map((r: { data: unknown }) => r.data) as z.infer<typeof pageResponseSchema>[]
+
+      if (validPages.length === 0) {
+        throw strict.error
+      }
+      parsed = { pages: validPages }
+    }
 
     // Deduplicate pages by pageNumber (keep first occurrence)
     const seenPageNumbers = new Set<number>()
