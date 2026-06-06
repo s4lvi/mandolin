@@ -11,6 +11,7 @@ import { Progress } from "@/components/ui/progress"
 import { BookOpen, ArrowRight, Play, Plus, Upload, CheckCircle } from "lucide-react"
 import { LessonListSkeleton } from "@/components/ui/skeleton"
 import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
+import { LearnTabs } from "@/components/layout/learn-tabs"
 
 export default function LessonsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -20,11 +21,15 @@ export default function LessonsPage() {
   return (
     <ErrorBoundary>
       <div className="space-y-6">
+
+      <LearnTabs />
+
+      {/* My Lessons section */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold">Lessons</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold">My Lessons</h1>
           <p className="text-muted-foreground">
-            Organize your cards into structured learning paths
+            Your uploaded notes and custom lessons
           </p>
         </div>
         <div className="flex gap-2">

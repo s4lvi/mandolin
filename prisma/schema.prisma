@@ -26,8 +26,12 @@ model User {
   achievements    UserAchievement[]
   reviewHistory   ReviewHistory[]
   feedback        Feedback[]
-  lessonProgress  LessonProgress[]
-  stories         Story[]
+  lessonProgress       LessonProgress[]
+  stories              Story[]
+  courseEnrollments     CourseEnrollment[]
+  courseLessonProgress CourseLessonProgress[]
+  publishedLessons     PublishedLesson[]
+  createdCourses       Course[]
 }
 
 model Account {
@@ -86,13 +90,16 @@ model Lesson {
   title       String?
   date        DateTime?
   notes       String?          @db.Text
+  sourceType  LessonSourceType @default(USER_CREATED)
   deckId      String
   createdAt   DateTime         @default(now())
 
-  deck        Deck             @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  cards       Card[]
-  pages       LessonPage[]
-  progress    LessonProgress[]
+  deck                 Deck                  @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cards                Card[]
+  pages                LessonPage[]
+  progress             LessonProgress[]
+  publishedLesson      PublishedLesson?
+  courseLessonProgress CourseLessonProgress[]
 
   @@unique([deckId, number])
   @@index([deckId])
@@ -365,4 +372,138 @@ model Story {
 
   @@index([userId])
   @@index([createdAt])
+}
+
+// ─── Curriculum System ───
+
+enum LessonSourceType {
+  USER_CREATED
+  COURSE
+  COMMUNITY
+}
+
+enum CourseLessonStatus {
+  LOCKED
+  UNLOCKED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model Course {
+  id           String             @id @default(cuid())
+  slug         String             @unique
+  title        String
+  description  String?            @db.Text
+  level        Int                @default(1)
+  imageUrl     String?
+  isBuiltIn    Boolean            @default(true)
+  isPublished  Boolean            @default(false) // user courses are private until the creator publishes
+  userId       String?            // null for built-in/official courses
+  totalLessons Int                @default(0)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  lessons      CourseLesson[]
+  enrollments  CourseEnrollment[]
+  user         User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([isBuiltIn])
+  @@index([isPublished])
+  @@index([level])
+  @@index([userId])
+}
+
+model CourseLesson {
+  id          String               @id @default(cuid())
+  courseId    String
+  order       Int
+  title       String
+  description String?              @db.Text
+  notes       String?              @db.Text
+  createdAt   DateTime             @default(now())
+
+  course      Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  cards       CourseLessonCard[]
+  progress    CourseLessonProgress[]
+
+  @@unique([courseId, order])
+  @@index([courseId])
+}
+
+model CourseLessonCard {
+  id              String       @id @default(cuid())
+  courseLessonId  String
+  hanzi           String
+  pinyin          String
+  english         String
+  notes           String?      @db.Text
+  type            CardType     @default(VOCABULARY)
+  order           Int
+  tags            String[]
+
+  courseLesson    CourseLesson @relation(fields: [courseLessonId], references: [id], onDelete: Cascade)
+
+  @@index([courseLessonId])
+}
+
+model CourseEnrollment {
+  id                  String    @id @default(cuid())
+  userId              String
+  courseId             String
+  currentLessonOrder  Int       @default(1)
+  completedAt         DateTime?
+  enrolledAt          DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course              Course    @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+  @@index([userId])
+  @@index([courseId])
+}
+
+model CourseLessonProgress {
+  id              String             @id @default(cuid())
+  userId          String
+  courseLessonId  String
+  lessonId        String?
+  status          CourseLessonStatus @default(LOCKED)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  user            User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseLesson    CourseLesson        @relation(fields: [courseLessonId], references: [id], onDelete: Cascade)
+  lesson          Lesson?            @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, courseLessonId])
+  @@index([userId])
+  @@index([courseLessonId])
+}
+
+// ─── Community Publishing ───
+
+model PublishedLesson {
+  id          String    @id @default(cuid())
+  lessonId    String    @unique
+  userId      String
+  title       String
+  description String?   @db.Text
+  cardCount   Int       @default(0)
+  level       String?
+  tags        String[]
+  addCount    Int       @default(0)
+  isApproved  Boolean   @default(true)
+  publishedAt DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  lesson      Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([publishedAt])
+  @@index([addCount])
+  @@index([level])
 }

@@ -109,7 +109,8 @@ export function Navbar() {
               <NavLink href="/deck" english="Deck" chinese="卡片" icon={Layers} />
               <NavLink href="/upload" english="Upload" chinese="上传" icon={Upload} />
               <NavLink href="/review" english="Review" chinese="复习" icon={GraduationCap} badge={dueCount} />
-              <NavLink href="/lessons" english="Lessons" chinese="课程" icon={BookOpen} />
+              <NavLink href="/lessons" english="Learn" chinese="学习" icon={BookOpen} />
+              <NavLink href="/courses" english="Courses" chinese="课程" icon={GraduationCap} />
               <NavLink href="/stories" english="Stories" chinese="故事" icon={BookOpen} />
               <NavLink href="/stats" english="Stats" chinese="统计" icon={BarChart3} />
               <DropdownMenu>

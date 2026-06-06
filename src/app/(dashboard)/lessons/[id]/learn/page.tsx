@@ -1,10 +1,10 @@
 "use client"
 
-import { use, useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { use, useEffect, useState, Suspense } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Trophy } from "lucide-react"
 import { AILoading } from "@/components/ui/ai-loading"
 import { TextSegment } from "@/components/lessons/interactive/text-segment"
 import { FlashcardSegment } from "@/components/lessons/interactive/flashcard-segment"
@@ -34,7 +34,7 @@ interface LessonCard {
   english: string
 }
 
-export default function InteractiveLessonPage({
+function InteractiveLessonContent({
   params
 }: {
   params: Promise<{ id: string }>
@@ -42,6 +42,18 @@ export default function InteractiveLessonPage({
   const resolvedParams = use(params)
   const lessonId = resolvedParams.id
   const router = useRouter()
+  const searchParams = useSearchParams()
+
+  // Course context (present when this lesson was launched from a course)
+  const courseSlug = searchParams.get("course")
+  const courseOrderParam = searchParams.get("order")
+  const courseOrder = courseOrderParam ? parseInt(courseOrderParam, 10) : null
+
+  const [courseResult, setCourseResult] = useState<{
+    nextLessonOrder: number | null
+    courseCompleted: boolean
+  } | null>(null)
+  const [advancing, setAdvancing] = useState(false)
 
   const [isGenerating, setIsGenerating] = useState(true)
   const [totalPages, setTotalPages] = useState(0)
@@ -98,7 +110,14 @@ export default function InteractiveLessonPage({
     }
   }, [currentPageNumber, totalPages])
 
-  async function initializeLesson() {
+  async function initializeLesson(retryCount = 0) {
+    // Reset completion state (the same component is reused when advancing
+    // to the next course lesson, which only changes the route params)
+    if (retryCount === 0) {
+      setIsComplete(false)
+      setCourseResult(null)
+      setIsGenerating(true)
+    }
     try {
       // Generate pages and fetch lesson cards in parallel
       const [genRes, lessonRes] = await Promise.all([
@@ -106,7 +125,14 @@ export default function InteractiveLessonPage({
         fetch(`/api/lessons/${lessonId}`)
       ])
 
-      if (!genRes.ok) throw new Error("Failed to generate pages")
+      if (!genRes.ok) {
+        // Retry once — AI responses occasionally fail on first attempt
+        if (retryCount < 1) {
+          console.warn("Page generation failed, retrying...")
+          return initializeLesson(retryCount + 1)
+        }
+        throw new Error("Failed to generate pages")
+      }
 
       const genData = await genRes.json()
       setTotalPages(genData.totalPages)
@@ -258,7 +284,7 @@ export default function InteractiveLessonPage({
     }
   }
 
-  function handleNext() {
+  async function handleNext() {
     if (currentPageNumber < totalPages) {
       const nextPage = currentPageNumber + 1
       setCurrentPageNumber(nextPage)
@@ -267,7 +293,44 @@ export default function InteractiveLessonPage({
     } else {
       // Lesson complete
       setIsComplete(true)
-      saveProgress(totalPages + 1) // Mark as complete
+      await saveProgress(totalPages + 1) // Mark as complete
+
+      // If this lesson is part of a course, record course completion and
+      // unlock the next lesson.
+      if (courseSlug && courseOrder) {
+        try {
+          const res = await fetch(
+            `/api/courses/${courseSlug}/lessons/${courseOrder}/complete`,
+            { method: "POST" }
+          )
+          if (res.ok) {
+            const data = await res.json()
+            setCourseResult({
+              nextLessonOrder: data.nextLessonOrder ?? null,
+              courseCompleted: !!data.courseCompleted
+            })
+          }
+        } catch {
+          // Non-blocking: the completion screen still shows
+        }
+      }
+    }
+  }
+
+  async function handleNextLesson() {
+    if (!courseSlug || !courseResult?.nextLessonOrder) return
+    setAdvancing(true)
+    try {
+      const order = courseResult.nextLessonOrder
+      const res = await fetch(`/api/courses/${courseSlug}/lessons/${order}/start`, {
+        method: "POST"
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to start next lesson")
+      router.push(`/lessons/${data.lessonId}/learn?course=${courseSlug}&order=${order}`)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to start next lesson")
+      setAdvancing(false)
     }
   }
 
@@ -293,21 +356,56 @@ export default function InteractiveLessonPage({
   }
 
   if (isComplete) {
+    const inCourse = !!courseSlug
+    const courseDone = courseResult?.courseCompleted
+    const hasNext = !!courseResult?.nextLessonOrder
+
     return (
       <div className="max-w-3xl mx-auto py-12">
         <div className="text-center space-y-6">
-          <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
-          <h2 className="text-3xl font-bold">Lesson Complete!</h2>
+          {courseDone ? (
+            <Trophy className="h-16 w-16 text-yellow-500 mx-auto" />
+          ) : (
+            <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
+          )}
+          <h2 className="text-3xl font-bold">
+            {courseDone ? "Course Complete! 🎉" : "Lesson Complete!"}
+          </h2>
           <p className="text-muted-foreground text-lg">
-            Great job completing this interactive lesson.
+            {courseDone
+              ? "You've finished every lesson in this course. Amazing work!"
+              : inCourse && hasNext
+                ? "Nice work — the next lesson is now unlocked."
+                : "Great job completing this interactive lesson."}
           </p>
-          <div className="flex gap-4 justify-center pt-4">
-            <Button onClick={() => router.push(`/lessons/${lessonId}`)}>
-              Back to Lesson
-            </Button>
-            <Button variant="outline" onClick={() => router.push("/lessons")}>
-              View All Lessons
-            </Button>
+          <div className="flex flex-wrap gap-4 justify-center pt-4">
+            {inCourse && hasNext && !courseDone && (
+              <Button onClick={handleNextLesson} disabled={advancing}>
+                {advancing ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <ArrowRight className="h-4 w-4 mr-2" />
+                )}
+                Next Lesson
+              </Button>
+            )}
+            {inCourse ? (
+              <Button
+                variant={hasNext && !courseDone ? "outline" : "default"}
+                onClick={() => router.push(`/courses/${courseSlug}`)}
+              >
+                Back to Course
+              </Button>
+            ) : (
+              <Button onClick={() => router.push(`/lessons/${lessonId}`)}>
+                Back to Lesson
+              </Button>
+            )}
+            {!inCourse && (
+              <Button variant="outline" onClick={() => router.push("/lessons")}>
+                View All Lessons
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -453,5 +551,23 @@ export default function InteractiveLessonPage({
         </Button>
       </div>
     </div>
+  )
+}
+
+export default function InteractiveLessonPage({
+  params
+}: {
+  params: Promise<{ id: string }>
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-3xl mx-auto py-12 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+        </div>
+      }
+    >
+      <InteractiveLessonContent params={params} />
+    </Suspense>
   )
 }

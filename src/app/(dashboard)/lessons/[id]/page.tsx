@@ -15,6 +15,7 @@ import {
   CollapsibleTrigger
 } from "@/components/ui/collapsible"
 import { CardItem } from "@/components/cards/card-item"
+import { Badge } from "@/components/ui/badge"
 import {
   BookOpen,
   ArrowLeft,
@@ -22,9 +23,14 @@ import {
   BarChart3,
   FileText,
   CheckCircle,
-  ChevronDown
+  ChevronDown,
+  Share2,
+  Loader2
 } from "lucide-react"
 import { formatLessonTitle } from "@/lib/lesson-helpers"
+import { useUnpublishLesson } from "@/hooks/use-community"
+import { PublishLessonDialog } from "@/components/lessons/publish-lesson-dialog"
+import { toast } from "sonner"
 import type { Card as CardType } from "@/types"
 
 interface LessonProgress {
@@ -40,10 +46,12 @@ interface LessonDetail {
   title?: string
   date?: string
   notes?: string
+  sourceType?: string
   deckId: string
   createdAt: string
   cards: CardType[]
   lessonProgress: LessonProgress | null
+  publishedLesson?: { id: string; title: string; addCount: number } | null
 }
 
 async function fetchLessonDetail(id: string): Promise<LessonDetail> {
@@ -59,6 +67,17 @@ export default function LessonDetailPage() {
   const router = useRouter()
   const lessonId = params.id as string
   const [notesOpen, setNotesOpen] = useState(false)
+  const [showPublish, setShowPublish] = useState(false)
+  const unpublishMutation = useUnpublishLesson()
+
+  const handleUnpublish = async () => {
+    try {
+      await unpublishMutation.mutateAsync(lessonId)
+      toast.success("Lesson removed from the community")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to unpublish")
+    }
+  }
 
   const { data: lesson, isLoading, error } = useQuery({
     queryKey: ["lesson", lessonId],
@@ -135,7 +154,34 @@ export default function LessonDetailPage() {
               </p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {/* Publish button for any lesson with cards that isn't already published */}
+            {!lesson.publishedLesson && lesson.cards.length > 0 && (
+              <Button variant="outline" onClick={() => setShowPublish(true)}>
+                <Share2 className="h-4 w-4 mr-2" />
+                Publish
+              </Button>
+            )}
+            {lesson.publishedLesson && (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="h-8 flex items-center gap-1">
+                  <Share2 className="h-3 w-3" />
+                  Published ({lesson.publishedLesson.addCount} added)
+                </Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUnpublish}
+                  disabled={unpublishMutation.isPending}
+                >
+                  {unpublishMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Unpublish"
+                  )}
+                </Button>
+              </div>
+            )}
             <Link href={`/lessons/${lesson.id}/learn`}>
               <Button>
                 <Play className="h-4 w-4 mr-2" />
@@ -283,6 +329,14 @@ export default function LessonDetailPage() {
           )}
         </div>
       </div>
+
+      <PublishLessonDialog
+        open={showPublish}
+        onClose={() => setShowPublish(false)}
+        lessonId={lesson.id}
+        defaultTitle={formatLessonTitle(lesson.number, lesson.title)}
+        cardCount={lesson.cards.length}
+      />
     </ErrorBoundary>
   )
 }

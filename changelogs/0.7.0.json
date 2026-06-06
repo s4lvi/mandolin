@@ -1,0 +1,17 @@
+{
+  "version": "0.7.0",
+  "title": "Courses & Community Lessons",
+  "changes": [
+    "New Courses: structured, multi-lesson learning tracks with lessons that unlock as you progress",
+    "Built-in HSK 1 course to get started right away",
+    "Create your own courses from your lessons — private by default, publish when you're ready to share",
+    "Finish a course lesson to unlock the next one, with a celebration when you complete the whole course",
+    "New Community tab to browse, search, and filter lessons shared by other learners",
+    "Publish your lessons to the community with a title, description, level, and tags",
+    "Add any community lesson straight to your deck (duplicate cards are detected automatically)",
+    "New tabbed Learn hub to switch between My Lessons, Courses, and Community",
+    "\"Continue learning\" card on the home dashboard jumps you back into your active course",
+    "Reorder lessons when building a course and pick its difficulty level",
+    "Faster, more reliable interactive lesson generation"
+  ]
+}

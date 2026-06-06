@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Navbar } from "@/components/layout/navbar"
 import { BookOpen, Upload, Brain, Tags, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Volume2, Puzzle, ArrowRight } from "lucide-react"
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar"
+import { ContinueLearning } from "@/components/dashboard/continue-learning"
 
 // Progress bar component
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -75,6 +76,9 @@ function Dashboard() {
           </Link>
         </div>
       </div>
+
+      {/* Continue learning — most relevant in-progress course */}
+      <ContinueLearning />
 
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
