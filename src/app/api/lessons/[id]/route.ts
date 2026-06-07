@@ -126,11 +126,32 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 })
     }
 
+    // Validate a requested lesson number and reject conflicts (numbers are unique per deck)
+    let newNumber: number | undefined
+    if (body.number !== undefined && body.number !== null) {
+      newNumber = Number(body.number)
+      if (!Number.isInteger(newNumber) || newNumber < 1) {
+        return NextResponse.json({ error: "Lesson number must be a positive whole number" }, { status: 400 })
+      }
+      if (newNumber !== existingLesson.number) {
+        const clash = await prisma.lesson.findFirst({
+          where: { deckId: deck.id, number: newNumber, id: { not: lessonId } },
+          select: { id: true }
+        })
+        if (clash) {
+          return NextResponse.json(
+            { error: `Lesson ${newNumber} already exists. Choose a different number.` },
+            { status: 409 }
+          )
+        }
+      }
+    }
+
     // Update lesson
     const updatedLesson = await prisma.lesson.update({
       where: { id: lessonId },
       data: {
-        number: body.number,
+        ...(newNumber !== undefined ? { number: newNumber } : {}),
         title: body.title || null,
         date: body.date ? new Date(body.date) : null,
         notes: body.notes || null
@@ -139,6 +160,17 @@ export async function PUT(
 
     return NextResponse.json(updatedLesson)
   } catch (error) {
+    // Unique-constraint backstop in case of a concurrent renumber
+    if (
+      typeof error === "object" &&
+      error !== null &&
+      (error as { code?: string }).code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "That lesson number is already in use. Choose a different number." },
+        { status: 409 }
+      )
+    }
     console.error("Error updating lesson:", error)
     return NextResponse.json(
       { error: "Failed to update lesson" },

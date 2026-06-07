@@ -1,0 +1,8 @@
+{
+  "version": "0.7.2",
+  "title": "Renumber Lessons",
+  "changes": [
+    "Change a lesson's number from the Edit Lesson dialog",
+    "Lesson numbers stay unique — you can't renumber onto a number another lesson already uses"
+  ]
+}
