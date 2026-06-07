@@ -48,17 +48,15 @@ export async function copyCardsToDeck(
   // Existing cards in the deck, to detect duplicates by hanzi
   const existingCards = await tx.card.findMany({
     where: { deckId },
-    select: { hanzi: true, id: true, lessonId: true }
+    select: { hanzi: true, id: true }
   })
-  const existingByHanzi = new Map(existingCards.map((c) => [c.hanzi, c]))
+  const existingByHanzi = new Map(existingCards.map((c) => [c.hanzi, c.id]))
 
   const newCards = cards.filter((c) => !existingByHanzi.has(c.hanzi))
+  // Cards already in the deck get linked to this lesson (multi-membership)
   const duplicateCardIds = cards
     .map((c) => existingByHanzi.get(c.hanzi))
-    .filter((c): c is { hanzi: string; id: string; lessonId: string | null } => !!c)
-    // Only re-home cards that don't already belong to a lesson
-    .filter((c) => c.lessonId === null)
-    .map((c) => c.id)
+    .filter((id): id is string => !!id)
 
   // Ensure all tags referenced by the new cards exist, then map name -> id
   const tagNames = Array.from(new Set(newCards.flatMap((c) => c.tags)))
@@ -92,17 +90,17 @@ export async function copyCardsToDeck(
         notes: card.notes ?? null,
         type: card.type as CardType,
         deckId,
-        lessonId: lesson.id,
+        lessons: { create: { lessonId: lesson.id } },
         tags: tagIds.length > 0 ? { create: tagIds.map((tagId) => ({ tagId })) } : undefined
       }
     })
   }
 
-  // Attach pre-existing, lesson-less duplicates to this lesson
+  // Link pre-existing duplicates to this lesson (skip if already linked)
   if (duplicateCardIds.length > 0) {
-    await tx.card.updateMany({
-      where: { id: { in: duplicateCardIds }, lessonId: null },
-      data: { lessonId: lesson.id }
+    await tx.cardLesson.createMany({
+      data: duplicateCardIds.map((cardId) => ({ cardId, lessonId: lesson.id })),
+      skipDuplicates: true
     })
   }
 

@@ -71,7 +71,8 @@ export async function POST(
       },
       include: {
         cards: {
-          orderBy: { createdAt: "asc" }
+          include: { card: true },
+          orderBy: { order: "asc" }
         }
       }
     })
@@ -144,6 +145,7 @@ export async function POST(
     // Build the prompt
     const lessonContext = lesson.notes || "No lesson context provided"
     const cardList = lesson.cards
+      .map((cl) => cl.card)
       .map(
         (card) => `${card.hanzi} (${card.pinyin}): ${card.english}${card.notes ? ` - ${card.notes}` : ""}`
       )

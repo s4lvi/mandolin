@@ -30,16 +30,20 @@ export async function GET(
       include: {
         cards: {
           include: {
-            lesson: {
-              select: { number: true, title: true }
-            },
-            tags: {
+            card: {
               include: {
-                tag: true
+                lessons: {
+                  include: { lesson: { select: { number: true, title: true } } }
+                },
+                tags: {
+                  include: {
+                    tag: true
+                  }
+                }
               }
             }
           },
-          orderBy: { createdAt: "asc" }
+          orderBy: { order: "asc" }
         },
         progress: {
           where: { userId: session.user.id }
@@ -66,6 +70,7 @@ export async function GET(
     const userProgress = lesson.progress[0]
     const response = {
       ...lesson,
+      cards: lesson.cards.map((cl) => cl.card), // flatten join rows to cards
       progress: undefined, // Remove raw progress array
       lessonProgress: userProgress ? {
         currentPage: userProgress.currentPage,
@@ -185,12 +190,39 @@ export async function DELETE(
       )
     }
 
-    // Delete lesson (cards will have lessonId set to null due to onDelete: SetNull)
+    const deleteCards = new URL(req.url).searchParams.get("deleteCards") === "true"
+    let deletedCards = 0
+
+    if (deleteCards) {
+      // Find cards in this lesson, then delete only the ones not also in another
+      // lesson (so shared cards aren't yanked out of other lessons).
+      const links = await prisma.cardLesson.findMany({
+        where: { lessonId },
+        select: { cardId: true }
+      })
+      const cardIds = links.map((l) => l.cardId)
+
+      if (cardIds.length > 0) {
+        const otherLinks = await prisma.cardLesson.findMany({
+          where: { cardId: { in: cardIds }, lessonId: { not: lessonId } },
+          select: { cardId: true }
+        })
+        const sharedCardIds = new Set(otherLinks.map((l) => l.cardId))
+        const orphanCardIds = cardIds.filter((id) => !sharedCardIds.has(id))
+
+        if (orphanCardIds.length > 0) {
+          const res = await prisma.card.deleteMany({ where: { id: { in: orphanCardIds } } })
+          deletedCards = res.count
+        }
+      }
+    }
+
+    // Delete the lesson (CardLesson links cascade; cards otherwise stay in the deck)
     await prisma.lesson.delete({
       where: { id: lessonId }
     })
 
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, deletedCards })
   } catch (error) {
     console.error("Error deleting lesson:", error)
     return NextResponse.json(
