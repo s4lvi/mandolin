@@ -3,6 +3,7 @@
   "title": "Lesson Management",
   "changes": [
     "Rename lessons and edit their notes",
+    "Renumber a lesson — numbers stay unique, so you can't collide with an existing lesson",
     "Delete a lesson, choosing whether to keep its cards in your deck or delete them too",
     "A card can now belong to more than one lesson at the same time",
     "\"Manage lessons\" on any card lets you pick every lesson it belongs to",

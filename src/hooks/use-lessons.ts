@@ -72,6 +72,7 @@ async function associateCardsWithLesson(data: {
 async function updateLesson(
   lessonId: string,
   data: {
+    number?: number
     title?: string
     notes?: string
     date?: string
