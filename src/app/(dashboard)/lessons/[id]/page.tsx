@@ -32,7 +32,7 @@ import {
 } from "lucide-react"
 import { formatLessonTitle } from "@/lib/lesson-helpers"
 import { useUnpublishLesson } from "@/hooks/use-community"
-import { useRemoveCardsFromLesson } from "@/hooks/use-lessons"
+import { useRemoveCardsFromLesson, useLessons } from "@/hooks/use-lessons"
 import { PublishLessonDialog } from "@/components/lessons/publish-lesson-dialog"
 import { EditLessonDialog } from "@/components/lessons/edit-lesson-dialog"
 import { DeleteLessonDialog } from "@/components/lessons/delete-lesson-dialog"
@@ -82,6 +82,7 @@ export default function LessonDetailPage() {
   const [manageCard, setManageCard] = useState<CardType | null>(null)
   const unpublishMutation = useUnpublishLesson()
   const removeFromLesson = useRemoveCardsFromLesson()
+  const { data: allLessons } = useLessons()
 
   const handleRemoveFromLesson = async (cardId: string) => {
     try {
@@ -387,8 +388,10 @@ export default function LessonDetailPage() {
         open={showEdit}
         onClose={() => setShowEdit(false)}
         lessonId={lesson.id}
+        initialNumber={lesson.number}
         initialTitle={lesson.title}
         initialNotes={lesson.notes}
+        takenNumbers={(allLessons ?? []).filter((l) => l.id !== lesson.id).map((l) => l.number)}
       />
 
       <DeleteLessonDialog
