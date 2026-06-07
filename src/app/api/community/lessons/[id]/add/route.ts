@@ -29,14 +29,8 @@ export async function POST(
       where: { id: published.lessonId },
       include: {
         cards: {
-          select: {
-            hanzi: true,
-            pinyin: true,
-            english: true,
-            type: true,
-            notes: true,
-            tags: { include: { tag: true } }
-          }
+          include: { card: { include: { tags: { include: { tag: true } } } } },
+          orderBy: { order: "asc" }
         }
       }
     })
@@ -44,6 +38,8 @@ export async function POST(
     if (!sourceLesson || sourceLesson.cards.length === 0) {
       return NextResponse.json({ error: "Source lesson no longer has cards" }, { status: 410 })
     }
+
+    const sourceCards = sourceLesson.cards.map((cl) => cl.card)
 
     // Get user's deck
     const deck = await prisma.deck.findFirst({
@@ -59,7 +55,7 @@ export async function POST(
       copyCardsToDeck(
         tx,
         deck.id,
-        sourceLesson.cards.map((c) => ({
+        sourceCards.map((c) => ({
           hanzi: c.hanzi,
           pinyin: c.pinyin,
           english: c.english,

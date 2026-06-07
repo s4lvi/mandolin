@@ -95,7 +95,7 @@ model Lesson {
   createdAt   DateTime         @default(now())
 
   deck                 Deck                  @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  cards                Card[]
+  cards                CardLesson[]
   pages                LessonPage[]
   progress             LessonProgress[]
   publishedLesson      PublishedLesson?
@@ -113,7 +113,6 @@ model Card {
   notes          String?   @db.Text
   type           CardType  @default(VOCABULARY)
   isPriority     Boolean   @default(false)
-  lessonId       String?
   deckId         String
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
@@ -131,20 +130,34 @@ model Card {
   state          CardState @default(NEW)
 
   deck           Deck      @relation(fields: [deckId], references: [id], onDelete: Cascade)
-  lesson         Lesson?   @relation(fields: [lessonId], references: [id], onDelete: SetNull)
+  lessons        CardLesson[]
   tags           CardTag[]
   reviewHistory  ReviewHistory[]
   testQuestions  TestQuestion[]
 
   @@unique([deckId, hanzi])
   @@index([deckId])
-  @@index([lessonId])
   @@index([deckId, nextReview, state]) // For fetching due cards efficiently
   @@index([deckId, state]) // For filtering by card state
   @@index([deckId, type]) // For filtering by card type
   @@index([deckId, isPriority]) // For filtering by priority
   @@index([nextReview])
   @@index([state])
+}
+
+// Many-to-many membership between cards and lessons.
+model CardLesson {
+  cardId    String
+  lessonId  String
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  card      Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  lesson    Lesson   @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@id([cardId, lessonId])
+  @@index([lessonId])
+  @@index([cardId])
 }
 
 model Tag {

@@ -85,8 +85,10 @@ export async function POST(req: Request) {
             english: cardData.english,
             notes: cardData.notes,
             type: cardData.type,
-            lessonId: data.lessonId || cardData.lessonId,
             deckId: deck.id,
+            lessons: (data.lessonId || cardData.lessonId)
+              ? { create: { lessonId: (data.lessonId || cardData.lessonId)! } }
+              : undefined,
             tags: cardData.tags
               ? {
                   create: cardData.tags.map((tagName) => ({
@@ -96,8 +98,8 @@ export async function POST(req: Request) {
               : undefined
           },
           include: {
-            lesson: {
-              select: { number: true, title: true }
+            lessons: {
+              include: { lesson: { select: { number: true, title: true } } }
             },
             tags: {
               include: {

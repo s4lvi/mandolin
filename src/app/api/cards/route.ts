@@ -22,13 +22,13 @@ export async function GET(req: Request) {
     // Build where clause
     const where: {
       deckId: string
-      lessonId?: string
+      lessons?: { some: { lessonId: string } }
       type?: CardType
       tags?: { some: { tag: { name: string } } }
     } = { deckId: deck.id }
 
     if (lessonId) {
-      where.lessonId = lessonId
+      where.lessons = { some: { lessonId } }
     }
 
     if (type && Object.values(CardType).includes(type as CardType)) {
@@ -46,8 +46,8 @@ export async function GET(req: Request) {
     const cards = await prisma.card.findMany({
       where,
       include: {
-        lesson: {
-          select: { number: true, title: true }
+        lessons: {
+          include: { lesson: { select: { number: true, title: true } } }
         },
         tags: {
           include: {
@@ -128,8 +128,8 @@ export async function POST(req: Request) {
         english: data.english,
         notes: data.notes,
         type: data.type,
-        lessonId: data.lessonId,
         deckId: deck.id,
+        lessons: data.lessonId ? { create: { lessonId: data.lessonId } } : undefined,
         tags: tagIds.length > 0
           ? {
               create: tagIds.map((tagId) => ({ tagId }))
@@ -137,8 +137,8 @@ export async function POST(req: Request) {
           : undefined
       },
       include: {
-        lesson: {
-          select: { number: true, title: true }
+        lessons: {
+          include: { lesson: { select: { number: true, title: true } } }
         },
         tags: {
           include: {

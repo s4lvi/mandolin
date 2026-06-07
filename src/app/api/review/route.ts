@@ -44,13 +44,13 @@ export async function GET(req: Request) {
     // Build where clause
     const where: {
       deckId: string
-      lessonId?: string
+      lessons?: { some: { lessonId: string } }
       type?: CardType | { in: CardType[] }
       tags?: { some: { tagId: { in: string[] } } }
     } = { deckId: deck.id }
 
     if (lessonId) {
-      where.lessonId = lessonId
+      where.lessons = { some: { lessonId } }
     }
 
     if (types.length > 0) {
@@ -69,8 +69,8 @@ export async function GET(req: Request) {
     const now = new Date()
 
     const includeClause = {
-      lesson: {
-        select: { number: true, title: true }
+      lessons: {
+        include: { lesson: { select: { number: true, title: true } } }
       },
       tags: {
         include: {

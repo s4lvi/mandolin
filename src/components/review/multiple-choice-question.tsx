@@ -157,8 +157,11 @@ export function MultipleChoiceQuestion({
 
             <div className="flex flex-wrap gap-1 justify-center">
               <Badge variant="outline">{card.type.toLowerCase()}</Badge>
-              {card.lesson && (
-                <Badge variant="secondary">Lesson {card.lesson.number}</Badge>
+              {card.lessons && card.lessons.length > 0 && (
+                <Badge variant="secondary">
+                  Lesson {card.lessons[0].lesson.number}
+                  {card.lessons.length > 1 ? ` +${card.lessons.length - 1}` : ""}
+                </Badge>
               )}
             </div>
 

@@ -27,8 +27,8 @@ export async function GET(
     const card = await prisma.card.findUnique({
       where: { id: cardId },
       include: {
-        lesson: {
-          select: { number: true, title: true }
+        lessons: {
+          include: { lesson: { select: { number: true, title: true } } }
         },
         tags: {
           include: {
@@ -142,12 +142,11 @@ export async function PUT(
         english: data.english,
         notes: data.notes,
         type: data.type,
-        isPriority: data.isPriority,
-        lessonId: data.lessonId
+        isPriority: data.isPriority
       },
       include: {
-        lesson: {
-          select: { number: true, title: true }
+        lessons: {
+          include: { lesson: { select: { number: true, title: true } } }
         },
         tags: {
           include: {

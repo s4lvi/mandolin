@@ -1,0 +1,13 @@
+{
+  "version": "0.7.1",
+  "title": "Lesson Management",
+  "changes": [
+    "Rename lessons and edit their notes",
+    "Delete a lesson, choosing whether to keep its cards in your deck or delete them too",
+    "A card can now belong to more than one lesson at the same time",
+    "\"Manage lessons\" on any card lets you pick every lesson it belongs to",
+    "Add existing deck cards to a lesson from the lesson page",
+    "Remove a card from a lesson without deleting the card",
+    "Card badges now show when a card is shared across multiple lessons"
+  ]
+}
