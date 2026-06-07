@@ -25,11 +25,19 @@ import {
   CheckCircle,
   ChevronDown,
   Share2,
-  Loader2
+  Loader2,
+  Pencil,
+  Trash2,
+  Plus
 } from "lucide-react"
 import { formatLessonTitle } from "@/lib/lesson-helpers"
 import { useUnpublishLesson } from "@/hooks/use-community"
+import { useRemoveCardsFromLesson } from "@/hooks/use-lessons"
 import { PublishLessonDialog } from "@/components/lessons/publish-lesson-dialog"
+import { EditLessonDialog } from "@/components/lessons/edit-lesson-dialog"
+import { DeleteLessonDialog } from "@/components/lessons/delete-lesson-dialog"
+import { CardLessonsDialog } from "@/components/lessons/card-lessons-dialog"
+import { AddCardsToLessonDialog } from "@/components/lessons/add-cards-to-lesson-dialog"
 import { toast } from "sonner"
 import type { Card as CardType } from "@/types"
 
@@ -68,7 +76,21 @@ export default function LessonDetailPage() {
   const lessonId = params.id as string
   const [notesOpen, setNotesOpen] = useState(false)
   const [showPublish, setShowPublish] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [showAddCards, setShowAddCards] = useState(false)
+  const [manageCard, setManageCard] = useState<CardType | null>(null)
   const unpublishMutation = useUnpublishLesson()
+  const removeFromLesson = useRemoveCardsFromLesson()
+
+  const handleRemoveFromLesson = async (cardId: string) => {
+    try {
+      await removeFromLesson.mutateAsync({ lessonId, cardIds: [cardId] })
+      toast.success("Removed from this lesson")
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to remove card")
+    }
+  }
 
   const handleUnpublish = async () => {
     try {
@@ -155,6 +177,18 @@ export default function LessonDetailPage() {
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            <Button variant="outline" size="icon" onClick={() => setShowEdit(true)} title="Rename lesson">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setShowDelete(true)}
+              title="Delete lesson"
+              className="text-destructive hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
             {/* Publish button for any lesson with cards that isn't already published */}
             {!lesson.publishedLesson && lesson.cards.length > 0 && (
               <Button variant="outline" onClick={() => setShowPublish(true)}>
@@ -302,17 +336,27 @@ export default function LessonDetailPage() {
 
         {/* Cards List */}
         <div>
-          <h2 className="text-xl font-semibold mb-4">
-            Cards in this lesson ({lesson.cards.length})
-          </h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">
+              Cards in this lesson ({lesson.cards.length})
+            </h2>
+            <Button variant="outline" size="sm" onClick={() => setShowAddCards(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add cards
+            </Button>
+          </div>
 
           {lesson.cards.length === 0 ? (
             <Card>
               <CardContent className="text-center py-12">
                 <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <p className="text-muted-foreground">
+                <p className="text-muted-foreground mb-4">
                   No cards in this lesson yet
                 </p>
+                <Button variant="outline" onClick={() => setShowAddCards(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add cards
+                </Button>
               </CardContent>
             </Card>
           ) : (
@@ -321,8 +365,9 @@ export default function LessonDetailPage() {
                 <CardItem
                   key={card.id}
                   card={card}
-                  onDelete={() => {}}
                   onTagClick={() => {}}
+                  onManageLessons={() => setManageCard(card)}
+                  onRemoveFromLesson={() => handleRemoveFromLesson(card.id)}
                 />
               ))}
             </div>
@@ -337,6 +382,40 @@ export default function LessonDetailPage() {
         defaultTitle={formatLessonTitle(lesson.number, lesson.title)}
         cardCount={lesson.cards.length}
       />
+
+      <EditLessonDialog
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        lessonId={lesson.id}
+        initialTitle={lesson.title}
+        initialNotes={lesson.notes}
+      />
+
+      <DeleteLessonDialog
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        lessonId={lesson.id}
+        lessonLabel={formatLessonTitle(lesson.number, lesson.title)}
+        cardCount={lesson.cards.length}
+        onDeleted={() => router.push("/lessons")}
+      />
+
+      <AddCardsToLessonDialog
+        open={showAddCards}
+        onClose={() => setShowAddCards(false)}
+        lessonId={lesson.id}
+        existingCardIds={lesson.cards.map((c) => c.id)}
+      />
+
+      {manageCard && (
+        <CardLessonsDialog
+          open={!!manageCard}
+          onClose={() => setManageCard(null)}
+          cardId={manageCard.id}
+          cardLabel={manageCard.hanzi}
+          currentLessonIds={(manageCard.lessons ?? []).map((l) => l.lessonId)}
+        />
+      )}
     </ErrorBoundary>
   )
 }

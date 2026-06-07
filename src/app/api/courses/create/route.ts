@@ -38,15 +38,10 @@ export async function POST(req: Request) {
       },
       include: {
         cards: {
-          select: {
-            hanzi: true,
-            pinyin: true,
-            english: true,
-            notes: true,
-            type: true,
-            tags: { include: { tag: true } }
+          include: {
+            card: { include: { tags: { include: { tag: true } } } }
           },
-          orderBy: { createdAt: "asc" }
+          orderBy: { order: "asc" }
         }
       },
       orderBy: { number: "asc" }
@@ -83,11 +78,11 @@ export async function POST(req: Request) {
         }
       })
 
-      // Preserve selection order from the client
-      const orderedLessons = data.lessonIds.map((id, i) => ({
-        ...lessons.find(l => l.id === id)!,
-        order: i + 1
-      }))
+      // Preserve selection order from the client; flatten join rows to cards
+      const orderedLessons = data.lessonIds.map((id, i) => {
+        const lesson = lessons.find(l => l.id === id)!
+        return { ...lesson, order: i + 1, cardList: lesson.cards.map(cl => cl.card) }
+      })
 
       for (const lesson of orderedLessons) {
         await tx.courseLesson.create({
@@ -95,10 +90,10 @@ export async function POST(req: Request) {
             courseId: newCourse.id,
             order: lesson.order,
             title: lesson.title || `Lesson ${lesson.number}`,
-            description: `${lesson.cards.length} cards`,
+            description: `${lesson.cardList.length} cards`,
             notes: lesson.notes,
             cards: {
-              create: lesson.cards.map((card, cardIndex) => ({
+              create: lesson.cardList.map((card, cardIndex) => ({
                 hanzi: card.hanzi,
                 pinyin: card.pinyin,
                 english: card.english,

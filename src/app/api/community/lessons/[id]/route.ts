@@ -16,14 +16,18 @@ export async function GET(
         lesson: {
           include: {
             cards: {
-              select: {
-                hanzi: true,
-                pinyin: true,
-                english: true,
-                type: true,
-                notes: true
+              include: {
+                card: {
+                  select: {
+                    hanzi: true,
+                    pinyin: true,
+                    english: true,
+                    type: true,
+                    notes: true
+                  }
+                }
               },
-              orderBy: { createdAt: "asc" }
+              orderBy: { order: "asc" }
             }
           }
         }
@@ -44,7 +48,7 @@ export async function GET(
       addCount: published.addCount,
       author: published.user.name || published.user.email?.split("@")[0],
       publishedAt: published.publishedAt,
-      cards: published.lesson.cards
+      cards: published.lesson.cards.map((cl) => cl.card)
     })
   } catch (error) {
     console.error("Error fetching published lesson:", error)

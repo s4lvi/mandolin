@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
-import { Pencil, Trash2, Volume2, Star, MoreVertical } from "lucide-react"
+import { Pencil, Trash2, Volume2, Star, MoreVertical, Layers, FolderMinus } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
 import type { Card as CardType } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
@@ -26,6 +26,8 @@ interface CardItemProps {
   isSelected?: boolean
   onToggleSelect?: (cardId: string) => void
   showPinyin?: boolean
+  onManageLessons?: (cardId: string) => void
+  onRemoveFromLesson?: (cardId: string) => void
 }
 
 const typeColors = {
@@ -42,7 +44,9 @@ export function CardItem({
   selectionMode = false,
   isSelected = false,
   onToggleSelect,
-  showPinyin = true
+  showPinyin = true,
+  onManageLessons,
+  onRemoveFromLesson
 }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
   const colorClass = typeColors[card.type] || "bg-white"
@@ -126,9 +130,10 @@ export function CardItem({
               <Badge variant="outline" className="text-xs">
                 {card.type.toLowerCase()}
               </Badge>
-              {card.lesson && (
+              {card.lessons && card.lessons.length > 0 && (
                 <Badge variant="secondary" className="text-xs">
-                  Lesson {card.lesson.number}
+                  Lesson {card.lessons[0].lesson.number}
+                  {card.lessons.length > 1 ? ` +${card.lessons.length - 1}` : ""}
                 </Badge>
               )}
               {card.tags.map((cardTag) => (
@@ -179,6 +184,18 @@ export function CardItem({
                       Edit
                     </Link>
                   </DropdownMenuItem>
+                  {onManageLessons && (
+                    <DropdownMenuItem onClick={() => onManageLessons(card.id)}>
+                      <Layers className="h-4 w-4 mr-2" />
+                      Manage lessons
+                    </DropdownMenuItem>
+                  )}
+                  {onRemoveFromLesson && (
+                    <DropdownMenuItem onClick={() => onRemoveFromLesson(card.id)}>
+                      <FolderMinus className="h-4 w-4 mr-2" />
+                      Remove from this lesson
+                    </DropdownMenuItem>
+                  )}
                   {onDelete && (
                     <DropdownMenuItem
                       onClick={() => onDelete(card.id)}

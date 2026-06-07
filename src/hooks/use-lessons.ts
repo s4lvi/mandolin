@@ -91,16 +91,24 @@ async function updateLesson(
   return res.json()
 }
 
-// Delete a lesson
-async function deleteLesson(lessonId: string): Promise<void> {
-  const res = await fetch(`/api/lessons/${lessonId}`, {
-    method: "DELETE"
-  })
+// Delete a lesson (optionally deleting its cards too)
+async function deleteLesson({
+  lessonId,
+  deleteCards = false
+}: {
+  lessonId: string
+  deleteCards?: boolean
+}): Promise<{ deletedCards: number }> {
+  const res = await fetch(
+    `/api/lessons/${lessonId}${deleteCards ? "?deleteCards=true" : ""}`,
+    { method: "DELETE" }
+  )
 
   if (!res.ok) {
     const error = await res.json()
     throw new Error(error.error || "Failed to delete lesson")
   }
+  return res.json()
 }
 
 // Hook: Get all lessons
@@ -146,8 +154,9 @@ export function useUpdateLesson() {
   return useMutation({
     mutationFn: ({ lessonId, data }: { lessonId: string; data: Parameters<typeof updateLesson>[1] }) =>
       updateLesson(lessonId, data),
-    onSuccess: () => {
+    onSuccess: (_data, { lessonId }) => {
       queryClient.invalidateQueries({ queryKey: ["lessons"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
     }
   })
 }
@@ -160,6 +169,56 @@ export function useDeleteLesson() {
     mutationFn: deleteLesson,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["lessons"] })
+      queryClient.invalidateQueries({ queryKey: ["cards"] })
+    }
+  })
+}
+
+// Hook: Replace a card's full set of lesson memberships
+export function useSetCardLessons() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ cardId, lessonIds }: { cardId: string; lessonIds: string[] }) => {
+      const res = await fetch(`/api/cards/${cardId}/lessons`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lessonIds })
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || "Failed to update lessons")
+      }
+      return res.json() as Promise<{ added: number; removed: number }>
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lessons"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson"] })
+      queryClient.invalidateQueries({ queryKey: ["cards"] })
+    }
+  })
+}
+
+// Hook: Remove cards from a lesson (unlink only)
+export function useRemoveCardsFromLesson() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async ({ lessonId, cardIds }: { lessonId: string; cardIds: string[] }) => {
+      const res = await fetch(`/api/lessons/${lessonId}/cards`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardIds })
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || "Failed to remove cards")
+      }
+      return res.json() as Promise<{ removed: number }>
+    },
+    onSuccess: (_data, { lessonId }) => {
+      queryClient.invalidateQueries({ queryKey: ["lessons"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
       queryClient.invalidateQueries({ queryKey: ["cards"] })
     }
   })

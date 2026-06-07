@@ -116,8 +116,8 @@ export async function POST(req: Request) {
               english: cardData.english,
               notes: cardData.notes,
               type: cardData.type,
-              lessonId,
               deckId: deck.id,
+              lessons: lessonId ? { create: { lessonId } } : undefined,
               tags: cardData.tags
                 ? {
                     create: cardData.tags.map(tagName => ({
@@ -140,13 +140,10 @@ export async function POST(req: Request) {
         .filter((id): id is string => !!id)
 
       if (dupeCardIds.length > 0) {
-        const result = await prisma.card.updateMany({
-          where: {
-            id: { in: dupeCardIds },
-            deckId: deck.id,
-            lessonId: null // Only associate unassociated cards
-          },
-          data: { lessonId }
+        // Link existing cards to this lesson (no-op if already linked)
+        const result = await prisma.cardLesson.createMany({
+          data: dupeCardIds.map((cardId) => ({ cardId, lessonId })),
+          skipDuplicates: true
         })
         associatedCount = result.count
       }

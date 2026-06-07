@@ -35,7 +35,6 @@ export interface Card {
   notes?: string
   type: CardType
   isPriority: boolean
-  lessonId?: string
   deckId: string
   createdAt: string
   updatedAt: string
@@ -48,10 +47,14 @@ export interface Card {
   interval: number
   repetitions: number
   state: CardState
-  lesson?: {
-    number: number
-    title?: string
-  }
+  // Many-to-many lesson memberships (CardLesson join rows with the lesson included)
+  lessons?: {
+    lessonId: string
+    lesson: {
+      number: number
+      title?: string
+    }
+  }[]
   tags: CardTag[]
 }
 
