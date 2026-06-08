@@ -89,6 +89,8 @@ export function useSubmitReview() {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
       queryClient.invalidateQueries({ queryKey: ["user-stats"] })
       queryClient.invalidateQueries({ queryKey: ["review-cards"] })
+      // Keep the navbar/tab "due" badge in sync after each rated card
+      queryClient.invalidateQueries({ queryKey: ["due-count"] })
     }
   })
 }

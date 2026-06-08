@@ -192,6 +192,7 @@ export default function StoriesPage() {
   }
 
   const deleteStory = async (storyId: string) => {
+    if (!window.confirm("Delete this story? This can't be undone.")) return
     try {
       const res = await fetch(`/api/stories?id=${storyId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Failed to delete story")
@@ -365,6 +366,14 @@ export default function StoriesPage() {
             <p className="text-muted-foreground mb-4">
               Generate your first story to start reading practice
             </p>
+            <Button onClick={generateStory} disabled={isGenerating}>
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <BookOpen className="h-4 w-4 mr-2" />
+              )}
+              New Story
+            </Button>
           </CardContent>
         </Card>
       ) : (

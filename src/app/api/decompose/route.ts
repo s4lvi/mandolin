@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import Anthropic from "@anthropic-ai/sdk"
-import { CLAUDE_MODEL } from "@/lib/constants"
+import { CLAUDE_MODEL_FAST } from "@/lib/constants"
 import { stripMarkdownCodeBlock } from "@/lib/api-helpers"
 import { z } from "zod"
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     }
 
     const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_MODEL_FAST,
       max_tokens: 512,
       messages: [
         {

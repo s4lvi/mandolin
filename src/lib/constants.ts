@@ -1,5 +1,10 @@
 // AI Model Configuration
+// SMART: quality-sensitive generation (note parsing, lesson pages, stories, context merge)
+// FAST:  low-latency simple tasks (test questions, example sentences, autofill, decompose,
+//        translation grading) — Haiku 4.5 is materially faster for these short calls.
 export const CLAUDE_MODEL = "claude-sonnet-4-6"
+export const CLAUDE_MODEL_SMART = "claude-sonnet-4-6"
+export const CLAUDE_MODEL_FAST = "claude-haiku-4-5"
 
 // Interactive Lesson Configuration
 export const LESSON_TOTAL_PAGES = 5

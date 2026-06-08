@@ -98,6 +98,7 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
           const stream = await anthropic.messages.stream({
             model: CLAUDE_MODEL,
             max_tokens: 2048,
+            thinking: { type: "disabled" },
             messages: [{ role: "user", content: storyPrompt }]
           })
 

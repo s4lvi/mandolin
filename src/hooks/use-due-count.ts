@@ -12,6 +12,7 @@ export function useDueCount() {
       return data.dueCount as number
     },
     staleTime: 2 * 60 * 1000,
-    refetchInterval: 2 * 60 * 1000
+    refetchInterval: 2 * 60 * 1000,
+    refetchOnWindowFocus: true
   })
 }

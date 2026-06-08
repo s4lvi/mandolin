@@ -1,0 +1,12 @@
+{
+  "version": "0.7.3",
+  "title": "Faster & Smoother",
+  "changes": [
+    "Test questions, autofill, character breakdowns, example sentences, and translation feedback are now noticeably faster",
+    "Note parsing, interactive lessons, and story generation respond quicker too",
+    "The Review badge updates right after you finish reviewing instead of lagging",
+    "Finish a review session and jump straight into a lesson with one tap",
+    "Deleting a story now asks for confirmation first",
+    "Empty Courses and Stories pages now show a clear next step"
+  ]
+}

@@ -152,6 +152,14 @@ export function SessionComplete({
             </div>
           )}
 
+          {/* Keep the momentum going — bridge to the next study loop */}
+          <Button
+            className="w-full min-h-[44px]"
+            onClick={() => router.push("/lessons")}
+          >
+            Continue with a lesson →
+          </Button>
+
           <div className="flex flex-col sm:flex-row gap-2">
             <Button
               variant="outline"

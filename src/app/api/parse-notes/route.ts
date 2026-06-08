@@ -55,6 +55,7 @@ export async function POST(req: Request) {
                 const contextStream = await anthropic.messages.stream({
                   model: CLAUDE_MODEL,
                   max_tokens: 4096,
+                  thinking: { type: "disabled" },
                   messages: [
                     {
                       role: "user",
@@ -82,6 +83,7 @@ export async function POST(req: Request) {
             const cardsStream = await anthropic.messages.stream({
               model: CLAUDE_MODEL,
               max_tokens: 16384,
+              thinking: { type: "disabled" },
               messages: [
                 {
                   role: "user",

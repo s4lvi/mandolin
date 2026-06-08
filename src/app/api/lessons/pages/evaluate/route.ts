@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { getAuthenticatedUserDeck, stripMarkdownCodeBlock } from "@/lib/api-helpers"
-import { CLAUDE_MODEL, TRANSLATION_EVAL_PROMPT } from "@/lib/constants"
+import { CLAUDE_MODEL_FAST, TRANSLATION_EVAL_PROMPT } from "@/lib/constants"
 import {
   evaluateRequestSchema,
   aiEvaluationResponseSchema
@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
         )
 
       const message = await anthropic.messages.create({
-        model: CLAUDE_MODEL,
+        model: CLAUDE_MODEL_FAST,
         max_tokens: 800,
         messages: [
           {

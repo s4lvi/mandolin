@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard, ExampleSentence } from "@/types"
-import { PARSE_NOTES_PROMPT, GENERATE_SENTENCE_PROMPT, CLAUDE_MODEL } from "@/lib/constants"
+import { PARSE_NOTES_PROMPT, GENERATE_SENTENCE_PROMPT, CLAUDE_MODEL, CLAUDE_MODEL_FAST } from "@/lib/constants"
 
 const anthropic = new Anthropic()
 
@@ -77,7 +77,7 @@ export async function generateExampleSentence(
     .replace("{context}", context || "No additional context")
 
   const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_FAST,
     max_tokens: 256,
     messages: [
       {
@@ -116,7 +116,7 @@ export async function generateTestQuestion(
   const prompt = buildTestQuestionPrompt(card, direction)
 
   const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_FAST,
     max_tokens: 1024,
     messages: [
       {
