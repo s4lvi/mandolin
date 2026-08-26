@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, Volume2 } from "lucide-react"
 import type { Card as CardType, FaceMode } from "@/types"
-import { speakChinese, preloadVoices } from "@/lib/speech"
-import { AnswerButtons, Quality } from "./answer-buttons"
+import { preloadVoices } from "@/lib/speech"
+import { useSpeak } from "@/hooks/use-speak"
+import { AnswerButtons } from "./answer-buttons"
+import { Quality } from "@/lib/srs"
 
 interface RecallCardProps {
   card: CardType
@@ -21,6 +23,7 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
   const [submitted, setSubmitted] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const { speak, isPlaying } = useSpeak()
 
   useEffect(() => {
     preloadVoices()
@@ -32,8 +35,13 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
     setSubmitted(false)
     setIsCorrect(false)
     // Auto-play audio for the new card
-    setTimeout(() => speakChinese(card.hanzi), 300)
-    setTimeout(() => inputRef.current?.focus(), 400)
+    const speakTimer = setTimeout(() => speak(card.hanzi), 300)
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 400)
+    return () => {
+      clearTimeout(speakTimer)
+      clearTimeout(focusTimer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [card.id])
 
   // Determine what to prompt and what the expected answer is
@@ -130,7 +138,9 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
                   variant="ghost"
                   size="icon"
                   className="h-7 w-7 shrink-0"
-                  onClick={() => speakChinese(card.hanzi)}
+                  onClick={() => speak(card.hanzi)}
+                  disabled={isPlaying}
+                  aria-label="Play pronunciation"
                 >
                   <Volume2 className="h-4 w-4" />
                 </Button>
@@ -172,7 +182,9 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8 shrink-0"
-                onClick={() => speakChinese(card.hanzi)}
+                onClick={() => speak(card.hanzi)}
+                disabled={isPlaying}
+                aria-label="Play pronunciation"
               >
                 <Volume2 className="h-5 w-5" />
               </Button>

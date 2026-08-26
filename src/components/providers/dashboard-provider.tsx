@@ -11,34 +11,36 @@ interface DashboardProviderProps {
   hasSeenWelcome: boolean
 }
 
+// Fetch the changelog entry for a version the user hasn't seen yet (null if none)
+async function fetchNewChangelog(): Promise<Changelog | null> {
+  try {
+    const response = await fetch("/api/changelog")
+    const data = await response.json()
+    return data.changelog ?? null
+  } catch (error) {
+    console.error("Failed to check for new version:", error)
+    return null
+  }
+}
+
 export function DashboardProvider({ children, hasSeenWelcome }: DashboardProviderProps) {
-  const [showWelcome, setShowWelcome] = useState(false)
+  // Show welcome modal only if user hasn't seen it (derived at mount instead of via an effect)
+  const [showWelcome, setShowWelcome] = useState(!hasSeenWelcome)
   const [showWhatsNew, setShowWhatsNew] = useState(false)
   const [changelog, setChangelog] = useState<Changelog | null>(null)
 
-  useEffect(() => {
-    // Show welcome modal only if user hasn't seen it
-    if (!hasSeenWelcome) {
-      setShowWelcome(true)
-    } else {
-      // Only check for new version if user has seen welcome
-      checkForNewVersion()
-    }
-  }, [hasSeenWelcome])
-
-  const checkForNewVersion = async () => {
-    try {
-      const response = await fetch("/api/changelog")
-      const data = await response.json()
-
-      if (data.changelog) {
-        setChangelog(data.changelog)
-        setShowWhatsNew(true)
-      }
-    } catch (error) {
-      console.error("Failed to check for new version:", error)
+  const showChangelog = (newChangelog: Changelog | null) => {
+    if (newChangelog) {
+      setChangelog(newChangelog)
+      setShowWhatsNew(true)
     }
   }
+
+  useEffect(() => {
+    // Only check for new version if user has seen welcome
+    if (!hasSeenWelcome) return
+    fetchNewChangelog().then(showChangelog)
+  }, [hasSeenWelcome])
 
   const handleWelcomeComplete = async () => {
     setShowWelcome(false)
@@ -50,7 +52,7 @@ export function DashboardProvider({ children, hasSeenWelcome }: DashboardProvide
       })
 
       // After welcome, check for version updates
-      checkForNewVersion()
+      showChangelog(await fetchNewChangelog())
     } catch (error) {
       console.error("Failed to update welcome status:", error)
     }

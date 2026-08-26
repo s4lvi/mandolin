@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useMemo } from "react"
 import { useTestQuestion } from "@/hooks/use-test-questions"
 import { MultipleChoiceQuestion } from "./multiple-choice-question"
 import { Card as CardType } from "@/types"
 import { Loader2 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
+import { shuffle } from "@/lib/utils"
 
 interface TestCardProps {
   card: CardType
@@ -14,18 +15,18 @@ interface TestCardProps {
   onAnswer: (isCorrect: boolean, userAnswer: string) => void
 }
 
-export function TestCard({ card, mode, direction, onAnswer }: TestCardProps) {
+export function TestCard({ card, direction, onAnswer }: TestCardProps) {
   const { data, isLoading, error } = useTestQuestion(card.id, direction)
 
-  const [selectedDistractors, setSelectedDistractors] = useState<string[]>([])
-
-  // Randomly select 3 distractors when question loads
-  useEffect(() => {
-    if (data?.question.distractors) {
-      const shuffled = [...data.question.distractors].sort(() => Math.random() - 0.5)
-      setSelectedDistractors(shuffled.slice(0, 3))
-    }
-  }, [data?.question.distractors])
+  // Randomly select 3 distractors, derived synchronously from the question so a
+  // freshly loaded question never renders with the previous card's distractors.
+  const questionId = data?.question.id
+  const distractors = data?.question.distractors
+  const selectedDistractors = useMemo(
+    () => (distractors ? shuffle(distractors).slice(0, 3) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [questionId]
+  )
 
   if (isLoading) {
     return (

@@ -1,7 +1,8 @@
 "use client"
 
-import { use, useEffect, useState, Suspense } from "react"
+import { use, useEffect, useRef, useState, Suspense } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
+import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Trophy } from "lucide-react"
@@ -14,11 +15,33 @@ import { TranslationSegment } from "@/components/lessons/interactive/translation
 import { FeedbackSegment } from "@/components/lessons/interactive/feedback-segment"
 import { toast } from "sonner"
 
+// Segment content is stored as JSON; fields depend on the segment type.
+interface SegmentContent {
+  title?: string
+  text: string
+  hanzi: string
+  pinyin: string
+  english: string
+  notes?: string
+  question: string
+  options: string[]
+  correctIndex: number
+  explanation: string
+  sentence: string
+  correctAnswer: string
+  translation: string
+  hint?: string
+  sourceText: string
+  acceptableTranslations: string[]
+  userAnswer: string
+  encouragement?: string
+}
+
 interface Segment {
   id: string
   type: string
   orderIndex: number
-  content: any
+  content: SegmentContent
 }
 
 interface Page {
@@ -34,6 +57,22 @@ interface LessonCard {
   english: string
 }
 
+interface LessonResponse {
+  segmentId: string
+  correct: boolean
+  userAnswer: string
+  page: number
+}
+
+type ResponsesByPage = Record<number, LessonResponse[]>
+
+// totalPages and the page to show are held together so resuming a lesson
+// triggers exactly one page load (no intermediate render with page 1).
+interface PagePosition {
+  totalPages: number
+  pageNumber: number
+}
+
 function InteractiveLessonContent({
   params
 }: {
@@ -43,6 +82,7 @@ function InteractiveLessonContent({
   const lessonId = resolvedParams.id
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
 
   // Course context (present when this lesson was launched from a course)
   const courseSlug = searchParams.get("course")
@@ -56,25 +96,41 @@ function InteractiveLessonContent({
   const [advancing, setAdvancing] = useState(false)
 
   const [isGenerating, setIsGenerating] = useState(true)
-  const [totalPages, setTotalPages] = useState(0)
-  const [currentPageNumber, setCurrentPageNumber] = useState(1)
+  const [position, setPosition] = useState<PagePosition>({ totalPages: 0, pageNumber: 1 })
+  const { totalPages, pageNumber: currentPageNumber } = position
   const [currentPage, setCurrentPage] = useState<Page | null>(null)
   const [isLoadingPage, setIsLoadingPage] = useState(false)
-  const [allResponses, setAllResponses] = useState<Record<number, any[]>>({})
+  // Responses are kept in a ref (nothing renders from them) so a save issued
+  // right after addResponse sees the new answer instead of a stale closure.
+  const responsesRef = useRef<ResponsesByPage>({})
   const [isComplete, setIsComplete] = useState(false)
   const [lessonCards, setLessonCards] = useState<LessonCard[]>([])
 
   // Build hanzi → cardId map for SRS submission
   const hanziToCardId = new Map(lessonCards.map(c => [c.hanzi, c.id]))
 
+  // Anything that changes SRS state, progress, or course status should refresh
+  // the cached lists/counters shown elsewhere in the app.
+  function invalidateStudyQueries(options: { course?: boolean } = {}) {
+    queryClient.invalidateQueries({ queryKey: ["cards"] })
+    queryClient.invalidateQueries({ queryKey: ["due-count"] })
+    queryClient.invalidateQueries({ queryKey: ["user-stats"] })
+    queryClient.invalidateQueries({ queryKey: ["lessons"] })
+    queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
+    if (options.course) {
+      queryClient.invalidateQueries({ queryKey: ["courses"] })
+      queryClient.invalidateQueries({ queryKey: ["course"] })
+    }
+  }
+
   // Submit a review to the SRS system when a lesson exercise is answered
-  async function submitToSRS(segmentContent: any, isCorrect: boolean) {
+  async function submitToSRS(segmentContent: Partial<SegmentContent> | null | undefined, isCorrect: boolean) {
     // Try to match the segment to a card by hanzi from various content fields
     const candidates = [
       segmentContent?.hanzi,
       segmentContent?.correctAnswer,
       segmentContent?.sourceText, // For ZH→EN translations
-    ].filter(Boolean)
+    ].filter((c): c is string => Boolean(c))
 
     let cardId: string | undefined
     for (const candidate of candidates) {
@@ -88,133 +144,163 @@ function InteractiveLessonContent({
     const quality = isCorrect ? 2 : 0
 
     try {
-      await fetch("/api/review", {
+      const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cardId, quality })
       })
+      if (res.ok) invalidateStudyQueries()
     } catch {
       // SRS submission is best-effort; don't block the lesson flow
     }
   }
 
-  // Initialize: generate pages then load saved progress to resume
+  // Initialize: generate pages then load saved progress to resume.
+  // Cancelled (fetches aborted, state updates skipped) when the lesson changes
+  // or the page unmounts, so a slow response can't clobber the new lesson.
   useEffect(() => {
-    initializeLesson()
+    const controller = new AbortController()
+    initializeLesson(controller.signal)
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId])
 
-  // Load page when page number changes (after initial setup)
+  // Load page when the position changes (after initial setup)
   useEffect(() => {
-    if (totalPages > 0) {
-      loadPage(currentPageNumber)
-    }
-  }, [currentPageNumber, totalPages])
+    if (totalPages === 0) return
+    const controller = new AbortController()
+    loadPage(currentPageNumber, controller.signal)
+    return () => controller.abort()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPageNumber, totalPages, lessonId])
 
-  async function initializeLesson(retryCount = 0) {
-    // Reset completion state (the same component is reused when advancing
+  async function initializeLesson(signal: AbortSignal, retryCount = 0) {
+    // Reset per-lesson state (the same component is reused when advancing
     // to the next course lesson, which only changes the route params)
     if (retryCount === 0) {
       setIsComplete(false)
       setCourseResult(null)
       setIsGenerating(true)
+      setCurrentPage(null)
+      setPosition({ totalPages: 0, pageNumber: 1 })
+      responsesRef.current = {}
     }
     try {
       // Generate pages and fetch lesson cards in parallel
       const [genRes, lessonRes] = await Promise.all([
-        fetch(`/api/lessons/${lessonId}/generate-pages`, { method: "POST" }),
-        fetch(`/api/lessons/${lessonId}`)
+        fetch(`/api/lessons/${lessonId}/generate-pages`, { method: "POST", signal }),
+        fetch(`/api/lessons/${lessonId}`, { signal })
       ])
 
       if (!genRes.ok) {
         // Retry once — AI responses occasionally fail on first attempt
         if (retryCount < 1) {
           console.warn("Page generation failed, retrying...")
-          return initializeLesson(retryCount + 1)
+          return initializeLesson(signal, retryCount + 1)
         }
         throw new Error("Failed to generate pages")
       }
 
       const genData = await genRes.json()
-      setTotalPages(genData.totalPages)
+      const generatedTotal: number = genData.totalPages
 
       // Load lesson cards for SRS matching
+      let cards: LessonCard[] = []
       if (lessonRes.ok) {
         const lessonData = await lessonRes.json()
         if (lessonData.lesson?.cards) {
-          setLessonCards(lessonData.lesson.cards.map((c: any) => ({
+          cards = lessonData.lesson.cards.map((c: LessonCard) => ({
             id: c.id,
             hanzi: c.hanzi,
             pinyin: c.pinyin,
             english: c.english
-          })))
+          }))
         }
       }
 
       // Load saved progress to resume from where user left off
-      const progressRes = await fetch(`/api/lessons/progress?lessonId=${lessonId}`)
+      let resumePage = 1
+      const restored: ResponsesByPage = {}
+      const progressRes = await fetch(`/api/lessons/progress?lessonId=${lessonId}`, { signal })
       if (progressRes.ok) {
         const progressData = await progressRes.json()
-        if (progressData.completedAt) {
-          // Already completed, start from page 1 for review
-          setCurrentPageNumber(1)
-        } else if (progressData.currentPage > 0 && progressData.totalPages > 0) {
-          // Resume from saved page
-          setCurrentPageNumber(Math.min(progressData.currentPage, genData.totalPages))
+        if (
+          !progressData.completedAt &&
+          progressData.currentPage > 0 &&
+          progressData.totalPages > 0
+        ) {
+          // Resume from saved page (completed lessons restart at page 1 for review)
+          resumePage = Math.min(progressData.currentPage, generatedTotal)
         }
         // Restore saved responses
         if (progressData.responses && Array.isArray(progressData.responses)) {
-          const restored: Record<number, any[]> = {}
-          for (const resp of progressData.responses) {
+          for (const resp of progressData.responses as LessonResponse[]) {
             const page = resp.page || 1
             if (!restored[page]) restored[page] = []
             restored[page].push(resp)
           }
-          setAllResponses(restored)
         }
       }
 
+      if (signal.aborted) return
+
+      // Commit everything at once so the page-load effect fires a single time
+      setLessonCards(cards)
+      responsesRef.current = restored
+      setPosition({ totalPages: generatedTotal, pageNumber: resumePage })
       setIsGenerating(false)
     } catch (error) {
+      if (signal.aborted) return
       console.error("Error initializing lesson:", error)
       toast.error("Failed to generate lesson pages")
       router.push(`/lessons/${lessonId}`)
     }
   }
 
-  async function loadPage(pageNumber: number) {
+  async function loadPage(pageNumber: number, signal: AbortSignal) {
     setIsLoadingPage(true)
     try {
       const res = await fetch(
-        `/api/lessons/pages/${pageNumber}?lessonId=${lessonId}`
+        `/api/lessons/pages/${pageNumber}?lessonId=${lessonId}`,
+        { signal }
       )
 
       if (!res.ok) throw new Error("Failed to load page")
 
       const data = await res.json()
+      if (signal.aborted) return
       setCurrentPage(data.page)
     } catch (error) {
+      if (signal.aborted) return
       console.error("Error loading page:", error)
       toast.error("Failed to load page")
     } finally {
-      setIsLoadingPage(false)
+      if (!signal.aborted) setIsLoadingPage(false)
     }
   }
 
-  function addResponse(segmentId: string, isCorrect: boolean, userAnswer: string = "") {
-    setAllResponses((prev) => {
-      const pageResponses = prev[currentPageNumber] || []
-      return {
-        ...prev,
-        [currentPageNumber]: [
-          ...pageResponses,
-          { segmentId, correct: isCorrect, userAnswer, page: currentPageNumber }
-        ]
-      }
-    })
+  // Append a response and return the resulting map so callers can persist it
+  // immediately without waiting for a re-render.
+  function addResponse(
+    segmentId: string,
+    isCorrect: boolean,
+    userAnswer: string = ""
+  ): ResponsesByPage {
+    const prev = responsesRef.current
+    const pageResponses = prev[currentPageNumber] || []
+    const next: ResponsesByPage = {
+      ...prev,
+      [currentPageNumber]: [
+        ...pageResponses,
+        { segmentId, correct: isCorrect, userAnswer, page: currentPageNumber }
+      ]
+    }
+    responsesRef.current = next
+    return next
   }
 
   async function handleAnswer(segmentId: string, isCorrect: boolean, userAnswer: string = "") {
-    addResponse(segmentId, isCorrect, userAnswer)
+    const responses = addResponse(segmentId, isCorrect, userAnswer)
 
     // Find the segment content to match against cards for SRS
     const segment = currentPage?.segments.find(s => s.id === segmentId)
@@ -222,15 +308,10 @@ function InteractiveLessonContent({
       submitToSRS(segment.content, isCorrect)
     }
 
-    await saveProgress(currentPageNumber)
+    await saveProgress(currentPageNumber, responses)
   }
 
-  async function handleTranslationAnswer(
-    segmentId: string,
-    userAnswer: string,
-    sourceText: string,
-    acceptableTranslations: string[]
-  ) {
+  async function handleTranslationAnswer(segmentId: string, userAnswer: string) {
     try {
       const res = await fetch("/api/lessons/pages/evaluate", {
         method: "POST",
@@ -238,16 +319,14 @@ function InteractiveLessonContent({
         body: JSON.stringify({
           segmentId,
           segmentType: currentPage?.segments.find((s) => s.id === segmentId)?.type,
-          userAnswer,
-          sourceText,
-          acceptableTranslations
+          userAnswer
         })
       })
 
       if (!res.ok) throw new Error("Failed to evaluate answer")
 
       const result = await res.json()
-      addResponse(segmentId, result.correct, userAnswer)
+      const responses = addResponse(segmentId, result.correct, userAnswer)
 
       // Submit to SRS — try to match via sourceText for translations
       const segment = currentPage?.segments.find(s => s.id === segmentId)
@@ -255,7 +334,7 @@ function InteractiveLessonContent({
         submitToSRS(segment.content, result.correct)
       }
 
-      await saveProgress(currentPageNumber)
+      await saveProgress(currentPageNumber, responses)
 
       return result
     } catch (error) {
@@ -265,11 +344,14 @@ function InteractiveLessonContent({
     }
   }
 
-  async function saveProgress(pageNumber: number) {
+  async function saveProgress(
+    pageNumber: number,
+    responses: ResponsesByPage = responsesRef.current
+  ) {
     // Flatten all responses across all pages for persistence
-    const flatResponses = Object.values(allResponses).flat()
+    const flatResponses = Object.values(responses).flat()
     try {
-      await fetch("/api/lessons/progress", {
+      const res = await fetch("/api/lessons/progress", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -279,6 +361,7 @@ function InteractiveLessonContent({
           responses: flatResponses
         })
       })
+      if (res.ok) invalidateStudyQueries()
     } catch (error) {
       console.error("Error saving progress:", error)
     }
@@ -287,7 +370,7 @@ function InteractiveLessonContent({
   async function handleNext() {
     if (currentPageNumber < totalPages) {
       const nextPage = currentPageNumber + 1
-      setCurrentPageNumber(nextPage)
+      setPosition((prev) => ({ ...prev, pageNumber: nextPage }))
       // Save progress with the new page number (don't reset responses)
       saveProgress(nextPage)
     } else {
@@ -309,6 +392,7 @@ function InteractiveLessonContent({
               nextLessonOrder: data.nextLessonOrder ?? null,
               courseCompleted: !!data.courseCompleted
             })
+            invalidateStudyQueries({ course: true })
           }
         } catch {
           // Non-blocking: the completion screen still shows
@@ -336,7 +420,7 @@ function InteractiveLessonContent({
 
   function handlePrevious() {
     if (currentPageNumber > 1) {
-      setCurrentPageNumber((prev) => prev - 1)
+      setPosition((prev) => ({ ...prev, pageNumber: prev.pageNumber - 1 }))
       // Don't reset responses — they're preserved per page
     }
   }
@@ -502,12 +586,7 @@ function InteractiveLessonContent({
                   acceptableTranslations={segment.content.acceptableTranslations}
                   hint={segment.content.hint}
                   onAnswer={(userAnswer) =>
-                    handleTranslationAnswer(
-                      segment.id,
-                      userAnswer,
-                      segment.content.sourceText,
-                      segment.content.acceptableTranslations
-                    )
+                    handleTranslationAnswer(segment.id, userAnswer)
                   }
                 />
               )

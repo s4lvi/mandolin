@@ -88,21 +88,35 @@ export const aiEvaluationResponseSchema = z.object({
 })
 
 // Request body schemas
+// Only segmentId and userAnswer are trusted from the client; the expected
+// answer / source text are always read from the stored segment content.
 export const evaluateRequestSchema = z.object({
   segmentId: z.string(),
   segmentType: segmentTypeEnum,
-  userAnswer: z.string(),
-  sourceText: z.string().optional(),
-  acceptableTranslations: z.array(z.string()).optional(),
-  correctAnswer: z.string().optional()
+  userAnswer: z.string().max(2000)
 })
 
+// totalPages is accepted for backwards compatibility but ignored server-side
 export const progressRequestSchema = z.object({
   lessonId: z.string(),
   currentPage: z.number().int().positive(),
-  totalPages: z.number().int().positive(),
-  responses: z.array(z.unknown()).optional()
+  totalPages: z.number().int().positive().optional(),
+  responses: z.array(z.unknown()).max(500).optional()
 })
+
+// Update lesson request body — only present fields are updated
+export const updateLessonSchema = z.object({
+  number: z.number().int().positive().optional(),
+  title: z.string().max(200).nullable().optional(),
+  date: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date")
+    .nullable()
+    .optional(),
+  notes: z.string().max(20000).nullable().optional()
+})
+
+export type UpdateLessonInput = z.infer<typeof updateLessonSchema>
 
 // Type exports
 export type SegmentType = z.infer<typeof segmentTypeEnum>

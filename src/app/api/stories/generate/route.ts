@@ -4,8 +4,27 @@ import prisma from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { CLAUDE_MODEL } from "@/lib/constants"
 import { stripMarkdownCodeBlock } from "@/lib/api-helpers"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
+import { createLogger } from "@/lib/logger"
+import { z } from "zod"
 
-const anthropic = new Anthropic()
+const logger = createLogger("api/stories/generate")
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
+
+// Shape consumed by src/app/(dashboard)/stories/page.tsx (StorySentence / Story)
+const storySchema = z.object({
+  title: z.string().min(1),
+  titlePinyin: z.string(),
+  titleEnglish: z.string(),
+  sentences: z.array(
+    z.object({
+      hanzi: z.string().min(1),
+      pinyin: z.string(),
+      english: z.string(),
+      newWords: z.array(z.string()).optional()
+    })
+  ).min(1)
+})
 
 export async function POST() {
   try {
@@ -13,6 +32,9 @@ export async function POST() {
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const limited = rateLimited(`ai:heavy:${session.user.id}`, RATE_LIMITS.AI_HEAVY)
+    if (limited) return limited
 
     // Get user's deck and cards
     const deck = await prisma.deck.findFirst({
@@ -98,6 +120,7 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
           const stream = await anthropic.messages.stream({
             model: CLAUDE_MODEL,
             max_tokens: 2048,
+            thinking: { type: "disabled" },
             messages: [{ role: "user", content: storyPrompt }]
           })
 
@@ -111,18 +134,31 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
 
           const jsonText = stripMarkdownCodeBlock(fullText)
 
-          let story
+          let raw: unknown
           try {
-            story = JSON.parse(jsonText)
-          } catch {
-            const firstBrace = jsonText.indexOf("{")
-            const lastBrace = jsonText.lastIndexOf("}")
-            if (firstBrace !== -1 && lastBrace > firstBrace) {
-              story = JSON.parse(jsonText.substring(firstBrace, lastBrace + 1))
-            } else {
-              throw new Error("AI returned invalid JSON")
+            try {
+              raw = JSON.parse(jsonText)
+            } catch {
+              const firstBrace = jsonText.indexOf("{")
+              const lastBrace = jsonText.lastIndexOf("}")
+              if (firstBrace === -1 || lastBrace <= firstBrace) throw new Error("no JSON object")
+              raw = JSON.parse(jsonText.substring(firstBrace, lastBrace + 1))
             }
+          } catch (error) {
+            logger.error("Failed to parse story JSON", { error, userId, text: fullText.slice(0, 500) })
+            controller.enqueue(encoder.encode(JSON.stringify({ error: "AI returned an unexpected response" }) + '\n'))
+            controller.close()
+            return
           }
+
+          const validated = storySchema.safeParse(raw)
+          if (!validated.success) {
+            logger.error("Story failed schema validation", { issues: validated.error.issues, userId, text: fullText.slice(0, 500) })
+            controller.enqueue(encoder.encode(JSON.stringify({ error: "AI returned an unexpected response" }) + '\n'))
+            controller.close()
+            return
+          }
+          const story = validated.data
 
           // Save to database
           const saved = await prisma.story.create({
@@ -138,9 +174,9 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
           controller.enqueue(encoder.encode(JSON.stringify({ ...story, id: saved.id }) + '\n'))
           controller.close()
         } catch (error) {
-          console.error("Error generating story:", error)
+          logger.error("Error generating story", { error, userId })
           controller.enqueue(encoder.encode(JSON.stringify({
-            error: error instanceof Error ? error.message : "Failed to generate story"
+            error: "Failed to generate story. Please try again."
           }) + '\n'))
           controller.close()
         }
@@ -154,9 +190,9 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
       }
     })
   } catch (error) {
-    console.error("Error generating story:", error)
+    logger.error("Error generating story", { error })
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate story" },
+      { error: "Failed to generate story" },
       { status: 500 }
     )
   }

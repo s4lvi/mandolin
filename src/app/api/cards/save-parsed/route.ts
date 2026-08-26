@@ -1,31 +1,35 @@
 import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
-import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { Prisma } from "@prisma/client"
+import {
+  getAuthenticatedUserDeck,
+  verifyLessonOwnership,
+  stripMarkdownCodeBlock
+} from "@/lib/api-helpers"
 import { createLogger } from "@/lib/logger"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import { CLAUDE_MODEL, MERGE_CONTEXT_PROMPT } from "@/lib/constants"
-import { stripMarkdownCodeBlock } from "@/lib/api-helpers"
 
 const logger = createLogger("api/cards/save-parsed")
-const anthropic = new Anthropic()
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
 const cardSchema = z.object({
-  hanzi: z.string(),
-  pinyin: z.string(),
-  english: z.string(),
-  notes: z.string().optional(),
+  hanzi: z.string().min(1).max(100),
+  pinyin: z.string().max(200),
+  english: z.string().max(500),
+  notes: z.string().max(2000).optional(),
   type: z.enum(["VOCABULARY", "GRAMMAR", "PHRASE", "IDIOM"]).default("VOCABULARY"),
-  tags: z.array(z.string()).optional()
+  tags: z.array(z.string().min(1).max(50)).max(50).optional()
 })
 
 const saveParsedSchema = z.object({
-  cards: z.array(cardSchema),
-  duplicateHanzi: z.array(z.string()).default([]),
+  cards: z.array(cardSchema).max(500),
+  duplicateHanzi: z.array(z.string().max(100)).max(500).default([]),
   lessonMode: z.enum(["new", "existing", "none"]),
-  lessonNumber: z.number().optional(),
-  lessonTitle: z.string().optional(),
-  lessonContext: z.string().optional(),
+  lessonNumber: z.number().int().positive().optional(),
+  lessonTitle: z.string().max(200).optional(),
+  lessonContext: z.string().max(20000).optional(),
   existingLessonId: z.string().optional()
 })
 
@@ -43,28 +47,16 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = saveParsedSchema.parse(body)
 
-    let lessonId: string | undefined
-
-    // Step 1: Handle lesson creation or selection
-    if (data.lessonMode === "new" && data.lessonNumber) {
-      const lesson = await prisma.lesson.create({
-        data: {
-          number: data.lessonNumber,
-          title: data.lessonTitle || undefined,
-          notes: data.lessonContext || undefined,
-          deckId: deck.id
-        }
-      })
-      lessonId = lesson.id
-      logger.info("Created lesson", { lessonId, number: data.lessonNumber })
-    } else if (data.lessonMode === "existing" && data.existingLessonId) {
-      lessonId = data.existingLessonId
-
-      // Merge context in background (non-blocking for the card save)
-      if (data.lessonContext) {
-        mergeContextAsync(lessonId, data.lessonContext, deck.id)
+    // Step 1: Validate the target lesson up front (before any writes)
+    let existingLessonId: string | undefined
+    if (data.lessonMode === "existing" && data.existingLessonId) {
+      const owned = await verifyLessonOwnership(data.existingLessonId, deck.id)
+      if (!owned) {
+        return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
       }
+      existingLessonId = data.existingLessonId
     }
+    const createNewLesson = data.lessonMode === "new" && !!data.lessonNumber
 
     // Step 2: Get existing cards for duplicate detection
     const existingCards = await prisma.card.findMany({
@@ -104,12 +96,31 @@ export async function POST(req: Request) {
       allTags.forEach(t => tagMap.set(t.name, t.id))
     }
 
-    // Step 5: Bulk create cards in transaction
-    let createdCount = 0
-    if (cardsToCreate.length > 0) {
-      const created = await prisma.$transaction(
-        cardsToCreate.map(cardData =>
-          prisma.card.create({
+    const dupeCardIds = data.duplicateHanzi
+      .map(h => existingHanziMap.get(h))
+      .filter((id): id is string => !!id)
+
+    // Step 5: Create lesson (if requested), cards, and lesson links atomically so a
+    // failed import never leaves behind an empty lesson or partial card set
+    const { lessonId, createdCount, associatedCount } = await prisma.$transaction(
+      async (tx) => {
+        let lessonId = existingLessonId
+
+        if (createNewLesson) {
+          const lesson = await tx.lesson.create({
+            data: {
+              number: data.lessonNumber!,
+              title: data.lessonTitle || undefined,
+              notes: data.lessonContext || undefined,
+              deckId: deck.id
+            }
+          })
+          lessonId = lesson.id
+        }
+
+        let createdCount = 0
+        for (const cardData of cardsToCreate) {
+          await tx.card.create({
             data: {
               hanzi: cardData.hanzi,
               pinyin: cardData.pinyin,
@@ -127,26 +138,31 @@ export async function POST(req: Request) {
                 : undefined
             }
           })
-        )
-      )
-      createdCount = created.length
+          createdCount++
+        }
+
+        // Step 6: Associate duplicate cards with lesson (no-op if already linked)
+        let associatedCount = 0
+        if (lessonId && dupeCardIds.length > 0) {
+          const result = await tx.cardLesson.createMany({
+            data: dupeCardIds.map((cardId) => ({ cardId, lessonId: lessonId! })),
+            skipDuplicates: true
+          })
+          associatedCount = result.count
+        }
+
+        return { lessonId, createdCount, associatedCount }
+      },
+      { timeout: 30000 }
+    )
+
+    if (createNewLesson) {
+      logger.info("Created lesson", { lessonId, number: data.lessonNumber })
     }
 
-    // Step 6: Associate duplicate cards with lesson
-    let associatedCount = 0
-    if (lessonId && data.duplicateHanzi.length > 0) {
-      const dupeCardIds = data.duplicateHanzi
-        .map(h => existingHanziMap.get(h))
-        .filter((id): id is string => !!id)
-
-      if (dupeCardIds.length > 0) {
-        // Link existing cards to this lesson (no-op if already linked)
-        const result = await prisma.cardLesson.createMany({
-          data: dupeCardIds.map((cardId) => ({ cardId, lessonId })),
-          skipDuplicates: true
-        })
-        associatedCount = result.count
-      }
+    // Merge context in background (non-blocking for the card save)
+    if (existingLessonId && data.lessonContext) {
+      mergeContextAsync(existingLessonId, data.lessonContext)
     }
 
     logger.info("Saved parsed cards", {
@@ -162,16 +178,25 @@ export async function POST(req: Request) {
       lessonId
     })
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Lesson number already in use. Choose a different number." },
+        { status: 409 }
+      )
+    }
     logger.error("Failed to save parsed cards", { error })
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to save cards" },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: "Failed to save cards" }, { status: 500 })
   }
 }
 
 // Merge lesson context asynchronously — runs after response is sent
-async function mergeContextAsync(lessonId: string, newContext: string, deckId: string) {
+async function mergeContextAsync(lessonId: string, newContext: string) {
   try {
     const lesson = await prisma.lesson.findUnique({
       where: { id: lessonId },
@@ -206,7 +231,7 @@ async function mergeContextAsync(lessonId: string, newContext: string, deckId: s
     }
   } catch (error) {
     // Log but don't fail — context merge is best-effort
-    console.error("Background context merge failed:", error)
+    logger.error("Background context merge failed", { lessonId, error })
     // Fallback: append
     try {
       const lesson = await prisma.lesson.findUnique({

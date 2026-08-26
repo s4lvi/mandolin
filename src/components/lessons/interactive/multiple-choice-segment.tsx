@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
@@ -22,6 +22,7 @@ export function MultipleChoiceSegment({
   explanation,
   onAnswer
 }: MultipleChoiceSegmentProps) {
+  const id = useId()
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [isSubmitted, setIsSubmitted] = useState(false)
 
@@ -44,6 +45,7 @@ export function MultipleChoiceSegment({
           value={selectedIndex?.toString()}
           onValueChange={(value) => setSelectedIndex(parseInt(value))}
           disabled={isSubmitted}
+          name={`${id}-choice`}
         >
           <div className="space-y-3">
             {options.map((option, index) => {
@@ -64,9 +66,9 @@ export function MultipleChoiceSegment({
                       : "border-border"
                   }`}
                 >
-                  <RadioGroupItem value={index.toString()} id={`option-${index}`} />
+                  <RadioGroupItem value={index.toString()} id={`${id}-option-${index}`} />
                   <Label
-                    htmlFor={`option-${index}`}
+                    htmlFor={`${id}-option-${index}`}
                     className="flex-1 cursor-pointer"
                   >
                     {option}

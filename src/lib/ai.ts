@@ -1,8 +1,60 @@
 import Anthropic from "@anthropic-ai/sdk"
-import type { ParsedCard, ExampleSentence } from "@/types"
-import { PARSE_NOTES_PROMPT, GENERATE_SENTENCE_PROMPT, CLAUDE_MODEL } from "@/lib/constants"
+import { z } from "zod"
+import type { ExampleSentence } from "@/types"
+import { GENERATE_SENTENCE_PROMPT, CLAUDE_MODEL_FAST } from "@/lib/constants"
+import { createLogger } from "@/lib/logger"
+import { AppError } from "@/lib/error-handler"
 
-const anthropic = new Anthropic()
+const logger = createLogger("lib/ai")
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
+
+/** Thrown when the model returns output that fails schema validation. Maps to a 502. */
+export class AIResponseError extends AppError {
+  constructor() {
+    super("AI returned an unexpected response", 502, "AI_BAD_RESPONSE")
+    this.name = "AIResponseError"
+  }
+}
+
+const exampleSentenceSchema = z.object({
+  sentence: z.string().min(1),
+  pinyin: z.string().min(1),
+  translation: z.string().min(1)
+})
+
+const testQuestionSchema = z.object({
+  questionText: z.string().min(1),
+  correctAnswer: z.string().min(1),
+  acceptableAnswers: z.array(z.string()),
+  distractors: z.array(z.string()).min(1)
+})
+
+function extractJson(text: string): string {
+  let jsonText = text.trim()
+  // If wrapped in code blocks, extract the JSON
+  const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (codeBlockMatch) {
+    jsonText = codeBlockMatch[1].trim()
+  }
+  return jsonText
+}
+
+/** Parse + validate model JSON; logs details and throws AIResponseError on failure. */
+function parseModelJson<T>(schema: z.ZodType<T>, text: string, what: string): T {
+  let raw: unknown
+  try {
+    raw = JSON.parse(extractJson(text))
+  } catch (error) {
+    logger.error(`Failed to parse ${what} JSON`, { error, text: text.slice(0, 500) })
+    throw new AIResponseError()
+  }
+  const result = schema.safeParse(raw)
+  if (!result.success) {
+    logger.error(`${what} failed schema validation`, { issues: result.error.issues, text: text.slice(0, 500) })
+    throw new AIResponseError()
+  }
+  return result.data
+}
 
 export interface GenerateTestQuestionParams {
   card: {
@@ -22,62 +74,16 @@ export interface TestQuestionResponse {
   distractors: string[] // 12 items
 }
 
-export async function parseNotes(notes: string): Promise<ParsedCard[]> {
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
-    max_tokens: 16384,
-    messages: [
-      {
-        role: "user",
-        content: `${PARSE_NOTES_PROMPT}\n\nLesson Notes:\n${notes}`
-      }
-    ]
-  })
-
-  const content = response.content[0]
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type")
-  }
-
-  // Check if response was truncated
-  if (response.stop_reason === "max_tokens") {
-    console.error("AI response was truncated due to max_tokens limit")
-    throw new Error("Response was too long and got truncated. Try with shorter notes.")
-  }
-
-  try {
-    // Try to extract JSON from the response
-    let jsonText = content.text.trim()
-
-    // If wrapped in code blocks, extract the JSON
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim()
-    }
-
-    const cards = JSON.parse(jsonText)
-
-    if (!Array.isArray(cards)) {
-      throw new Error("Response is not an array")
-    }
-
-    return cards as ParsedCard[]
-  } catch {
-    console.error("Failed to parse AI response:", content.text)
-    throw new Error("Failed to parse AI response into cards")
-  }
-}
-
 export async function generateExampleSentence(
   grammarPoint: string,
   context?: string
 ): Promise<ExampleSentence> {
   const prompt = GENERATE_SENTENCE_PROMPT
-    .replace("{grammarPoint}", grammarPoint)
-    .replace("{context}", context || "No additional context")
+    .replace("{grammarPoint}", () => grammarPoint)
+    .replace("{context}", () => context || "No additional context")
 
   const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_FAST,
     max_tokens: 256,
     messages: [
       {
@@ -92,20 +98,7 @@ export async function generateExampleSentence(
     throw new Error("Unexpected response type")
   }
 
-  try {
-    let jsonText = content.text.trim()
-
-    // If wrapped in code blocks, extract the JSON
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim()
-    }
-
-    return JSON.parse(jsonText) as ExampleSentence
-  } catch {
-    console.error("Failed to parse AI response:", content.text)
-    throw new Error("Failed to generate example sentence")
-  }
+  return parseModelJson(exampleSentenceSchema, content.text, "example sentence")
 }
 
 export async function generateTestQuestion(
@@ -116,7 +109,7 @@ export async function generateTestQuestion(
   const prompt = buildTestQuestionPrompt(card, direction)
 
   const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL,
+    model: CLAUDE_MODEL_FAST,
     max_tokens: 1024,
     messages: [
       {
@@ -131,20 +124,7 @@ export async function generateTestQuestion(
     throw new Error("Unexpected response type")
   }
 
-  try {
-    let jsonText = content.text.trim()
-
-    // If wrapped in code blocks, extract the JSON
-    const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-    if (codeBlockMatch) {
-      jsonText = codeBlockMatch[1].trim()
-    }
-
-    return JSON.parse(jsonText) as TestQuestionResponse
-  } catch {
-    console.error("Failed to parse AI response:", content.text)
-    throw new Error("Failed to parse test question JSON")
-  }
+  return parseModelJson(testQuestionSchema, content.text, "test question")
 }
 
 function buildTestQuestionPrompt(

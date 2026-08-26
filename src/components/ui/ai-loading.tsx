@@ -77,7 +77,7 @@ export function AILoading({ status, statusLabels = {} }: AILoadingProps) {
 
           {/* Progress steps */}
           <div className="flex items-center gap-2">
-            {["processing", "generating_context", "parsing_cards", "streaming"].map((step, i) => {
+            {["processing", "generating_context", "parsing_cards", "streaming"].map((step) => {
               const stepOrder = ["processing", "generating_context", "parsing_cards", "streaming"]
               const currentOrder = stepOrder.indexOf(status)
               const stepIdx = stepOrder.indexOf(step)

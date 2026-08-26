@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { z } from "zod"
+import { updateLessonSchema } from "@/lib/validations/lesson"
 
 // GET /api/lessons/[id] - Get lesson details with cards
 export async function GET(
@@ -102,7 +104,20 @@ export async function PUT(
     }
 
     const { id: lessonId } = await params
-    const body = await req.json()
+    const parsed = updateLessonSchema.safeParse(await req.json())
+    if (!parsed.success) {
+      return NextResponse.json(
+        {
+          error: "Invalid request body",
+          details: parsed.error.issues.map((i) => ({
+            field: i.path.join("."),
+            message: i.message
+          }))
+        },
+        { status: 400 }
+      )
+    }
+    const body = parsed.data
 
     // Get user's deck
     const deck = await prisma.deck.findFirst({
@@ -127,12 +142,8 @@ export async function PUT(
     }
 
     // Validate a requested lesson number and reject conflicts (numbers are unique per deck)
-    let newNumber: number | undefined
-    if (body.number !== undefined && body.number !== null) {
-      newNumber = Number(body.number)
-      if (!Number.isInteger(newNumber) || newNumber < 1) {
-        return NextResponse.json({ error: "Lesson number must be a positive whole number" }, { status: 400 })
-      }
+    const newNumber = body.number
+    if (newNumber !== undefined) {
       if (newNumber !== existingLesson.number) {
         const clash = await prisma.lesson.findFirst({
           where: { deckId: deck.id, number: newNumber, id: { not: lessonId } },
@@ -147,19 +158,22 @@ export async function PUT(
       }
     }
 
-    // Update lesson
+    // Update only the fields present in the body
     const updatedLesson = await prisma.lesson.update({
       where: { id: lessonId },
       data: {
         ...(newNumber !== undefined ? { number: newNumber } : {}),
-        title: body.title || null,
-        date: body.date ? new Date(body.date) : null,
-        notes: body.notes || null
+        ...(body.title !== undefined ? { title: body.title || null } : {}),
+        ...(body.date !== undefined ? { date: body.date ? new Date(body.date) : null } : {}),
+        ...(body.notes !== undefined ? { notes: body.notes || null } : {})
       }
     })
 
     return NextResponse.json(updatedLesson)
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
     // Unique-constraint backstop in case of a concurrent renumber
     if (
       typeof error === "object" &&
@@ -223,35 +237,39 @@ export async function DELETE(
     }
 
     const deleteCards = new URL(req.url).searchParams.get("deleteCards") === "true"
-    let deletedCards = 0
 
-    if (deleteCards) {
-      // Find cards in this lesson, then delete only the ones not also in another
-      // lesson (so shared cards aren't yanked out of other lessons).
-      const links = await prisma.cardLesson.findMany({
-        where: { lessonId },
-        select: { cardId: true }
-      })
-      const cardIds = links.map((l) => l.cardId)
+    // Delete orphan cards (if requested) and the lesson atomically
+    const deletedCards = await prisma.$transaction(async (tx) => {
+      let deletedCards = 0
 
-      if (cardIds.length > 0) {
-        const otherLinks = await prisma.cardLesson.findMany({
-          where: { cardId: { in: cardIds }, lessonId: { not: lessonId } },
+      if (deleteCards) {
+        // Find cards in this lesson, then delete only the ones not also in another
+        // lesson (so shared cards aren't yanked out of other lessons).
+        const links = await tx.cardLesson.findMany({
+          where: { lessonId },
           select: { cardId: true }
         })
-        const sharedCardIds = new Set(otherLinks.map((l) => l.cardId))
-        const orphanCardIds = cardIds.filter((id) => !sharedCardIds.has(id))
+        const cardIds = links.map((l) => l.cardId)
 
-        if (orphanCardIds.length > 0) {
-          const res = await prisma.card.deleteMany({ where: { id: { in: orphanCardIds } } })
-          deletedCards = res.count
+        if (cardIds.length > 0) {
+          const otherLinks = await tx.cardLesson.findMany({
+            where: { cardId: { in: cardIds }, lessonId: { not: lessonId } },
+            select: { cardId: true }
+          })
+          const sharedCardIds = new Set(otherLinks.map((l) => l.cardId))
+          const orphanCardIds = cardIds.filter((id) => !sharedCardIds.has(id))
+
+          if (orphanCardIds.length > 0) {
+            const res = await tx.card.deleteMany({ where: { id: { in: orphanCardIds } } })
+            deletedCards = res.count
+          }
         }
       }
-    }
 
-    // Delete the lesson (CardLesson links cascade; cards otherwise stay in the deck)
-    await prisma.lesson.delete({
-      where: { id: lessonId }
+      // Delete the lesson (CardLesson links cascade; cards otherwise stay in the deck)
+      await tx.lesson.delete({ where: { id: lessonId } })
+
+      return deletedCards
     })
 
     return NextResponse.json({ success: true, deletedCards })

@@ -83,7 +83,7 @@ export function CardItem({
         isPriority: newPriority
       })
       toast.success(newPriority ? "Marked as priority" : "Removed from priority")
-    } catch (error) {
+    } catch {
       toast.error("Failed to update priority")
     }
   }

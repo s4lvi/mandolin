@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Volume2, Eye, EyeOff } from "lucide-react"
-import { speakChinese } from "@/lib/speech"
+import { useSpeak } from "@/hooks/use-speak"
 
 interface FlashcardSegmentProps {
   hanzi: string
@@ -20,13 +20,7 @@ export function FlashcardSegment({
   notes
 }: FlashcardSegmentProps) {
   const [isRevealed, setIsRevealed] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
-
-  const handleSpeak = async () => {
-    setIsPlaying(true)
-    await speakChinese(hanzi)
-    setIsPlaying(false)
-  }
+  const { speak, isPlaying } = useSpeak()
 
   return (
     <Card className="border-l-4 border-l-purple-500">
@@ -52,8 +46,9 @@ export function FlashcardSegment({
             <Button
               variant="outline"
               size="sm"
-              onClick={handleSpeak}
+              onClick={() => speak(hanzi)}
               disabled={isPlaying}
+              aria-label="Play pronunciation"
             >
               <Volume2 className="h-4 w-4 mr-2" />
               Speak

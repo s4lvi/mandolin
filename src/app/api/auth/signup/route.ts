@@ -2,9 +2,14 @@ import { NextResponse } from "next/server"
 import { hash } from "bcryptjs"
 import prisma from "@/lib/prisma"
 import { signupSchema } from "@/lib/validations/auth"
+import { rateLimited, RATE_LIMITS, getClientIp } from "@/lib/rate-limit"
+import { z } from "zod"
 
 export async function POST(req: Request) {
   try {
+    const limited = rateLimited(`signup:${getClientIp(req)}`, RATE_LIMITS.SIGNUP)
+    if (limited) return limited
+
     const body = await req.json()
     const { email, password, name } = signupSchema.parse(body)
 
@@ -46,12 +51,22 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {
-    if (error instanceof Error) {
+    if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { error: error.message },
+        {
+          error: "Invalid signup details",
+          details: error.issues.map((i) => ({
+            field: i.path.join("."),
+            message: i.message
+          }))
+        },
         { status: 400 }
       )
     }
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Invalid request body" }, { status: 400 })
+    }
+    console.error("Error creating user:", error)
     return NextResponse.json(
       { error: "Something went wrong" },
       { status: 500 }

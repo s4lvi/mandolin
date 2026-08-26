@@ -82,6 +82,8 @@ export interface ReviewResponse {
 export interface SubmitReviewRequest {
   cardId: string
   quality: number
+  /** IANA timezone used for streak / daily-progress day boundaries */
+  timezone?: string
 }
 
 export interface ReviewResult {

@@ -23,13 +23,23 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = feedbackSchema.parse(body)
 
+    // Only attach a test question if it belongs to a card in the user's deck
+    let testQuestionId: string | null = null
+    if (data.testQuestionId) {
+      const question = await prisma.testQuestion.findFirst({
+        where: { id: data.testQuestionId, card: { deck: { userId } } },
+        select: { id: true }
+      })
+      testQuestionId = question?.id ?? null
+    }
+
     const feedback = await prisma.feedback.create({
       data: {
         userId,
         type: data.type,
         message: data.message,
         email: data.email && data.email !== "" ? data.email : null,
-        testQuestionId: data.testQuestionId || null
+        testQuestionId
       }
     })
 

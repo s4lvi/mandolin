@@ -19,7 +19,7 @@ export function FeedbackSegment({
       <CardContent className="pt-6 space-y-3">
         <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
           <Lightbulb className="h-5 w-5" />
-          <span className="font-semibold">Let's Learn Together</span>
+          <span className="font-semibold">Let&apos;s Learn Together</span>
         </div>
 
         <div className="space-y-2">

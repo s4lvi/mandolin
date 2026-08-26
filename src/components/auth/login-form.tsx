@@ -100,7 +100,7 @@ export function LoginForm() {
               )}
             />
             {error && (
-              <div className="text-sm text-red-500 text-center">{error}</div>
+              <div role="alert" className="text-sm text-red-500 text-center">{error}</div>
             )}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? "Signing in..." : "Sign in"}

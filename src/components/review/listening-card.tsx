@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Volume2, Eye } from "lucide-react"
 import type { Card as CardType } from "@/types"
-import { speakChinese, preloadVoices } from "@/lib/speech"
-import { AnswerButtons, Quality } from "./answer-buttons"
+import { preloadVoices } from "@/lib/speech"
+import { useSpeak } from "@/hooks/use-speak"
+import { AnswerButtons } from "./answer-buttons"
+import { Quality } from "@/lib/srs"
 
 interface ListeningCardProps {
   card: CardType
@@ -16,28 +18,22 @@ interface ListeningCardProps {
 
 export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
   const [isRevealed, setIsRevealed] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { speak, isPlaying } = useSpeak()
 
   useEffect(() => {
     preloadVoices()
   }, [])
 
-  const playAudio = async () => {
+  const playAudio = () => {
     if (isPlaying) return
-    setIsPlaying(true)
-    await speakChinese(
-      card.hanzi,
-      undefined,
-      () => setIsPlaying(false),
-      () => setIsPlaying(false)
-    )
+    void speak(card.hanzi)
   }
 
   // Reset and auto-play on new card
   useEffect(() => {
     setIsRevealed(false)
     const timer = setTimeout(() => {
-      playAudio()
+      void speak(card.hanzi)
     }, 300)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -56,6 +52,7 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
                 className="h-8 w-8 shrink-0"
                 onClick={playAudio}
                 disabled={isPlaying}
+                aria-label="Play pronunciation"
               >
                 <Volume2 className={`h-5 w-5 ${isPlaying ? "animate-pulse" : ""}`} />
               </Button>
@@ -95,6 +92,7 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
           className="rounded-full h-20 w-20 sm:h-24 sm:w-24 mb-4 sm:mb-6"
           onClick={playAudio}
           disabled={isPlaying}
+          aria-label="Play pronunciation"
         >
           <Volume2 className={`h-10 w-10 ${isPlaying ? "animate-pulse text-primary" : ""}`} />
         </Button>

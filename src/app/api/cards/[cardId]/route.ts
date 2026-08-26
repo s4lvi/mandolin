@@ -94,22 +94,16 @@ export async function PUT(
       }
     }
 
-    // Handle tags update
+    // Resolve tag ids up front (tags are global, so this is safe outside the tx)
+    let tagIds: string[] | undefined
     if (data.tags) {
-      // Delete existing tags
-      await prisma.cardTag.deleteMany({
-        where: { cardId }
-      })
-
-      // Batch create/get tags
+      tagIds = []
       if (data.tags.length > 0) {
-        // Find existing tags
         const existingTags = await prisma.tag.findMany({
           where: { name: { in: data.tags } }
         })
         const existingTagNames = new Set(existingTags.map((t) => t.name))
 
-        // Create missing tags in batch
         const newTagNames = data.tags.filter((name) => !existingTagNames.has(name))
         if (newTagNames.length > 0) {
           await prisma.tag.createMany({
@@ -118,42 +112,45 @@ export async function PUT(
           })
         }
 
-        // Get all tags (existing + newly created)
         const allTags = await prisma.tag.findMany({
           where: { name: { in: data.tags } }
         })
-
-        // Create CardTag relationships in batch
-        await prisma.cardTag.createMany({
-          data: allTags.map((tag) => ({
-            cardId,
-            tagId: tag.id
-          }))
-        })
+        tagIds = allTags.map((tag) => tag.id)
       }
     }
 
-    // Update card
-    const card = await prisma.card.update({
-      where: { id: cardId },
-      data: {
-        hanzi: data.hanzi,
-        pinyin: data.pinyin,
-        english: data.english,
-        notes: data.notes,
-        type: data.type,
-        isPriority: data.isPriority
-      },
-      include: {
-        lessons: {
-          include: { lesson: { select: { number: true, title: true } } }
-        },
-        tags: {
-          include: {
-            tag: true
-          }
+    // Replace tag links and update the card atomically
+    const card = await prisma.$transaction(async (tx) => {
+      if (tagIds) {
+        await tx.cardTag.deleteMany({ where: { cardId } })
+        if (tagIds.length > 0) {
+          await tx.cardTag.createMany({
+            data: tagIds.map((tagId) => ({ cardId, tagId }))
+          })
         }
       }
+
+      return tx.card.update({
+        where: { id: cardId },
+        data: {
+          hanzi: data.hanzi,
+          pinyin: data.pinyin,
+          english: data.english,
+          notes: data.notes,
+          type: data.type,
+          isPriority: data.isPriority
+        },
+        include: {
+          lessons: {
+            include: { lesson: { select: { number: true, title: true } } }
+          },
+          tags: {
+            include: {
+              tag: true
+            }
+          }
+        }
+      })
     })
 
     logger.info("Updated card", { cardId, hanzi: card.hanzi })

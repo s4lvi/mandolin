@@ -16,6 +16,22 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = bulkCreateCardsSchema.parse(body)
 
+    // Verify every referenced lesson belongs to the caller's deck
+    const referencedLessonIds = new Set<string>()
+    if (data.lessonId) referencedLessonIds.add(data.lessonId)
+    for (const card of data.cards) {
+      if (card.lessonId) referencedLessonIds.add(card.lessonId)
+    }
+    if (referencedLessonIds.size > 0) {
+      const ids = Array.from(referencedLessonIds)
+      const owned = await prisma.lesson.count({
+        where: { id: { in: ids }, deckId: deck.id }
+      })
+      if (owned !== ids.length) {
+        return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
+      }
+    }
+
     // Get existing cards to check for duplicates
     const existingCards = await prisma.card.findMany({
       where: { deckId: deck.id },

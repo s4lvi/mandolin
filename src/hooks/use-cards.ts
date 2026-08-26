@@ -176,6 +176,8 @@ export function useUpdateCard() {
     }) => updateCard(cardId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson"] })
+      queryClient.invalidateQueries({ queryKey: ["lessons"] })
     }
   })
 }
@@ -187,6 +189,8 @@ export function useDeleteCard() {
     mutationFn: deleteCard,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cards"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson"] })
+      queryClient.invalidateQueries({ queryKey: ["lessons"] })
     }
   })
 }

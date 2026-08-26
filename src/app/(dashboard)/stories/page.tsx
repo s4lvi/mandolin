@@ -1,22 +1,15 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select"
-import { Label } from "@/components/ui/label"
-import { Loader2, Volume2, BookOpen, Eye, EyeOff, RotateCcw, Trash2, Clock } from "lucide-react"
+import { Loader2, Volume2, BookOpen, Eye, EyeOff, Trash2, Clock } from "lucide-react"
 import { StoryListSkeleton } from "@/components/ui/skeleton"
 import { AILoading } from "@/components/ui/ai-loading"
 import { speakChinese } from "@/lib/speech"
+import { useSpeak } from "@/hooks/use-speak"
 import { toast } from "sonner"
 import type { StoryDisplayMode } from "@/types"
 
@@ -43,19 +36,21 @@ function SentenceDisplay({
   sentence: StorySentence
   displayMode: StoryDisplayMode
 }) {
-  const [showPinyin, setShowPinyin] = useState(displayMode === "hanzi_pinyin_audio")
+  // Pinyin visibility derives from the display mode; a per-sentence "reveal"
+  // override is cleared whenever the mode changes.
+  const [pinyinRevealed, setPinyinRevealed] = useState(false)
+  const [lastMode, setLastMode] = useState(displayMode)
+  if (lastMode !== displayMode) {
+    setLastMode(displayMode)
+    setPinyinRevealed(false)
+  }
+  const showPinyin = displayMode === "hanzi_pinyin_audio" || pinyinRevealed
   const [showEnglish, setShowEnglish] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { speak, isPlaying } = useSpeak()
 
-  const playAudio = async () => {
+  const playAudio = () => {
     if (isPlaying) return
-    setIsPlaying(true)
-    await speakChinese(
-      sentence.hanzi,
-      undefined,
-      () => setIsPlaying(false),
-      () => setIsPlaying(false)
-    )
+    void speak(sentence.hanzi)
   }
 
   return (
@@ -67,6 +62,7 @@ function SentenceDisplay({
           className="h-11 w-11 shrink-0 mt-0.5"
           onClick={playAudio}
           disabled={isPlaying}
+          aria-label="Play pronunciation"
         >
           <Volume2 className={`h-5 w-5 ${isPlaying ? "animate-pulse text-primary" : ""}`} />
         </Button>
@@ -82,7 +78,7 @@ function SentenceDisplay({
             ) : (
               <button
                 className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary/70 hover:bg-primary/10 active:bg-primary/20 min-h-[32px]"
-                onClick={() => setShowPinyin(true)}
+                onClick={() => setPinyinRevealed(true)}
               >
                 pinyin
               </button>
@@ -192,6 +188,7 @@ export default function StoriesPage() {
   }
 
   const deleteStory = async (storyId: string) => {
+    if (!window.confirm("Delete this story? This can't be undone.")) return
     try {
       const res = await fetch(`/api/stories?id=${storyId}`, { method: "DELETE" })
       if (!res.ok) throw new Error("Failed to delete story")
@@ -365,6 +362,14 @@ export default function StoriesPage() {
             <p className="text-muted-foreground mb-4">
               Generate your first story to start reading practice
             </p>
+            <Button onClick={generateStory} disabled={isGenerating}>
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <BookOpen className="h-4 w-4 mr-2" />
+              )}
+              New Story
+            </Button>
           </CardContent>
         </Card>
       ) : (

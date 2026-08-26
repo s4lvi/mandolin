@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
         skip: (page - 1) * limit,
         take: limit,
         include: {
-          user: { select: { name: true, email: true } }
+          user: { select: { name: true } }
         }
       }),
       prisma.publishedLesson.count({ where })
@@ -51,7 +51,7 @@ export async function GET(req: NextRequest) {
         tags: l.tags,
         cardCount: l.cardCount,
         addCount: l.addCount,
-        author: l.user.name || l.user.email?.split("@")[0],
+        author: l.user.name || "Anonymous",
         publishedAt: l.publishedAt
       })),
       total,

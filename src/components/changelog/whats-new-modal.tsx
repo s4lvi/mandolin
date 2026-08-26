@@ -26,7 +26,7 @@ export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProp
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            What's New in v{changelog.version}
+            What&apos;s New in v{changelog.version}
           </DialogTitle>
           <DialogDescription>{changelog.title}</DialogDescription>
         </DialogHeader>

@@ -107,7 +107,7 @@ export function EditLessonDialog({
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Context used to generate the interactive lesson"
-              className="min-h-[100px]"
+              className="min-h-[100px] max-h-[45vh] overflow-y-auto"
             />
           </div>
         </div>

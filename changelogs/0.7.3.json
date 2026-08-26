@@ -1,0 +1,21 @@
+{
+  "version": "0.7.3",
+  "title": "Faster, Smoother & More Robust",
+  "changes": [
+    "Test questions, autofill, character breakdowns, example sentences, and translation feedback are now noticeably faster",
+    "Note parsing, interactive lessons, and story generation respond quicker too",
+    "High-quality Mandarin pronunciation via neural text-to-speech, with browser speech as a fallback",
+    "Community lessons now show the author's lesson context, with a more compact card grid",
+    "Streaks and daily goals now respect your local timezone instead of the server's",
+    "Rating a card Hard no longer resets it like a miss — it halves the interval and keeps your progress",
+    "Cards you've lapsed on recover their interval more gradually instead of restarting from scratch",
+    "Reviews, XP, and streaks are saved atomically so a double-tap or flaky connection can't lose progress",
+    "Interactive lesson answers are graded server-side, and your last answer on a page is now reliably saved",
+    "The Review badge and lesson list update immediately after finishing a lesson or editing a card",
+    "Finish a review session and jump straight into a lesson with one tap",
+    "Deleting a story now asks for confirmation first",
+    "Empty Courses and Stories pages now show a clear next step",
+    "Keyboard and screen-reader improvements across flashcards, tabs, and audio buttons",
+    "Security hardening: ownership checks on lesson links, rate limits on AI features, and safer error messages"
+  ]
+}

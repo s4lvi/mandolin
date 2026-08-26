@@ -2,9 +2,20 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
-import { PREDEFINED_TAGS, CLAUDE_MODEL } from "@/lib/constants"
+import { PREDEFINED_TAGS, CLAUDE_MODEL_FAST } from "@/lib/constants"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
+import { createLogger } from "@/lib/logger"
 
-const anthropic = new Anthropic()
+const logger = createLogger("api/autofill-card")
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
+
+const tagsResponseSchema = z.array(z.string())
+const typeResponseSchema = z.enum(["VOCABULARY", "GRAMMAR", "PHRASE", "IDIOM"])
+
+function badAiResponse(details: unknown) {
+  logger.error("AI returned an unexpected response", details)
+  return NextResponse.json({ error: "AI returned an unexpected response" }, { status: 502 })
+}
 
 const autofillSchema = z.object({
   field: z.enum(["hanzi", "pinyin", "english", "notes", "type", "tags"]),
@@ -55,6 +66,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    const limited = rateLimited(`ai:light:${session.user.id}`, RATE_LIMITS.AI_LIGHT)
+    if (limited) return limited
+
     const body = await req.json()
     const { field, context } = autofillSchema.parse(body)
 
@@ -84,7 +98,7 @@ ${contextParts.join("\n")}
 Your response:`
 
     const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
+      model: CLAUDE_MODEL_FAST,
       max_tokens: 256,
       messages: [
         {
@@ -103,35 +117,47 @@ Your response:`
 
     // For tags field, parse as JSON array
     if (field === "tags") {
-      try {
-        // Try to extract JSON if wrapped in code blocks
-        const jsonMatch = result.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
-        if (jsonMatch) {
-          result = jsonMatch[1]
-        }
-        const tags = JSON.parse(result)
-        if (!Array.isArray(tags)) {
-          throw new Error("Tags response is not an array")
-        }
-        // Filter to only allowed tags
-        const validTags = tags.filter((tag) => PREDEFINED_TAGS.includes(tag as any))
-        return NextResponse.json({ value: validTags })
-      } catch {
-        return NextResponse.json({ error: "Failed to parse tags" }, { status: 500 })
+      // Try to extract JSON if wrapped in code blocks
+      const jsonMatch = result.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
+      if (jsonMatch) {
+        result = jsonMatch[1]
       }
+      let raw: unknown
+      try {
+        raw = JSON.parse(result)
+      } catch (error) {
+        return badAiResponse({ field, error, text: result.slice(0, 500) })
+      }
+      const parsed = tagsResponseSchema.safeParse(raw)
+      if (!parsed.success) {
+        return badAiResponse({ field, issues: parsed.error.issues, text: result.slice(0, 500) })
+      }
+      // Filter to only allowed tags
+      const allowed = new Set<string>(PREDEFINED_TAGS)
+      const validTags = parsed.data.filter((tag) => allowed.has(tag))
+      return NextResponse.json({ value: validTags })
+    }
+
+    if (field === "type") {
+      const parsed = typeResponseSchema.safeParse(result.toUpperCase())
+      if (!parsed.success) {
+        return badAiResponse({ field, text: result.slice(0, 500) })
+      }
+      return NextResponse.json({ value: parsed.data })
+    }
+
+    if (!result) {
+      return badAiResponse({ field, text: "" })
     }
 
     return NextResponse.json({ value: result })
   } catch (error) {
-    console.error("Error autofilling card:", error)
+    logger.error("Error autofilling card", { error })
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
         { status: 400 }
       )
-    }
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
     }
     return NextResponse.json(
       { error: "Failed to autofill card" },

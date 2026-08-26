@@ -38,7 +38,13 @@ export default function CoursesPage() {
       ) : !courses || courses.length === 0 ? (
         <div className="text-center py-12">
           <GraduationCap className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <p className="text-muted-foreground">No courses available yet</p>
+          <p className="text-muted-foreground mb-4">No courses yet</p>
+          <Link href="/courses/create">
+            <Button>
+              <GraduationCap className="h-4 w-4 mr-2" />
+              Create your first course
+            </Button>
+          </Link>
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

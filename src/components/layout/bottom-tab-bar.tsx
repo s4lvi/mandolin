@@ -19,10 +19,6 @@ export function BottomTabBar() {
   const pathname = usePathname()
   const { data: dueCount } = useDueCount()
 
-  // Hide during focused review sessions (when on /review and session is active)
-  // The review page adds 'review-active' class to body when in session
-  const isReviewSession = pathname === "/review"
-
   const tabs: Tab[] = [
     {
       href: "/",
@@ -80,6 +76,7 @@ export function BottomTabBar() {
               key={tab.href}
               href={tab.href}
               onClick={handleTap}
+              aria-current={active ? "page" : undefined}
               className={`flex flex-col items-center justify-center gap-0.5 min-w-[64px] min-h-[48px] px-3 py-1 rounded-lg transition-colors ${
                 active
                   ? "text-primary"

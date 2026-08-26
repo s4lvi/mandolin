@@ -28,7 +28,9 @@ import {
   Loader2,
   Pencil,
   Trash2,
-  Plus
+  Plus,
+  AlertCircle,
+  RefreshCw
 } from "lucide-react"
 import { formatLessonTitle } from "@/lib/lesson-helpers"
 import { useUnpublishLesson } from "@/hooks/use-community"
@@ -62,8 +64,18 @@ interface LessonDetail {
   publishedLesson?: { id: string; title: string; addCount: number } | null
 }
 
+class LessonNotFoundError extends Error {
+  constructor() {
+    super("Lesson not found")
+    this.name = "LessonNotFoundError"
+  }
+}
+
 async function fetchLessonDetail(id: string): Promise<LessonDetail> {
   const res = await fetch(`/api/lessons/${id}`)
+  if (res.status === 404) {
+    throw new LessonNotFoundError()
+  }
   if (!res.ok) {
     throw new Error("Failed to fetch lesson")
   }
@@ -102,23 +114,53 @@ export default function LessonDetailPage() {
     }
   }
 
-  const { data: lesson, isLoading, error } = useQuery({
+  const { data: lesson, isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ["lesson", lessonId],
     queryFn: () => fetchLessonDetail(lessonId),
-    enabled: !!lessonId
+    enabled: !!lessonId,
+    // Don't retry a definitive 404; retry transient failures as usual
+    retry: (failureCount, err) =>
+      !(err instanceof LessonNotFoundError) && failureCount < 3
   })
 
-  if (error) {
+  if (error instanceof LessonNotFoundError) {
     return (
       <ErrorBoundary>
         <div className="text-center py-12">
           <h3 className="text-lg font-medium mb-2">Lesson not found</h3>
           <p className="text-muted-foreground mb-4">
-            The lesson you're looking for doesn't exist or has been deleted.
+            The lesson you&apos;re looking for doesn&apos;t exist or has been deleted.
           </p>
           <Link href="/lessons">
             <Button variant="outline">Back to Lessons</Button>
           </Link>
+        </div>
+      </ErrorBoundary>
+    )
+  }
+
+  if (error) {
+    return (
+      <ErrorBoundary>
+        <div className="text-center py-12" role="alert">
+          <AlertCircle className="h-10 w-10 text-destructive mx-auto mb-3" />
+          <h3 className="text-lg font-medium mb-2">Couldn&apos;t load this lesson</h3>
+          <p className="text-muted-foreground mb-4">
+            {error instanceof Error ? error.message : "Something went wrong."}
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button onClick={() => refetch()} disabled={isFetching}>
+              {isFetching ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Retry
+            </Button>
+            <Link href="/lessons">
+              <Button variant="outline">Back to Lessons</Button>
+            </Link>
+          </div>
         </div>
       </ErrorBoundary>
     )
@@ -270,7 +312,7 @@ export default function LessonDetailPage() {
                 <div className="flex items-center gap-3">
                   <BookOpen className="h-8 w-8 text-muted-foreground" />
                   <p className="text-muted-foreground">
-                    You haven't started this lesson yet
+                    You haven&apos;t started this lesson yet
                   </p>
                 </div>
                 <Link href={`/lessons/${lesson.id}/learn`}>

@@ -1,7 +1,6 @@
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Trophy, Flame, Star, Zap, RotateCcw, Volume2 } from "lucide-react"
 import { speakChinese } from "@/lib/speech"
 import type { Card as CardType, ReviewMode } from "@/types"
@@ -138,6 +137,7 @@ export function SessionComplete({
                       size="icon"
                       className="h-7 w-7 shrink-0"
                       onClick={() => speakChinese(card.hanzi)}
+                      aria-label="Play pronunciation"
                     >
                       <Volume2 className="h-3 w-3" />
                     </Button>
@@ -151,6 +151,14 @@ export function SessionComplete({
               </div>
             </div>
           )}
+
+          {/* Keep the momentum going — bridge to the next study loop */}
+          <Button
+            className="w-full min-h-[44px]"
+            onClick={() => router.push("/lessons")}
+          >
+            Continue with a lesson →
+          </Button>
 
           <div className="flex flex-col sm:flex-row gap-2">
             <Button

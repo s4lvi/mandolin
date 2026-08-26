@@ -9,17 +9,13 @@ import { Loader2, Sparkles, Volume2, Puzzle } from "lucide-react"
 import { AnswerButtons } from "./answer-buttons"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
-import { previewInterval, formatInterval, Quality as SRSQuality } from "@/lib/srs"
+import { previewInterval, formatInterval, Quality } from "@/lib/srs"
+import { useSpeak } from "@/hooks/use-speak"
 import { useSwipe } from "@/hooks/use-swipe"
 import { isNative } from "@/lib/capacitor"
 
-// Quality ratings for SM-2 algorithm
-export enum Quality {
-  AGAIN = 0,
-  HARD = 1,
-  GOOD = 2,
-  EASY = 3
-}
+// Re-exported so existing consumers can keep importing Quality from here
+export { Quality }
 
 interface FlashcardProps {
   card: CardType
@@ -41,7 +37,7 @@ export function Flashcard({
   isSubmitting
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { speak, isPlaying } = useSpeak()
   const [showPinyin, setShowPinyin] = useState(faceMode !== "immersion")
 
   // Swipe gestures: left = Again, right = Good (only when flipped)
@@ -83,19 +79,12 @@ export function Flashcard({
       speakChinese(card.hanzi)
     }, 300)
     return () => clearTimeout(timer)
-  }, [card.id, faceMode])
+  }, [card.id, card.hanzi, faceMode])
 
-  const playAudio = async (e: React.MouseEvent) => {
+  const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card flip
     if (isPlaying) return
-
-    setIsPlaying(true)
-    await speakChinese(
-      card.hanzi,
-      undefined, // onStart
-      () => setIsPlaying(false), // onEnd
-      () => setIsPlaying(false) // onError
-    )
+    void speak(card.hanzi)
   }
 
   // Determine what to show on the front based on faceMode
@@ -146,10 +135,10 @@ export function Flashcard({
     state: (card.state ?? "NEW") as "NEW" | "LEARNING" | "REVIEW" | "LEARNED"
   }
   const intervalLabels = {
-    again: formatInterval(previewInterval(cardSRS, SRSQuality.AGAIN)),
-    hard: formatInterval(previewInterval(cardSRS, SRSQuality.HARD)),
-    good: formatInterval(previewInterval(cardSRS, SRSQuality.GOOD)),
-    easy: formatInterval(previewInterval(cardSRS, SRSQuality.EASY)),
+    again: formatInterval(previewInterval(cardSRS, Quality.AGAIN)),
+    hard: formatInterval(previewInterval(cardSRS, Quality.HARD)),
+    good: formatInterval(previewInterval(cardSRS, Quality.GOOD)),
+    easy: formatInterval(previewInterval(cardSRS, Quality.EASY)),
   }
 
   const handleCardTap = () => {
@@ -172,8 +161,17 @@ export function Flashcard({
       {!isFlipped ? (
         /* Front */
         <Card
-          className="cursor-pointer active:scale-[0.98] transition-transform"
+          role="button"
+          tabIndex={0}
+          aria-label="Flip card"
+          className="cursor-pointer active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={handleCardTap}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              handleCardTap()
+            }
+          }}
           style={{ backgroundColor: swipeOverlay }}
         >
           <CardContent className="text-center py-8 sm:py-12 px-4">
@@ -192,6 +190,7 @@ export function Flashcard({
                   className="h-8 w-8 shrink-0"
                   onClick={playAudio}
                   disabled={isPlaying}
+                  aria-label="Play pronunciation"
                 >
                   <Volume2 className={`h-5 w-5 ${isPlaying ? 'animate-pulse' : ''}`} />
                 </Button>
@@ -219,6 +218,7 @@ export function Flashcard({
                     className="h-7 w-7 shrink-0"
                     onClick={playAudio}
                     disabled={isPlaying}
+                    aria-label="Play pronunciation"
                   >
                     <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
                   </Button>

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
-import { generateTestQuestion } from "@/lib/ai"
+import { generateTestQuestion, AIResponseError } from "@/lib/ai"
 import { z } from "zod"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
 
 const generateQuestionSchema = z.object({
   cardId: z.string(),
@@ -55,7 +56,10 @@ export async function POST(req: Request) {
       })
     }
 
-    // Generate new question via AI
+    // Generate new question via AI (cache hits above are not rate limited)
+    const limited = rateLimited(`ai:light:${session.user.id}`, RATE_LIMITS.AI_LIGHT)
+    if (limited) return limited
+
     const generated = await generateTestQuestion({
       card: {
         hanzi: card.hanzi,
@@ -97,7 +101,7 @@ export async function POST(req: Request) {
 
   } catch (error) {
     // Handle aborted requests (from prefetch cancellations) gracefully
-    if (error instanceof Error && (error.message === 'aborted' || (error as any).code === 'ECONNRESET')) {
+    if (error instanceof Error && (error.message === 'aborted' || (error as NodeJS.ErrnoException).code === 'ECONNRESET')) {
       console.log("Request aborted (prefetch cancelled)")
       return NextResponse.json(
         { error: "Request cancelled" },
@@ -106,6 +110,9 @@ export async function POST(req: Request) {
     }
 
     console.error("Error generating test question:", error)
+    if (error instanceof AIResponseError) {
+      return NextResponse.json({ error: error.message }, { status: error.statusCode })
+    }
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
