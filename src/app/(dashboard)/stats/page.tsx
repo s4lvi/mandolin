@@ -96,11 +96,18 @@ export default function StatsPage() {
   const { stats, achievements, allAchievements, cardStats, dailyReviews, accuracy, cardReviewStats } = data
 
   // Generate last 30 days for heatmap
+  const localDateKey = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  }
   const last30Days = []
   for (let i = 29; i >= 0; i--) {
     const date = new Date()
     date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split("T")[0]
+    // Key by the user's local calendar day to match the server's tz bucketing
+    const dateStr = localDateKey(date)
     last30Days.push({
       date: dateStr,
       count: dailyReviews[dateStr] || 0,
