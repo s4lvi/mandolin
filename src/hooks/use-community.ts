@@ -37,6 +37,7 @@ export interface CommunityLessonCard {
 }
 
 export interface CommunityLessonDetail extends Omit<CommunityLessonSummary, never> {
+  notes: string | null
   cards: CommunityLessonCard[]
 }
 

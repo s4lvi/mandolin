@@ -7,15 +7,27 @@ import {
   calculateSRS,
   calculateXP,
   calculateLevel,
-  Quality,
-  isConsecutiveDay,
-  isSameDay
+  Quality
 } from "@/lib/srs"
+import { isSameLocalDay, isConsecutiveLocalDay, isValidTimeZone } from "@/lib/dates"
+import { REVIEW_DEFAULTS } from "@/lib/constants/review"
 
 const reviewResultSchema = z.object({
   cardId: z.string(),
-  quality: z.number().min(0).max(3) // 0=AGAIN, 1=HARD, 2=GOOD, 3=EASY
+  quality: z.number().int().min(0).max(3), // 0=AGAIN, 1=HARD, 2=GOOD, 3=EASY
+  // IANA zone name used for streak / daily-progress day boundaries
+  timezone: z.string().max(64).optional().default("UTC")
 })
+
+// Parse and clamp a ?limit= query value
+function parseLimit(raw: string | null): number {
+  const parsed = parseInt(raw ?? "", 10)
+  if (Number.isNaN(parsed)) return REVIEW_DEFAULTS.DEFAULT_CARD_LIMIT
+  return Math.min(
+    REVIEW_DEFAULTS.MAX_CARD_LIMIT,
+    Math.max(REVIEW_DEFAULTS.MIN_CARD_LIMIT, parsed)
+  )
+}
 
 // GET /api/review - Get cards for review
 export async function GET(req: Request) {
@@ -26,7 +38,7 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url)
-    const limit = parseInt(searchParams.get("limit") || "20")
+    const limit = parseLimit(searchParams.get("limit"))
     const lessonId = searchParams.get("lessonId")
     const types = searchParams.get("types")?.split(",").filter(Boolean) || []
     const allCards = searchParams.get("allCards") === "true"
@@ -193,7 +205,9 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { cardId, quality } = reviewResultSchema.parse(body)
+    const { cardId, quality, timezone } = reviewResultSchema.parse(body)
+    const tz = isValidTimeZone(timezone) ? timezone : "UTC"
+    const userId = session.user.id
 
     // Verify card belongs to user
     const card = await prisma.card.findUnique({
@@ -209,44 +223,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Card not found" }, { status: 404 })
     }
 
-    if (card.deck.userId !== session.user.id) {
+    if (card.deck.userId !== userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
-
-    // Get or create user stats
-    let userStats = await prisma.userStats.findUnique({
-      where: { userId: session.user.id }
-    })
-
-    if (!userStats) {
-      userStats = await prisma.userStats.create({
-        data: { userId: session.user.id }
-      })
     }
 
     const now = new Date()
     const isCorrect = quality >= Quality.GOOD
-
-    // Check streak
-    let isStreak = false
-    let newStreak = userStats.currentStreak
-
-    if (userStats.lastReviewDate) {
-      if (isSameDay(userStats.lastReviewDate, now)) {
-        // Same day, keep streak
-        isStreak = userStats.currentStreak > 0
-      } else if (isConsecutiveDay(userStats.lastReviewDate, now)) {
-        // Next day, increment streak
-        newStreak += 1
-        isStreak = true
-      } else {
-        // Streak broken
-        newStreak = 1
-      }
-    } else {
-      // First review ever
-      newStreak = 1
-    }
 
     // Calculate SRS result
     const srsResult = calculateSRS(
@@ -259,53 +241,83 @@ export async function POST(req: Request) {
       quality as Quality
     )
 
-    // Calculate XP earned
-    const xpEarned = calculateXP(quality as Quality, isStreak, card.state)
-    const newTotalXp = userStats.totalXp + xpEarned
-    const newLevel = calculateLevel(newTotalXp)
+    const { updatedCard, updatedStats, xpEarned } = await prisma.$transaction(async (tx) => {
+      // Get or create user stats (fresh row inside the transaction)
+      const userStats = await tx.userStats.upsert({
+        where: { userId },
+        create: { userId },
+        update: {}
+      })
 
-    // Update card with SRS results
-    const updatedCard = await prisma.card.update({
-      where: { id: cardId },
-      data: {
-        correctCount: isCorrect ? { increment: 1 } : undefined,
-        incorrectCount: !isCorrect ? { increment: 1 } : undefined,
-        lastReviewed: now,
-        nextReview: srsResult.nextReview,
-        easeFactor: srsResult.easeFactor,
-        interval: srsResult.interval,
-        repetitions: srsResult.repetitions,
-        state: srsResult.state
-      }
-    })
+      // Check streak against the user's local calendar
+      let isStreak = false
+      let newStreak = userStats.currentStreak
+      const sameDay = userStats.lastReviewDate
+        ? isSameLocalDay(userStats.lastReviewDate, now, tz)
+        : false
 
-    // Update user stats
-    const updatedStats = await prisma.userStats.update({
-      where: { userId: session.user.id },
-      data: {
-        totalXp: newTotalXp,
-        level: newLevel,
-        currentStreak: newStreak,
-        longestStreak: Math.max(userStats.longestStreak, newStreak),
-        lastReviewDate: now,
-        totalReviews: { increment: 1 },
-        totalCorrect: isCorrect ? { increment: 1 } : undefined,
-        dailyProgress: isSameDay(userStats.lastReviewDate || new Date(0), now)
-          ? { increment: 1 }
-          : 1 // Reset if new day
+      if (userStats.lastReviewDate) {
+        if (sameDay) {
+          // Same day, keep streak
+          isStreak = userStats.currentStreak > 0
+        } else if (isConsecutiveLocalDay(userStats.lastReviewDate, now, tz)) {
+          // Next day, increment streak
+          newStreak += 1
+          isStreak = true
+        } else {
+          // Streak broken
+          newStreak = 1
+        }
+      } else {
+        // First review ever
+        newStreak = 1
       }
-    })
 
-    // Create review history entry
-    await prisma.reviewHistory.create({
-      data: {
-        userId: session.user.id,
-        cardId,
-        quality,
-        easeFactor: srsResult.easeFactor,
-        interval: srsResult.interval,
-        xpEarned
-      }
+      // Calculate XP earned
+      const xpEarned = calculateXP(quality as Quality, isStreak, card.state)
+      const newLevel = calculateLevel(userStats.totalXp + xpEarned)
+
+      const [updatedCard, updatedStats] = await Promise.all([
+        tx.card.update({
+          where: { id: cardId },
+          data: {
+            correctCount: isCorrect ? { increment: 1 } : undefined,
+            incorrectCount: !isCorrect ? { increment: 1 } : undefined,
+            lastReviewed: now,
+            nextReview: srsResult.nextReview,
+            easeFactor: srsResult.easeFactor,
+            interval: srsResult.interval,
+            repetitions: srsResult.repetitions,
+            state: srsResult.state
+          }
+        }),
+        tx.userStats.update({
+          where: { userId },
+          data: {
+            totalXp: { increment: xpEarned },
+            level: newLevel,
+            currentStreak: newStreak,
+            longestStreak: Math.max(userStats.longestStreak, newStreak),
+            lastReviewDate: now,
+            totalReviews: { increment: 1 },
+            totalCorrect: isCorrect ? { increment: 1 } : undefined,
+            dailyProgress: sameDay ? { increment: 1 } : 1 // Reset on a new day
+          }
+        }),
+        tx.reviewHistory.create({
+          data: {
+            userId,
+            cardId,
+            quality,
+            easeFactor: srsResult.easeFactor,
+            interval: srsResult.interval,
+            xpEarned,
+            reviewedAt: now
+          }
+        })
+      ])
+
+      return { updatedCard, updatedStats, xpEarned }
     })
 
     // Check for achievements

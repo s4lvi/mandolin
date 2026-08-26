@@ -37,7 +37,7 @@ const steps = [
           Master Mandarin Chinese with spaced repetition, AI-powered flashcards, and gamification.
         </p>
         <p className="text-muted-foreground">
-          Let's take a quick tour of the key features
+          Let&apos;s take a quick tour of the key features
         </p>
       </div>
     )

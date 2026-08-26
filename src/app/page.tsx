@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/layout/navbar"
-import { BookOpen, Upload, Brain, Tags, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Volume2, Puzzle, ArrowRight } from "lucide-react"
+import { BookOpen, Upload, Brain, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Puzzle, ArrowRight } from "lucide-react"
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar"
 import { ContinueLearning } from "@/components/dashboard/continue-learning"
 

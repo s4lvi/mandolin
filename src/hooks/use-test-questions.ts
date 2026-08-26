@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation } from "@tanstack/react-query"
 import type {
-  TestQuestion,
   TestQuestionResponse,
   PrefetchTestQuestionsRequest
 } from "@/types/api-responses"

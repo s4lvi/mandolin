@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, X, Volume2, AlertCircle } from "lucide-react"
 import { Card as CardType } from "@/types"
-import { speakChinese, preloadVoices } from "@/lib/speech"
+import { preloadVoices } from "@/lib/speech"
+import { useSpeak } from "@/hooks/use-speak"
+import { shuffle } from "@/lib/utils"
 import { toast } from "sonner"
 
 interface MultipleChoiceQuestionProps {
@@ -28,7 +30,7 @@ export function MultipleChoiceQuestion({
 }: MultipleChoiceQuestionProps) {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null)
   const [showFeedback, setShowFeedback] = useState(false)
-  const [isPlaying, setIsPlaying] = useState(false)
+  const { speak, isPlaying } = useSpeak()
   const [isReporting, setIsReporting] = useState(false)
 
   // Preload voices on mount (important for iOS)
@@ -38,27 +40,18 @@ export function MultipleChoiceQuestion({
 
   // Shuffle options (correct answer + 3 distractors)
   const options = useMemo(() => {
-    const allOptions = [correctAnswer, ...distractors]
-    return allOptions.sort(() => Math.random() - 0.5)
+    return shuffle([correctAnswer, ...distractors])
   }, [correctAnswer, distractors])
 
-  const playAudio = async (e: React.MouseEvent) => {
+  const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (isPlaying) return
-
-    setIsPlaying(true)
-    await speakChinese(
-      card.hanzi,
-      undefined,
-      () => setIsPlaying(false),
-      () => setIsPlaying(false)
-    )
+    void speak(card.hanzi)
   }
 
   const handleSubmit = () => {
     if (!selectedAnswer) return
 
-    const isCorrect = selectedAnswer === correctAnswer
     setShowFeedback(true)
   }
 
@@ -92,7 +85,7 @@ export function MultipleChoiceQuestion({
       }
 
       toast.success("Problem reported. Thank you!")
-    } catch (error) {
+    } catch {
       toast.error("Failed to report problem")
     } finally {
       setIsReporting(false)
@@ -141,6 +134,7 @@ export function MultipleChoiceQuestion({
                   onClick={playAudio}
                   disabled={isPlaying}
                   title="Play pronunciation"
+                  aria-label="Play pronunciation"
                 >
                   <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
                 </Button>

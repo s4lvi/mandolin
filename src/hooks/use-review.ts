@@ -1,14 +1,13 @@
 "use client"
 
+import { useEffect, useRef, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import type { Card, ExampleSentence } from "@/types"
+import type { ExampleSentence } from "@/types"
 import type {
   FetchReviewCardsParams,
   ReviewResponse,
   SubmitReviewRequest,
   ReviewResult,
-  GenerateSentenceRequest,
-  GenerateSentenceResponse,
   UserStats
 } from "@/types/api-responses"
 
@@ -36,14 +35,27 @@ async function fetchReviewCards(
   return res.json()
 }
 
+function getClientTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  } catch {
+    return "UTC"
+  }
+}
+
 async function submitReviewResult(
   cardId: string,
   quality: number
 ): Promise<ReviewResult> {
+  const body: SubmitReviewRequest = {
+    cardId,
+    quality,
+    timezone: getClientTimeZone()
+  }
   const res = await fetch("/api/review", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ cardId, quality })
+    body: JSON.stringify(body)
   })
 
   if (!res.ok) {
@@ -79,20 +91,43 @@ export function useReviewCards(params?: FetchReviewCardsParams) {
   })
 }
 
+// Query keys that go stale as a review session progresses. They are refreshed
+// once per session (on completion or unmount) instead of after every rating,
+// so an active session never triggers a full refetch of its own card list.
+const SESSION_QUERY_KEYS = [["review-cards"], ["due-count"], ["user-stats"], ["cards"]] as const
+
 export function useSubmitReview() {
   const queryClient = useQueryClient()
+  const hasPendingInvalidation = useRef(false)
 
-  return useMutation({
+  const invalidateSessionQueries = useCallback(() => {
+    if (!hasPendingInvalidation.current) return
+    hasPendingInvalidation.current = false
+    for (const queryKey of SESSION_QUERY_KEYS) {
+      queryClient.invalidateQueries({ queryKey })
+    }
+  }, [queryClient])
+
+  // Flush on unmount (user leaves the review page after rating cards)
+  useEffect(() => {
+    return () => {
+      invalidateSessionQueries()
+    }
+  }, [invalidateSessionQueries])
+
+  const mutation = useMutation({
     mutationFn: ({ cardId, quality }: { cardId: string; quality: number }) =>
       submitReviewResult(cardId, quality),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cards"] })
-      queryClient.invalidateQueries({ queryKey: ["user-stats"] })
-      queryClient.invalidateQueries({ queryKey: ["review-cards"] })
-      // Keep the navbar/tab "due" badge in sync after each rated card
-      queryClient.invalidateQueries({ queryKey: ["due-count"] })
+      hasPendingInvalidation.current = true
     }
   })
+
+  return {
+    ...mutation,
+    /** Call when a session finishes to refresh cards, due count, and stats once */
+    completeSession: invalidateSessionQueries
+  }
 }
 
 export type { UserStats, ReviewResult, ReviewResponse }

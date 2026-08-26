@@ -10,6 +10,11 @@ import { Plus, X } from "lucide-react"
 import { toast } from "sonner"
 import type { CreateCardInput } from "@/lib/validations/card"
 
+// Module-level id generator keeps impure Date.now() calls out of render scope.
+function newEntryId() {
+  return Date.now().toString()
+}
+
 interface CardEntry {
   id: string
   data?: CreateCardInput
@@ -22,7 +27,7 @@ export default function AddCardsPage() {
   const createCardMutation = useCreateCard()
 
   const addEntry = () => {
-    setEntries([...entries, { id: Date.now().toString() }])
+    setEntries([...entries, { id: newEntryId() }])
   }
 
   const removeEntry = (id: string) => {
@@ -39,7 +44,7 @@ export default function AddCardsPage() {
       // Remove the entry and add a new empty one if this was the last
       const remaining = entries.filter((e) => e.id !== entryId)
       if (remaining.length === 0) {
-        setEntries([{ id: Date.now().toString() }])
+        setEntries([{ id: newEntryId() }])
       } else {
         setEntries(remaining)
       }

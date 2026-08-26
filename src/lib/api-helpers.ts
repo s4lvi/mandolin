@@ -138,3 +138,22 @@ export async function getAuthenticatedUser(): Promise<
     userId: session.user.id
   }
 }
+
+/**
+ * Verify that a lesson belongs to the given deck
+ *
+ * @param lessonId - The ID of the lesson to verify
+ * @param deckId - The deck the lesson must belong to
+ * @returns Promise<boolean> - True if the lesson exists in that deck, false otherwise
+ */
+export async function verifyLessonOwnership(
+  lessonId: string,
+  deckId: string
+): Promise<boolean> {
+  const lesson = await prisma.lesson.findUnique({
+    where: { id: lessonId },
+    select: { deckId: true }
+  })
+
+  return lesson?.deckId === deckId
+}

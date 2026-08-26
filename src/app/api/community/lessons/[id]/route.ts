@@ -9,10 +9,10 @@ export async function GET(
   try {
     const { id } = await params
 
-    const published = await prisma.publishedLesson.findUnique({
-      where: { id },
+    const published = await prisma.publishedLesson.findFirst({
+      where: { id, isApproved: true },
       include: {
-        user: { select: { name: true, email: true } },
+        user: { select: { name: true } },
         lesson: {
           include: {
             cards: {
@@ -46,8 +46,9 @@ export async function GET(
       tags: published.tags,
       cardCount: published.cardCount,
       addCount: published.addCount,
-      author: published.user.name || published.user.email?.split("@")[0],
+      author: published.user.name || "Anonymous",
       publishedAt: published.publishedAt,
+      notes: published.lesson.notes,
       cards: published.lesson.cards.map((cl) => cl.card)
     })
   } catch (error) {

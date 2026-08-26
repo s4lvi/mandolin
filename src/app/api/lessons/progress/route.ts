@@ -82,13 +82,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { lessonId, currentPage, totalPages, responses } = validationResult.data
+    const { lessonId, responses } = validationResult.data
 
-    // Verify user has access to this lesson through their deck
+    // Verify user has access to this lesson through their deck, and read the
+    // real page count — never trust a client-supplied totalPages
     const lesson = await prisma.lesson.findFirst({
       where: {
         id: lessonId,
         deck: { userId }
+      },
+      select: {
+        id: true,
+        _count: { select: { pages: true } }
       }
     })
 
@@ -96,7 +101,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
     }
 
-    // Check if lesson is complete (user has moved past the last page)
+    const totalPages = lesson._count.pages
+    if (totalPages === 0) {
+      return NextResponse.json(
+        { error: "Lesson has no pages yet" },
+        { status: 400 }
+      )
+    }
+
+    // Clamp to [1, totalPages + 1]; totalPages + 1 means the user finished the last page
+    const currentPage = Math.min(
+      Math.max(validationResult.data.currentPage, 1),
+      totalPages + 1
+    )
     const isComplete = currentPage > totalPages
 
     // Cast responses to Prisma InputJsonValue array

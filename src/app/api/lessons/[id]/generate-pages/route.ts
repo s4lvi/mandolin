@@ -6,10 +6,9 @@ import { getAuthenticatedUserDeck, stripMarkdownCodeBlock } from "@/lib/api-help
 import { CLAUDE_MODEL, LESSON_TOTAL_PAGES } from "@/lib/constants"
 import { aiPagesResponseSchema, pageResponseSchema } from "@/lib/validations/lesson"
 import { z } from "zod"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!
-})
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
 // Prompt that generates all pages in a single request
 const ALL_PAGES_PROMPT = `You are creating an interactive Chinese language lesson with multiple pages.
@@ -60,6 +59,9 @@ export async function POST(
   try {
     const { error, deck } = await getAuthenticatedUserDeck()
     if (error) return error
+
+    const limited = rateLimited(`ai:heavy:${deck.userId}`, RATE_LIMITS.AI_HEAVY)
+    if (limited) return limited
 
     const { id: lessonId } = await params
 
@@ -152,9 +154,9 @@ export async function POST(
       .join("\n")
 
     const prompt = ALL_PAGES_PROMPT
-      .replace("{LESSON_CONTEXT}", lessonContext)
-      .replace("{CARD_LIST}", cardList)
-      .replace("{TOTAL_PAGES}", String(LESSON_TOTAL_PAGES))
+      .replace("{LESSON_CONTEXT}", () => lessonContext)
+      .replace("{CARD_LIST}", () => cardList)
+      .replace("{TOTAL_PAGES}", () => String(LESSON_TOTAL_PAGES))
 
     // Use streaming to generate all pages in one API call
     let fullResponse = ""
@@ -190,7 +192,11 @@ export async function POST(
       if (firstBrace !== -1 && lastBrace > firstBrace) {
         rawParsed = JSON.parse(jsonText.substring(firstBrace, lastBrace + 1))
       } else {
-        throw new Error("AI response was not valid JSON")
+        console.error("AI response was not valid JSON:", fullResponse.slice(0, 500))
+        return NextResponse.json(
+          { error: "AI returned an unexpected response" },
+          { status: 502 }
+        )
       }
     }
 
@@ -209,7 +215,10 @@ export async function POST(
         .map((r: { data: unknown }) => r.data) as z.infer<typeof pageResponseSchema>[]
 
       if (validPages.length === 0) {
-        throw strict.error
+        return NextResponse.json(
+          { error: "AI returned an unexpected response" },
+          { status: 502 }
+        )
       }
       parsed = { pages: validPages }
     }

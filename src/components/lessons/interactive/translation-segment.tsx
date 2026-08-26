@@ -6,12 +6,20 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader2, Lightbulb, Languages } from "lucide-react"
 
+interface TranslationFeedback {
+  content?: {
+    explanation?: string
+    correctAnswer?: string
+    encouragement?: string
+  }
+}
+
 interface TranslationSegmentProps {
   type: "TRANSLATION_EN_ZH" | "TRANSLATION_ZH_EN"
   sourceText: string
   acceptableTranslations: string[]
   hint?: string
-  onAnswer: (userAnswer: string) => Promise<{ correct: boolean; feedback?: any }>
+  onAnswer: (userAnswer: string) => Promise<{ correct: boolean; feedback?: TranslationFeedback }>
 }
 
 export function TranslationSegment({
@@ -23,7 +31,7 @@ export function TranslationSegment({
 }: TranslationSegmentProps) {
   const [userAnswer, setUserAnswer] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [result, setResult] = useState<{ correct: boolean; feedback?: any } | null>(null)
+  const [result, setResult] = useState<{ correct: boolean; feedback?: TranslationFeedback } | null>(null)
   const [showHint, setShowHint] = useState(false)
 
   const direction = type === "TRANSLATION_EN_ZH" ? "Chinese" : "English"

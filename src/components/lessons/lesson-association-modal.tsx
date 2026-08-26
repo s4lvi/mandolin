@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -46,45 +46,34 @@ export function LessonAssociationModal({
   defaultLessonTitle,
   mode: forcedMode = "auto"
 }: LessonAssociationModalProps) {
-  const [mode, setMode] = useState<"existing" | "new">(
+  const [selectedMode, setMode] = useState<"existing" | "new">(
     forcedMode === "create" ? "new" : "existing"
   )
-  const [selectedLessonId, setSelectedLessonId] = useState<string>("")
-  const [newLessonNumber, setNewLessonNumber] = useState("")
-  const [newLessonTitle, setNewLessonTitle] = useState("")
+  // User-entered values; `null` means "not edited yet" so defaults are derived below.
+  const [selectedLessonInput, setSelectedLessonId] = useState<string | null>(null)
+  const [newLessonNumberInput, setNewLessonNumber] = useState<string | null>(null)
+  const [newLessonTitleInput, setNewLessonTitle] = useState<string | null>(null)
   const [newLessonNotes, setNewLessonNotes] = useState("")
 
   const { data: lessons, isLoading: lessonsLoading } = useLessons()
   const createLessonMutation = useCreateLesson()
   const associateMutation = useAssociateCardsWithLesson()
 
-  // Set default values when modal opens or when lessons load
-  useEffect(() => {
-    if (open && lessons && lessons.length > 0 && !selectedLessonId) {
-      // Default to first lesson for "existing" mode
-      setSelectedLessonId(lessons[0].id)
-    }
-
-    // Set default values for new lesson if provided
-    if (open && defaultLessonNumber) {
-      setNewLessonNumber(defaultLessonNumber.toString())
-    } else if (open && lessons) {
-      // Calculate next lesson number
-      const nextNumber = getNextLessonNumber(lessons)
-      setNewLessonNumber(nextNumber.toString())
-    }
-
-    if (open && defaultLessonTitle) {
-      setNewLessonTitle(defaultLessonTitle)
-    }
-  }, [open, lessons, selectedLessonId, defaultLessonNumber, defaultLessonTitle])
-
-  // Auto-switch to "new" mode if no existing lessons
-  useEffect(() => {
-    if (open && lessons && lessons.length === 0) {
-      setMode("new")
-    }
-  }, [open, lessons])
+  // Derive defaults during render (instead of syncing state in an effect):
+  // auto-switch to "new" mode if there are no existing lessons
+  const mode = lessons && lessons.length === 0 ? "new" : selectedMode
+  // default to the first lesson for "existing" mode
+  const selectedLessonId =
+    selectedLessonInput ?? (lessons && lessons.length > 0 ? lessons[0].id : "")
+  // default new-lesson number/title from props or the next available number
+  const newLessonNumber =
+    newLessonNumberInput ??
+    (defaultLessonNumber
+      ? defaultLessonNumber.toString()
+      : lessons
+        ? getNextLessonNumber(lessons).toString()
+        : "")
+  const newLessonTitle = newLessonTitleInput ?? defaultLessonTitle ?? ""
 
   const handleAssociate = async () => {
     try {

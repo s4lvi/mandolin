@@ -12,12 +12,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
+import Image from "next/image"
 import { User, LogOut, BarChart3, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
 import { useDueCount } from "@/hooks/use-due-count"
 import packageJson from "../../../package.json"
 
 // Navigation link with flip animation to Chinese
-function NavLink({ href, english, chinese, icon: Icon, badge }: { href: string; english: string; chinese: string; icon?: any; badge?: number | null }) {
+function NavLink({ href, english, chinese, icon: Icon, badge }: { href: string; english: string; chinese: string; icon?: React.ComponentType<{ className?: string }>; badge?: number | null }) {
   return (
     <Link href={href} className="group flex items-center text-sm font-medium gap-1">
       {Icon && <Icon className="h-4 w-4 mr-1 flex-shrink-0" />}
@@ -66,9 +67,12 @@ export function Navbar() {
         scrolled ? "h-10 lg:h-16" : "h-16"
       }`}>
         <Link href="/" className="flex items-center gap-2 lg:gap-3 transition-transform hover:scale-105 group">
-          <img
+          <Image
             src="/logo.png"
             alt="Mangolin"
+            width={56}
+            height={56}
+            priority
             className={`transition-all duration-300 ${scrolled ? "h-8 w-8 lg:h-14 lg:w-14" : "h-14 w-14"}`}
           />
           <div className={`flex flex-col transition-all duration-300 ${scrolled ? "-space-y-0.5" : "-space-y-1"}`}>
@@ -130,7 +134,7 @@ export function Navbar() {
                   <DropdownMenuItem asChild>
                     <Link href="/changelog" className="flex items-center">
                       <Sparkles className="h-4 w-4 mr-2" />
-                      What's New
+                      What&apos;s New
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />

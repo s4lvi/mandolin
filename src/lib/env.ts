@@ -22,6 +22,10 @@ const envSchema = z.object({
     .min(1, "ANTHROPIC_API_KEY is required")
     .startsWith("sk-ant-", "ANTHROPIC_API_KEY must start with 'sk-ant-'"),
 
+  // Text-to-speech (Azure Cognitive Services) — optional; falls back to Web Speech if unset
+  AZURE_SPEECH_KEY: z.string().optional(),
+  AZURE_SPEECH_REGION: z.string().optional(),
+
   // Node environment
   NODE_ENV: z
     .enum(["development", "production", "test"])
@@ -64,7 +68,7 @@ let _env: Env
 function getEnv(): Env {
   if (!_env) {
     _env = isBuildTime
-      ? (process.env as any) // Skip validation during build
+      ? (process.env as unknown as Env) // Skip validation during build
       : validateEnv()        // Validate at runtime
   }
   return _env

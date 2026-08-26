@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { createCardSchema } from "@/lib/validations/card"
 import { CardType } from "@prisma/client"
-import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { getAuthenticatedUserDeck, verifyLessonOwnership } from "@/lib/api-helpers"
 import { handleRouteError } from "@/lib/error-handler"
 import { createLogger } from "@/lib/logger"
 
@@ -77,6 +77,14 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const data = createCardSchema.parse(body)
+
+    // Verify the target lesson belongs to the caller's deck
+    if (data.lessonId) {
+      const owned = await verifyLessonOwnership(data.lessonId, deck.id)
+      if (!owned) {
+        return NextResponse.json({ error: "Lesson not found" }, { status: 404 })
+      }
+    }
 
     // Check for duplicate
     const existing = await prisma.card.findUnique({

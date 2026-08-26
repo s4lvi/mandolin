@@ -13,7 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Tags, BookOpen } from "lucide-react"
 import type { ReviewMode, FaceMode, TestDirection } from "@/types"
-import { useLessons, type LessonWithCount } from "@/hooks/use-lessons"
+import { useLessons } from "@/hooks/use-lessons"
 
 interface Tag {
   id: string
@@ -72,7 +72,7 @@ export function ReviewSettings({
   isLoading,
   onStart
 }: ReviewSettingsProps) {
-  const { data: lessons, isLoading: lessonsLoading } = useLessons()
+  const { data: lessons } = useLessons()
   return (
     <div className="max-w-md mx-auto space-y-6">
       <div>

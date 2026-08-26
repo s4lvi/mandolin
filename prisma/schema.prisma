@@ -252,6 +252,8 @@ model ReviewHistory {
   @@index([userId])
   @@index([cardId])
   @@index([reviewedAt])
+  @@index([userId, reviewedAt])
+  @@index([cardId, reviewedAt])
 }
 
 model Feedback {

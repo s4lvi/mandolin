@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server"
 import prisma from "@/lib/prisma"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
 import { handleRouteError } from "@/lib/error-handler"
@@ -7,9 +6,10 @@ import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import type { ParsedCard } from "@/types"
 import { PARSE_NOTES_PROMPT, LESSON_CONTEXT_PROMPT, CLAUDE_MODEL } from "@/lib/constants"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
 
 const logger = createLogger("api/parse-notes")
-const anthropic = new Anthropic()
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
 const parseNotesSchema = z.object({
   notes: z.string().min(1, "Notes are required"),
@@ -23,6 +23,9 @@ export async function POST(req: Request) {
   try {
     const { error, deck } = await getAuthenticatedUserDeck()
     if (error) return error
+
+    const limited = rateLimited(`ai:heavy:${deck.userId}`, RATE_LIMITS.AI_HEAVY)
+    if (limited) return limited
 
     const body = await req.json()
     const data = parseNotesSchema.parse(body)
@@ -164,7 +167,7 @@ export async function POST(req: Request) {
         } catch (error) {
           logger.error("Streaming error during note parsing", { error, deckId: deck.id })
           controller.enqueue(encoder.encode(JSON.stringify({
-            error: error instanceof Error ? error.message : "Failed to parse notes"
+            error: "Failed to parse notes. Please try again."
           }) + '\n'))
           controller.close()
         }

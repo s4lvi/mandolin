@@ -26,7 +26,7 @@ async function main() {
 
   // Find tags not in predefined list
   const tagsToDelete = allTags.filter(
-    (tag) => !PREDEFINED_TAGS.includes(tag.name as any)
+    (tag) => !(PREDEFINED_TAGS as readonly string[]).includes(tag.name)
   )
   console.log(`Tags to delete: ${tagsToDelete.length}`)
 

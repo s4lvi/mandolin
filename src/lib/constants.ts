@@ -1,4 +1,7 @@
 // AI Model Configuration
+// NOTE: routes pass `thinking: { type: "disabled" }` for latency. That option is only
+// valid on models that support extended thinking (e.g. Sonnet/Opus 4.x, Haiku 4.5);
+// if a model here is swapped for one without thinking support, remove that param.
 // SMART: quality-sensitive generation (note parsing, lesson pages, stories, context merge)
 // FAST:  low-latency simple tasks (test questions, example sentences, autofill, decompose,
 //        translation grading) — Haiku 4.5 is materially faster for these short calls.

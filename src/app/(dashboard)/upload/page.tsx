@@ -41,8 +41,9 @@ export default function UploadPage() {
   const router = useRouter()
   const [notes, setNotes] = useState("")
   const [lessonMode, setLessonMode] = useState<"new" | "existing" | "none">("new")
-  const [selectedLessonId, setSelectedLessonId] = useState("")
-  const [lessonNumber, setLessonNumber] = useState("")
+  // User-entered values; "" means "not edited yet" so defaults are derived below.
+  const [selectedLessonInput, setSelectedLessonId] = useState("")
+  const [lessonNumberInput, setLessonNumber] = useState("")
   const [lessonTitle, setLessonTitle] = useState("")
   const [parsedCards, setParsedCards] = useState<ParsedCardWithDuplicate[]>([])
   const [generatedLessonContext, setGeneratedLessonContext] = useState("")
@@ -63,17 +64,12 @@ export default function UploadPage() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload)
   }, [parseNotesMutation.isPending])
 
-  // Set default lesson number when component mounts or lessons load
-  useEffect(() => {
-    if (lessons && lessonNumber === "") {
-      const nextNumber = getNextLessonNumber(lessons)
-      setLessonNumber(nextNumber.toString())
-    }
-    // Set first lesson as default for "existing" mode
-    if (lessons && Array.isArray(lessons) && lessons.length > 0 && selectedLessonId === "") {
-      setSelectedLessonId(lessons[0].id)
-    }
-  }, [lessons, lessonNumber, selectedLessonId])
+  // Derive defaults during render: next lesson number, and first lesson for "existing" mode
+  const lessonNumber =
+    lessonNumberInput || (lessons ? getNextLessonNumber(lessons).toString() : "")
+  const selectedLessonId =
+    selectedLessonInput ||
+    (lessons && Array.isArray(lessons) && lessons.length > 0 ? lessons[0].id : "")
 
   const handleParse = async () => {
     if (!notes.trim()) {

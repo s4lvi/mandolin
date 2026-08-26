@@ -168,7 +168,7 @@ export function FeedbackDialog({ open, onOpenChange }: FeedbackDialogProps) {
               <p className="text-sm text-red-500">{errors.email.message}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Leave your email if you'd like us to follow up
+              Leave your email if you&apos;d like us to follow up
             </p>
           </div>
 

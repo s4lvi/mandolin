@@ -10,7 +10,7 @@ interface LogData {
   namespace: string
   message: string
   timestamp: string
-  data?: any
+  data?: unknown
   error?: {
     name: string
     message: string
@@ -72,7 +72,7 @@ export function createLogger(namespace: string) {
     /**
      * Log debug information (only in development)
      */
-    debug(message: string, data?: any) {
+    debug(message: string, data?: unknown) {
       writeLog({
         level: "debug",
         namespace,
@@ -85,7 +85,7 @@ export function createLogger(namespace: string) {
     /**
      * Log informational messages
      */
-    info(message: string, data?: any) {
+    info(message: string, data?: unknown) {
       writeLog({
         level: "info",
         namespace,
@@ -98,7 +98,7 @@ export function createLogger(namespace: string) {
     /**
      * Log warning messages
      */
-    warn(message: string, data?: any) {
+    warn(message: string, data?: unknown) {
       writeLog({
         level: "warn",
         namespace,
@@ -111,11 +111,12 @@ export function createLogger(namespace: string) {
     /**
      * Log error messages
      */
-    error(message: string, data?: any) {
+    error(message: string, data?: unknown) {
       // If data contains an error property, format it
-      const formattedData = data?.error
-        ? { ...data, error: formatError(data.error) }
-        : data
+      const formattedData =
+        data && typeof data === "object" && "error" in data && data.error
+          ? { ...data, error: formatError(data.error) }
+          : data
 
       writeLog({
         level: "error",

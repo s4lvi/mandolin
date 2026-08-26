@@ -113,8 +113,8 @@ export function handleRouteError(error: unknown): NextResponse {
   if (
     error instanceof Error &&
     (error.message === "aborted" ||
-      (error as any).code === "ECONNRESET" ||
-      (error as any).code === "ECONNABORTED")
+      (error as NodeJS.ErrnoException).code === "ECONNRESET" ||
+      (error as NodeJS.ErrnoException).code === "ECONNABORTED")
   ) {
     logger.info("Request aborted", { message: error.message })
     return NextResponse.json(

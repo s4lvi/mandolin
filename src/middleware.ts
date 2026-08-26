@@ -15,6 +15,9 @@ export const config = {
     "/lessons/:path*",
     "/stories/:path*",
     "/courses/:path*",
-    "/community/:path*"
+    "/community/:path*",
+    "/stats/:path*",
+    "/profile/:path*",
+    "/changelog/:path*"
   ]
 }

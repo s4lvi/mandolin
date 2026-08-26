@@ -1,65 +1,184 @@
 /**
- * iOS-compatible speech synthesis utility
- * Handles iOS Safari quirks with Web Speech API
+ * Speech synthesis utility.
+ *
+ * Plays Mandarin audio from Azure Neural TTS (high quality, consistent across
+ * devices) via the `/api/tts` route, and falls back to the browser Web Speech
+ * API when Azure isn't configured or a request fails. The audio response is
+ * cached (immutable HTTP headers), so repeated plays of the same word are free
+ * and instant.
  */
 
 let voicesLoaded = false
 let chineseVoice: SpeechSynthesisVoice | null = null
+let voicesPromise: Promise<void> | null = null
+
+// Module-level playback state
+let currentAudio: HTMLAudioElement | null = null
+// Per-element flag: set when we tear an element down so its event handlers
+// (which may still fire during pause()/load()) never trigger a fallback.
+const cancelledAudio = new WeakSet<HTMLAudioElement>()
+// true = optimistic, set false only when the route reports it's unconfigured/unauthorized
+let azureEnabled = true
+
+function stopCurrent(): void {
+  if (currentAudio) {
+    const audio = currentAudio
+    currentAudio = null
+    cancelledAudio.add(audio)
+    // Detach handlers BEFORE tearing down so the old text never falls back to Web Speech.
+    audio.onplay = null
+    audio.onended = null
+    audio.onerror = null
+    audio.pause()
+    audio.src = ""
+    audio.load()
+  }
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    window.speechSynthesis.cancel()
+  }
+}
 
 /**
- * Initialize voices and find the best Chinese voice
- * iOS Safari requires explicit voice loading
+ * Attempt Azure TTS playback. Returns true if playback was initiated within the
+ * current user gesture (important for iOS autoplay). Internally falls back to
+ * Web Speech if the audio errors before it starts.
  */
+function tryAzure(
+  text: string,
+  onStart?: () => void,
+  onEnd?: () => void,
+  onError?: () => void
+): boolean {
+  if (!azureEnabled || typeof window === "undefined") return false
+
+  const url = `/api/tts?text=${encodeURIComponent(text)}`
+  const audio = new Audio(url)
+  currentAudio = audio
+  let started = false
+  // Only one of onerror / play().catch may fall back or finish this attempt.
+  let handled = false
+
+  const probeAzure = () => {
+    fetch(url, { method: "HEAD" })
+      .then((r) => {
+        if (r.status === 503 || r.status === 401) azureEnabled = false
+      })
+      .catch(() => {})
+  }
+
+  const fail = () => {
+    if (handled || cancelledAudio.has(audio)) return
+    handled = true
+    if (currentAudio === audio) currentAudio = null
+    probeAzure()
+    if (started) {
+      onEnd?.() // it played then died — don't double-play
+    } else {
+      void speakWithWebSpeech(text, onStart, onEnd, onError)
+    }
+  }
+
+  audio.onplay = () => {
+    if (cancelledAudio.has(audio)) return
+    started = true
+    onStart?.()
+  }
+  audio.onended = () => {
+    if (cancelledAudio.has(audio) || handled) return
+    handled = true
+    if (currentAudio === audio) currentAudio = null
+    onEnd?.()
+  }
+  audio.onerror = fail
+
+  // play() must be called synchronously within the gesture for iOS
+  audio.play().catch(fail)
+
+  return true
+}
+
+/** Load voices and pick the best Chinese voice (iOS Safari needs explicit loading). */
 function loadVoices(): Promise<void> {
-  return new Promise((resolve) => {
-    if (voicesLoaded && chineseVoice) {
+  if (voicesLoaded && chineseVoice) return Promise.resolve()
+  if (voicesPromise) return voicesPromise
+
+  voicesPromise = new Promise<void>((resolve) => {
+    const pickVoice = (list: SpeechSynthesisVoice[]) =>
+      list.find((v) => v.lang === "zh-CN") ||
+      list.find((v) => v.lang.startsWith("zh")) ||
+      list.find((v) => v.lang === "cmn-CN") ||
+      null
+
+    const synth = window.speechSynthesis
+    const voices = synth.getVoices()
+    if (voices.length > 0) {
+      chineseVoice = pickVoice(voices)
+      voicesLoaded = true
       resolve()
       return
     }
 
-    const voices = window.speechSynthesis.getVoices()
-
-    if (voices.length > 0) {
-      // Find the best Chinese voice
-      chineseVoice =
-        voices.find(v => v.lang === 'zh-CN') ||
-        voices.find(v => v.lang.startsWith('zh')) ||
-        voices.find(v => v.lang === 'cmn-CN') || // Mandarin Chinese
-        null
-
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const handler = () => {
+      if (timer) clearTimeout(timer)
+      chineseVoice = pickVoice(synth.getVoices())
       voicesLoaded = true
       resolve()
-    } else {
-      // Voices not loaded yet, wait for the event
-      window.speechSynthesis.onvoiceschanged = () => {
-        const updatedVoices = window.speechSynthesis.getVoices()
-        chineseVoice =
-          updatedVoices.find(v => v.lang === 'zh-CN') ||
-          updatedVoices.find(v => v.lang.startsWith('zh')) ||
-          updatedVoices.find(v => v.lang === 'cmn-CN') ||
-          null
-
+    }
+    synth.addEventListener("voiceschanged", handler, { once: true })
+    timer = setTimeout(() => {
+      synth.removeEventListener("voiceschanged", handler)
+      if (!voicesLoaded) {
         voicesLoaded = true
         resolve()
       }
-
-      // Fallback timeout
-      setTimeout(() => {
-        if (!voicesLoaded) {
-          voicesLoaded = true
-          resolve()
-        }
-      }, 1000)
-    }
+    }, 1000)
+  }).finally(() => {
+    voicesPromise = null
   })
+
+  return voicesPromise
+}
+
+/** Browser Web Speech fallback (iOS Safari compatible). */
+async function speakWithWebSpeech(
+  text: string,
+  onStart?: () => void,
+  onEnd?: () => void,
+  onError?: () => void
+): Promise<void> {
+  try {
+    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+      onError?.()
+      return
+    }
+
+    await loadVoices()
+    window.speechSynthesis.cancel()
+    await new Promise((resolve) => setTimeout(resolve, 50))
+
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = "zh-CN"
+    utterance.rate = 0.8 // Slower for learning
+    if (chineseVoice) utterance.voice = chineseVoice
+
+    utterance.onstart = () => onStart?.()
+    utterance.onend = () => onEnd?.()
+    utterance.onerror = (event) => {
+      console.error("Speech synthesis error:", event)
+      onError?.()
+    }
+
+    window.speechSynthesis.speak(utterance)
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume()
+  } catch (error) {
+    console.error("Error speaking Chinese:", error)
+    onError?.()
+  }
 }
 
 /**
- * Speak Chinese text with iOS Safari compatibility
- * @param text - The Chinese text to speak
- * @param onStart - Callback when speech starts
- * @param onEnd - Callback when speech ends
- * @param onError - Callback when an error occurs
+ * Speak Chinese text — Azure TTS with a Web Speech fallback.
  */
 export async function speakChinese(
   text: string,
@@ -67,66 +186,20 @@ export async function speakChinese(
   onEnd?: () => void,
   onError?: () => void
 ): Promise<void> {
-  try {
-    // Ensure voices are loaded
-    await loadVoices()
-
-    // Cancel any ongoing speech (important for iOS)
-    window.speechSynthesis.cancel()
-
-    // Small delay to ensure cancellation completes on iOS
-    await new Promise(resolve => setTimeout(resolve, 50))
-
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = 'zh-CN'
-    utterance.rate = 0.8 // Slower for learning
-
-    // Use the Chinese voice if available
-    if (chineseVoice) {
-      utterance.voice = chineseVoice
-    }
-
-    utterance.onstart = () => {
-      onStart?.()
-    }
-
-    utterance.onend = () => {
-      onEnd?.()
-    }
-
-    utterance.onerror = (event) => {
-      console.error('Speech synthesis error:', event)
-      onError?.()
-    }
-
-    // Speak the utterance
-    window.speechSynthesis.speak(utterance)
-
-    // iOS Safari sometimes needs a resume call
-    // This is a known workaround for iOS
-    if (window.speechSynthesis.paused) {
-      window.speechSynthesis.resume()
-    }
-
-  } catch (error) {
-    console.error('Error speaking Chinese:', error)
-    onError?.()
-  }
+  stopCurrent()
+  // Azure first (initiated synchronously for iOS); falls back internally on failure.
+  if (tryAzure(text, onStart, onEnd, onError)) return
+  await speakWithWebSpeech(text, onStart, onEnd, onError)
 }
 
-/**
- * Check if speech synthesis is supported
- */
+/** Check if any speech output is available. */
 export function isSpeechSupported(): boolean {
-  return typeof window !== 'undefined' && 'speechSynthesis' in window
+  return typeof window !== "undefined" && "speechSynthesis" in window
 }
 
-/**
- * Preload voices on component mount
- * Call this in a useEffect to ensure voices are ready
- */
+/** Preload Web Speech voices on mount (call in a useEffect). */
 export function preloadVoices(): void {
-  if (isSpeechSupported()) {
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
     loadVoices()
   }
 }

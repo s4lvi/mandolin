@@ -1,13 +1,17 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { Prisma } from "@prisma/client"
 import { z } from "zod"
 
 const createLessonSchema = z.object({
   number: z.number().int().positive(),
-  title: z.string().optional(),
-  date: z.string().optional(),
-  notes: z.string().optional()
+  title: z.string().max(200).optional(),
+  date: z
+    .string()
+    .refine((v) => !Number.isNaN(Date.parse(v)), "Invalid date")
+    .optional(),
+  notes: z.string().max(20000).optional()
 })
 
 // GET /api/lessons - Get all lessons for user's deck with progress
@@ -102,8 +106,8 @@ export async function POST(req: Request) {
 
     if (existing) {
       return NextResponse.json(
-        { error: "Lesson with this number already exists" },
-        { status: 400 }
+        { error: "Lesson number already in use" },
+        { status: 409 }
       )
     }
 
@@ -119,10 +123,28 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ lesson }, { status: 201 })
   } catch (error) {
-    console.error("Error creating lesson:", error)
-    if (error instanceof Error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        {
+          error: "Invalid request body",
+          details: error.issues.map((i) => ({
+            field: i.path.join("."),
+            message: i.message
+          }))
+        },
+        { status: 400 }
+      )
     }
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      return NextResponse.json(
+        { error: "Lesson number already in use" },
+        { status: 409 }
+      )
+    }
+    console.error("Error creating lesson:", error)
     return NextResponse.json(
       { error: "Failed to create lesson" },
       { status: 500 }

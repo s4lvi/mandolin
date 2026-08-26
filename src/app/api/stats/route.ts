@@ -2,14 +2,19 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { xpProgressInLevel } from "@/lib/srs"
+import { localDateKey, isValidTimeZone } from "@/lib/dates"
 
-// GET /api/stats - Get user stats and achievements
-export async function GET() {
+// GET /api/stats?tz=<IANA zone> - Get user stats and achievements
+export async function GET(req: Request) {
   try {
     const session = await auth()
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+
+    const { searchParams } = new URL(req.url)
+    const tzParam = searchParams.get("tz")
+    const tz = isValidTimeZone(tzParam) ? tzParam : "UTC"
 
     // Get or create user stats
     let userStats = await prisma.userStats.findUnique({
@@ -81,25 +86,25 @@ export async function GET() {
       cardStats = { total, new: newCards, learning, review, learned, dueToday }
     }
 
-    // Get review history for the last 30 days (for heatmap)
+    // Get review history for the last 30 days (for heatmap), bucketed by
+    // the user's local calendar day
     const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    thirtyDaysAgo.setUTCDate(thirtyDaysAgo.getUTCDate() - 31)
 
-    const reviewHistory = await prisma.reviewHistory.groupBy({
-      by: ["reviewedAt"],
+    const reviewHistory = await prisma.reviewHistory.findMany({
       where: {
         userId: session.user.id,
         reviewedAt: { gte: thirtyDaysAgo }
       },
-      _count: true
+      select: { reviewedAt: true, quality: true }
     })
 
     // Transform to daily counts
     const dailyReviews: Record<string, number> = {}
-    reviewHistory.forEach((entry) => {
-      const date = new Date(entry.reviewedAt).toISOString().split("T")[0]
-      dailyReviews[date] = (dailyReviews[date] || 0) + entry._count
-    })
+    for (const entry of reviewHistory) {
+      const key = localDateKey(entry.reviewedAt, tz)
+      dailyReviews[key] = (dailyReviews[key] || 0) + 1
+    }
 
     // Get recent review history with quality breakdown
     const recentReviews = await prisma.reviewHistory.findMany({
@@ -116,20 +121,13 @@ export async function GET() {
     // Calculate review performance breakdown
     const qualityCounts = { again: 0, hard: 0, good: 0, easy: 0 }
     recentReviews.forEach((review) => {
-      switch (review.quality) {
-        case 0:
-          qualityCounts.again++
-          break
-        case 1:
-          qualityCounts.hard++
-          break
-        case 2:
-          qualityCounts.good++
-          break
-        case 3:
-          qualityCounts.easy++
-          break
-      }
+      // Tolerate non-integer / out-of-range quality values
+      const q = Math.round(Number(review.quality))
+      if (!Number.isFinite(q)) return
+      if (q <= 0) qualityCounts.again++
+      else if (q === 1) qualityCounts.hard++
+      else if (q === 2) qualityCounts.good++
+      else qualityCounts.easy++
     })
 
     // Calculate accuracy: count all successful reviews (quality >= 1)
@@ -149,17 +147,15 @@ export async function GET() {
     }
 
     if (deck) {
-      // Optimize: Run queries in parallel and combine duplicate queries
-      const [latestReviewsByCard, notReviewed] = await Promise.all([
-        // Get the latest review timestamp for each card
-        prisma.reviewHistory.groupBy({
-          by: ['cardId'],
-          where: {
-            userId: session.user.id,
-            card: { deckId: deck.id }
-          },
-          _max: { reviewedAt: true }
-        }),
+      const [latestReviews, notReviewed] = await Promise.all([
+        // Latest review per card in a single query (Postgres DISTINCT ON)
+        prisma.$queryRaw<{ cardId: string; quality: number }[]>`
+          SELECT DISTINCT ON (rh."cardId") rh."cardId", rh."quality"
+          FROM "ReviewHistory" rh
+          INNER JOIN "Card" c ON c."id" = rh."cardId"
+          WHERE rh."userId" = ${session.user.id} AND c."deckId" = ${deck.id}
+          ORDER BY rh."cardId", rh."reviewedAt" DESC
+        `,
         // Cards never reviewed
         prisma.card.count({
           where: {
@@ -169,43 +165,22 @@ export async function GET() {
         })
       ])
 
-      // If there are reviewed cards, fetch their latest reviews in one query
-      if (latestReviewsByCard.length > 0) {
-        // Build OR conditions to match exact (cardId, reviewedAt) pairs
-        const latestReviews = await prisma.reviewHistory.findMany({
-          where: {
-            userId: session.user.id,
-            OR: latestReviewsByCard.map(({ cardId, _max }) => ({
-              cardId,
-              reviewedAt: _max.reviewedAt!
-            }))
-          },
-          select: {
-            cardId: true,
-            quality: true
-          }
-        })
+      let successfulCount = 0
+      let needsPracticeCount = 0
 
-        // Count successful vs needs practice in-memory
-        let successfulCount = 0
-        let needsPracticeCount = 0
-
-        for (const review of latestReviews) {
-          if (review.quality >= 1) {
-            successfulCount++
-          } else {
-            needsPracticeCount++
-          }
+      for (const review of latestReviews) {
+        const q = Math.round(Number(review.quality))
+        if (Number.isFinite(q) && q >= 1) {
+          successfulCount++
+        } else {
+          needsPracticeCount++
         }
+      }
 
-        cardReviewStats = {
-          successful: successfulCount,
-          needsPractice: needsPracticeCount,
-          notReviewedYet: notReviewed
-        }
-      } else {
-        // No reviewed cards
-        cardReviewStats.notReviewedYet = notReviewed
+      cardReviewStats = {
+        successful: successfulCount,
+        needsPractice: needsPracticeCount,
+        notReviewedYet: notReviewed
       }
     }
 

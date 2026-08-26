@@ -1,12 +1,18 @@
 "use client"
 
-import { use } from "react"
+import { use, useState } from "react"
 import { useRouter } from "next/navigation"
+import ReactMarkdown from "react-markdown"
 import { useCommunityLessonDetail, useAddCommunityLesson, type CommunityLessonCard } from "@/hooks/use-community"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { ArrowLeft, Plus, Users, Loader2, Volume2 } from "lucide-react"
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger
+} from "@/components/ui/collapsible"
+import { ArrowLeft, Plus, Users, Loader2, Volume2, FileText, ChevronDown } from "lucide-react"
 import { speakChinese } from "@/lib/speech"
 import { toast } from "sonner"
 
@@ -18,6 +24,7 @@ export default function CommunityLessonDetailPage({
   const resolvedParams = use(params)
   const id = resolvedParams.id
   const router = useRouter()
+  const [contextOpen, setContextOpen] = useState(false)
 
   const { data: lesson, isLoading } = useCommunityLessonDetail(id)
   const addMutation = useAddCommunityLesson()
@@ -47,7 +54,7 @@ export default function CommunityLessonDetailPage({
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-4xl mx-auto space-y-5">
       <Button variant="ghost" size="sm" onClick={() => router.push("/community")}>
         <ArrowLeft className="h-4 w-4 mr-1" />
         Back
@@ -82,33 +89,59 @@ export default function CommunityLessonDetailPage({
         Add to My Deck
       </Button>
 
-      {/* Card preview */}
-      <div>
-        <h2 className="text-lg font-medium mb-3">Cards ({lesson.cards.length})</h2>
-        <div className="space-y-2">
-          {lesson.cards.map((card: CommunityLessonCard, i: number) => (
-            <Card key={i}>
-              <CardContent className="p-3 flex items-center gap-3">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => speakChinese(card.hanzi)}
-                >
-                  <Volume2 className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg font-bold">{card.hanzi}</span>
-                    <span className="text-sm text-muted-foreground">{card.pinyin}</span>
-                  </div>
-                  <p className="text-sm">{card.english}</p>
-                </div>
-                <Badge variant="outline" className="text-xs shrink-0">
-                  {card.type.toLowerCase()}
-                </Badge>
+      {/* Lesson context — collapsed by default so it doesn't dominate */}
+      {lesson.notes && lesson.notes.trim().length > 0 && (
+        <Collapsible open={contextOpen} onOpenChange={setContextOpen}>
+          <Card>
+            <CollapsibleTrigger className="w-full">
+              <CardContent className="p-3 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  Lesson context
+                </span>
+                <ChevronDown
+                  className={`h-4 w-4 text-muted-foreground transition-transform ${contextOpen ? "rotate-180" : ""}`}
+                />
               </CardContent>
-            </Card>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <CardContent className="pt-0 px-4 pb-4">
+                <div className="prose prose-sm dark:prose-invert max-w-none max-h-[50vh] overflow-y-auto">
+                  <ReactMarkdown>{lesson.notes}</ReactMarkdown>
+                </div>
+              </CardContent>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
+
+      {/* Card preview — condensed grid */}
+      <div>
+        <h2 className="text-sm font-medium text-muted-foreground mb-2">
+          {lesson.cards.length} cards
+        </h2>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {lesson.cards.map((card: CommunityLessonCard, i: number) => (
+            <div
+              key={i}
+              className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-1.5"
+            >
+              <button
+                type="button"
+                onClick={() => speakChinese(card.hanzi)}
+                className="text-muted-foreground hover:text-foreground shrink-0"
+                aria-label="Play pronunciation"
+              >
+                <Volume2 className="h-3.5 w-3.5" />
+              </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline gap-1.5">
+                  <span className="font-semibold leading-tight">{card.hanzi}</span>
+                  <span className="text-xs text-muted-foreground truncate">{card.pinyin}</span>
+                </div>
+                <p className="text-xs text-muted-foreground truncate">{card.english}</p>
+              </div>
+            </div>
           ))}
         </div>
       </div>

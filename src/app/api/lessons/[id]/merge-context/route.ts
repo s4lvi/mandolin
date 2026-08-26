@@ -4,10 +4,9 @@ import Anthropic from "@anthropic-ai/sdk"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
 import { CLAUDE_MODEL, MERGE_CONTEXT_PROMPT } from "@/lib/constants"
 import { z } from "zod"
+import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!
-})
+const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
 const mergeContextSchema = z.object({
   newContext: z.string().min(1)
@@ -20,6 +19,9 @@ export async function POST(
   try {
     const { error, deck } = await getAuthenticatedUserDeck()
     if (error) return error
+
+    const limited = rateLimited(`ai:heavy:${deck.userId}`, RATE_LIMITS.AI_HEAVY)
+    if (limited) return limited
 
     const { id: lessonId } = await params
 
@@ -63,8 +65,8 @@ export async function POST(
 
     // Use AI to merge the contexts
     const prompt = MERGE_CONTEXT_PROMPT
-      .replace("{EXISTING_CONTEXT}", lesson.notes)
-      .replace("{NEW_CONTEXT}", newContext)
+      .replace("{EXISTING_CONTEXT}", () => lesson.notes ?? "")
+      .replace("{NEW_CONTEXT}", () => newContext)
 
     const message = await anthropic.messages.create({
       model: CLAUDE_MODEL,

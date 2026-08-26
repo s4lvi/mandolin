@@ -1,13 +1,9 @@
 "use client"
 
 import { Button } from "@/components/ui/button"
+import { Quality } from "@/lib/srs"
 
-export enum Quality {
-  AGAIN = 0,
-  HARD = 1,
-  GOOD = 2,
-  EASY = 3
-}
+export { Quality }
 
 interface AnswerButtonsProps {
   onAnswer: (quality: Quality) => void

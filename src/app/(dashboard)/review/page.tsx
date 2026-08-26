@@ -115,6 +115,12 @@ export default function ReviewPage() {
     : 0
   const isComplete = currentIndex >= shuffledCards.length && shuffledCards.length > 0
 
+  // Refresh due count / stats / cards once when the session finishes
+  const completeSession = submitReviewMutation.completeSession
+  useEffect(() => {
+    if (isComplete) completeSession()
+  }, [isComplete, completeSession])
+
   // Set random face mode for each card if mode is random
   useEffect(() => {
     if (faceMode === "random" && currentCard) {
@@ -277,7 +283,7 @@ export default function ReviewPage() {
     toast.info("Rating undone — rate this card again")
   }
 
-  const handleTestAnswer = (isCorrect: boolean, userAnswer: string) => {
+  const handleTestAnswer = (isCorrect: boolean) => {
     // Map test result to Quality
     // Multiple choice test mode: correct = GOOD (2), incorrect = AGAIN (0)
     const quality = isCorrect ? Quality.GOOD : Quality.AGAIN

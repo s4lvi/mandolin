@@ -338,7 +338,7 @@ export default function ProfilePage() {
               Subscription features coming soon!
             </p>
             <p className="text-sm text-muted-foreground">
-              We're working on bringing you premium features and subscription plans.
+              We&apos;re working on bringing you premium features and subscription plans.
             </p>
           </div>
         </CardContent>

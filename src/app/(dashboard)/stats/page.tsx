@@ -51,7 +51,8 @@ function ProgressBar({
 
 // Fetch stats from API
 async function fetchStats() {
-  const res = await fetch("/api/stats")
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  const res = await fetch(`/api/stats?tz=${encodeURIComponent(tz)}`)
   if (!res.ok) throw new Error("Failed to fetch stats")
   return res.json()
 }
