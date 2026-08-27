@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Layers, GraduationCap, BookOpen, BarChart3 } from "lucide-react"
+import { Home, GraduationCap, BookOpen, User } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { useDueCount } from "@/hooks/use-due-count"
 import { isNative } from "@/lib/capacitor"
@@ -10,7 +10,7 @@ import { isNative } from "@/lib/capacitor"
 interface Tab {
   href: string
   label: string
-  icon: typeof Layers
+  icon: typeof Home
   matchPaths: string[]
   badge?: number | null
 }
@@ -23,8 +23,8 @@ export function BottomTabBar() {
     {
       href: "/",
       label: "Home",
-      icon: Layers,
-      matchPaths: ["/", "/deck"]
+      icon: Home,
+      matchPaths: ["/", "/deck", "/upload"]
     },
     {
       href: "/review",
@@ -40,10 +40,10 @@ export function BottomTabBar() {
       matchPaths: ["/lessons", "/stories", "/courses", "/community"]
     },
     {
-      href: "/stats",
-      label: "Stats",
-      icon: BarChart3,
-      matchPaths: ["/stats", "/profile", "/changelog"]
+      href: "/profile",
+      label: "Profile",
+      icon: User,
+      matchPaths: ["/profile", "/stats", "/changelog"]
     }
   ]
 

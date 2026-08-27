@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
-import { Search, Users, BookOpen } from "lucide-react"
+import { Search, Users, BookOpen, Share2 } from "lucide-react"
 import { StoryListSkeleton } from "@/components/ui/skeleton"
 import { LearnTabs } from "@/components/layout/learn-tabs"
 
@@ -106,6 +106,14 @@ export default function CommunityPage() {
               ? "Try a different search or filter"
               : "Be the first to publish a lesson!"}
           </p>
+          {!search && level === ALL_LEVELS && (
+            <Link href="/lessons" className="inline-block mt-4">
+              <Button className="gap-2">
+                <Share2 className="h-4 w-4" />
+                Publish one of your lessons
+              </Button>
+            </Link>
+          )}
         </div>
       ) : (
         <div className="space-y-3">

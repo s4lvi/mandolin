@@ -16,6 +16,7 @@ model User {
   bio             String?          @db.Text
   hasSeenWelcome  Boolean          @default(false)
   lastSeenVersion String?          // Track which app version user has seen
+  reviewPrefs     Json?            // Persisted review session defaults (see ReviewPrefs in validations/preferences.ts)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -91,6 +92,7 @@ model Lesson {
   date        DateTime?
   notes       String?          @db.Text
   sourceType  LessonSourceType @default(USER_CREATED)
+  pagesStale  Boolean          @default(false) // Cards changed since interactive pages were generated
   deckId      String
   createdAt   DateTime         @default(now())
 
@@ -245,6 +247,8 @@ model ReviewHistory {
   interval    Int
   xpEarned    Int      @default(0)
   reviewedAt  DateTime @default(now())
+  source      String   @default("REVIEW") // REVIEW | LESSON | DRILL
+  previousCard Json?   // Snapshot of SRS fields before this review, for undo
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)

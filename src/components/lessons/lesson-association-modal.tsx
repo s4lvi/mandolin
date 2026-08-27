@@ -107,7 +107,13 @@ export function LessonAssociationModal({
         lessonId
       })
 
-      toast.success(`${result.updatedCount} cards added to ${result.lessonTitle}`)
+      const n = result.updatedCount
+      const cardsLabel = `${n} card${n === 1 ? "" : "s"}`
+      toast.success(
+        mode === "new"
+          ? `Created ${result.lessonTitle} with ${cardsLabel}`
+          : `Added ${cardsLabel} to ${result.lessonTitle}`
+      )
 
       if (onSuccess) {
         onSuccess(lessonId, lessonTitle)
@@ -116,7 +122,7 @@ export function LessonAssociationModal({
       onClose()
     } catch (error) {
       toast.error(
-        error instanceof Error ? error.message : "Failed to associate cards with lesson"
+        error instanceof Error ? error.message : "Failed to add cards to lesson"
       )
     }
   }
@@ -131,10 +137,13 @@ export function LessonAssociationModal({
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Associate Cards with Lesson</DialogTitle>
+          <DialogTitle>Add to lesson</DialogTitle>
           <DialogDescription>
-            {cardCount} card{cardCount !== 1 ? "s" : ""} created successfully. Would you like to
-            organize them into a lesson?
+            {forcedMode === "auto"
+              ? `${cardCount} card${cardCount !== 1 ? "s" : ""} created successfully. Would you like to organize them into a lesson?`
+              : forcedMode === "create"
+                ? `Create a new lesson containing the ${cardCount} selected card${cardCount !== 1 ? "s" : ""}.`
+                : `Add the ${cardCount} selected card${cardCount !== 1 ? "s" : ""} to an existing lesson.`}
           </DialogDescription>
         </DialogHeader>
 
@@ -253,9 +262,9 @@ export function LessonAssociationModal({
                 Saving...
               </>
             ) : mode === "new" ? (
-              "Create & Associate"
+              "Create lesson & add cards"
             ) : (
-              "Associate Cards"
+              "Add to lesson"
             )}
           </Button>
         </DialogFooter>

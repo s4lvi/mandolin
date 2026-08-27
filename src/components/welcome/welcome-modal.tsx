@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import {
   Dialog,
   DialogContent,
@@ -11,208 +12,102 @@ import {
 import { Button } from "@/components/ui/button"
 import {
   Upload,
-  Sparkles,
   RotateCcw,
-  TrendingUp,
-  Zap,
-  Trophy,
+  BookOpen,
+  GraduationCap,
+  Sparkles,
   ChevronRight,
-  ChevronLeft,
-  Check
+  ChevronLeft
 } from "lucide-react"
 
 interface WelcomeModalProps {
   open: boolean
+  /** Called whenever the modal closes for any reason (finish, X, Escape, choice). */
   onComplete: () => void
 }
 
 const steps = [
   {
-    title: "Welcome to Mandolin! 🎉",
+    title: "Welcome to Mangolin! 🥭",
     description: "Your AI-powered Mandarin learning companion",
     content: (
       <div className="space-y-4 text-center">
-        <div className="text-6xl mb-4">🎵</div>
+        <div className="text-6xl mb-4">芒果林</div>
         <p className="text-lg">
-          Master Mandarin Chinese with spaced repetition, AI-powered flashcards, and gamification.
+          Paste your class notes and Mangolin turns them into flashcards, then drills them
+          into long-term memory with spaced repetition.
         </p>
         <p className="text-muted-foreground">
-          Let&apos;s take a quick tour of the key features
+          Two minutes to your first review session.
         </p>
       </div>
     )
   },
   {
-    title: "Upload Your Notes",
-    description: "AI extracts flashcards automatically",
+    title: "Three ways to learn",
+    description: "Everything feeds back into your review deck",
+    icon: Sparkles,
+    content: (
+      <div className="space-y-3">
+        <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+          <div className="bg-primary text-primary-foreground p-2.5 rounded-full shrink-0">
+            <RotateCcw className="h-5 w-5" />
+          </div>
+          <div className="text-left flex-1">
+            <h4 className="font-semibold">Review</h4>
+            <p className="text-sm text-muted-foreground">
+              Spaced repetition shows each card right before you would forget it.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+          <div className="bg-blue-500 text-white p-2.5 rounded-full shrink-0">
+            <GraduationCap className="h-5 w-5" />
+          </div>
+          <div className="text-left flex-1">
+            <h4 className="font-semibold">Lessons &amp; Courses</h4>
+            <p className="text-sm text-muted-foreground">
+              Interactive lessons from your own notes, or structured courses to follow.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4 p-3 bg-muted rounded-lg">
+          <div className="bg-green-500 text-white p-2.5 rounded-full shrink-0">
+            <BookOpen className="h-5 w-5" />
+          </div>
+          <div className="text-left flex-1">
+            <h4 className="font-semibold">Stories</h4>
+            <p className="text-sm text-muted-foreground">
+              Short AI stories written only with words you already know, with audio.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  },
+  {
+    title: "Where do you want to start?",
+    description: "Pick one — you can always do the other later",
     icon: Upload,
-    content: (
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-primary text-primary-foreground p-3 rounded-full">
-            <Upload className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">Smart Note Parsing</h4>
-            <p className="text-sm text-muted-foreground">
-              Paste your lesson notes and our AI automatically extracts vocabulary, grammar patterns,
-              and phrases with pinyin and English translations.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-purple-500 text-white p-3 rounded-full">
-            <Sparkles className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">AI Auto-fill</h4>
-            <p className="text-sm text-muted-foreground">
-              When creating cards manually, AI can help fill in missing fields like pinyin,
-              English translations, or usage notes.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  },
-  {
-    title: "Smart Review System",
-    description: "Spaced repetition that adapts to you",
-    icon: RotateCcw,
-    content: (
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-blue-500 text-white p-3 rounded-full">
-            <RotateCcw className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">SM-2 Algorithm</h4>
-            <p className="text-sm text-muted-foreground">
-              Cards are shown at optimal intervals based on how well you know them.
-              Review due cards daily to maximize retention.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-green-500 text-white p-3 rounded-full">
-            <TrendingUp className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">Filter & Focus</h4>
-            <p className="text-sm text-muted-foreground">
-              Review by card type (vocabulary, grammar, phrases) or filter by tags
-              like HSK level, topics, or parts of speech.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  },
-  {
-    title: "Level Up Your Skills",
-    description: "Gamification keeps you motivated",
-    icon: Trophy,
-    content: (
-      <div className="space-y-4">
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-yellow-500 text-white p-3 rounded-full">
-            <Zap className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">Earn XP & Level Up</h4>
-            <p className="text-sm text-muted-foreground">
-              Gain experience points with each review. Rate cards as Again, Hard, Good,
-              or Easy to earn varying amounts of XP.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-4 p-4 bg-muted rounded-lg">
-          <div className="bg-orange-500 text-white p-3 rounded-full">
-            <Trophy className="h-6 w-6" />
-          </div>
-          <div className="text-left flex-1">
-            <h4 className="font-semibold mb-1">Achievements & Streaks</h4>
-            <p className="text-sm text-muted-foreground">
-              Unlock achievements for milestones and maintain daily streaks to
-              build consistent study habits.
-            </p>
-          </div>
-        </div>
-      </div>
-    )
-  },
-  {
-    title: "Ready to Start?",
-    description: "Here's how to get going",
-    icon: Check,
-    content: (
-      <div className="space-y-4">
-        <div className="bg-muted p-4 rounded-lg space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="bg-primary text-primary-foreground rounded-full h-6 w-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              1
-            </div>
-            <div className="text-left">
-              <p className="font-medium">Upload your first lesson notes</p>
-              <p className="text-sm text-muted-foreground">
-                Go to Upload → paste your notes → let AI create cards
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="bg-primary text-primary-foreground rounded-full h-6 w-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              2
-            </div>
-            <div className="text-left">
-              <p className="font-medium">Review and organize your deck</p>
-              <p className="text-sm text-muted-foreground">
-                Check your Deck → edit cards if needed → organize with tags
-              </p>
-            </div>
-          </div>
-          <div className="flex items-start gap-3">
-            <div className="bg-primary text-primary-foreground rounded-full h-6 w-6 flex items-center justify-center text-sm font-bold flex-shrink-0">
-              3
-            </div>
-            <div className="text-left">
-              <p className="font-medium">Start your first review session</p>
-              <p className="text-sm text-muted-foreground">
-                Go to Review → configure settings → start learning!
-              </p>
-            </div>
-          </div>
-        </div>
-        <p className="text-center text-sm text-muted-foreground">
-          Need help? Use the feedback button to report issues or request features
-        </p>
-      </div>
-    )
+    content: null
   }
 ]
 
 export function WelcomeModal({ open, onComplete }: WelcomeModalProps) {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(0)
-
-  const handleNext = () => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep(currentStep + 1)
-    } else {
-      onComplete()
-    }
-  }
-
-  const handlePrevious = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1)
-    }
-  }
 
   const step = steps[currentStep]
   const isLastStep = currentStep === steps.length - 1
 
+  const choose = (href: string) => {
+    onComplete()
+    router.push(href)
+  }
+
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px]" showCloseButton={false}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onComplete() }}>
+      <DialogContent className="sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step.icon && <step.icon className="h-5 w-5" />}
@@ -221,8 +116,35 @@ export function WelcomeModal({ open, onComplete }: WelcomeModalProps) {
           <DialogDescription>{step.description}</DialogDescription>
         </DialogHeader>
 
-        <div className="py-4">
-          {step.content}
+        <div className="py-2">
+          {isLastStep ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => choose("/upload")}
+                className="text-left rounded-lg border-2 border-primary/40 bg-primary/5 p-4 hover:bg-primary/10 transition-colors"
+              >
+                <Upload className="h-6 w-6 text-primary mb-2" />
+                <p className="font-semibold">Paste your class notes</p>
+                <p className="text-sm text-muted-foreground">
+                  AI extracts vocabulary and grammar into cards with pinyin.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => choose("/courses")}
+                className="text-left rounded-lg border-2 p-4 hover:bg-muted transition-colors"
+              >
+                <GraduationCap className="h-6 w-6 text-primary mb-2" />
+                <p className="font-semibold">Start a course</p>
+                <p className="text-sm text-muted-foreground">
+                  Follow a structured track from HSK 1 upward.
+                </p>
+              </button>
+            </div>
+          ) : (
+            step.content
+          )}
         </div>
 
         <div className="flex items-center justify-between">
@@ -238,24 +160,21 @@ export function WelcomeModal({ open, onComplete }: WelcomeModalProps) {
           </div>
           <div className="flex gap-2">
             {currentStep > 0 && (
-              <Button variant="outline" onClick={handlePrevious}>
+              <Button variant="outline" onClick={() => setCurrentStep((s) => s - 1)}>
                 <ChevronLeft className="h-4 w-4 mr-1" />
-                Previous
+                Back
               </Button>
             )}
-            <Button onClick={handleNext}>
-              {isLastStep ? (
-                <>
-                  Get Started
-                  <Check className="h-4 w-4 ml-1" />
-                </>
-              ) : (
-                <>
-                  Next
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </>
-              )}
-            </Button>
+            {isLastStep ? (
+              <Button variant="ghost" onClick={onComplete}>
+                Skip for now
+              </Button>
+            ) : (
+              <Button onClick={() => setCurrentStep((s) => s + 1)}>
+                Next
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            )}
           </div>
         </div>
       </DialogContent>

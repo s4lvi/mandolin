@@ -14,8 +14,22 @@ export const REVIEW_DEFAULTS = {
   /** Number of distractors to show in multiple choice (selected from total) */
   MULTIPLE_CHOICE_SELECTED: 3,
   /** Number of cards to prefetch ahead during test mode */
-  PREFETCH_AHEAD: 3
+  PREFETCH_AHEAD: 3,
+  /** Default max new (never-reviewed) cards introduced per session */
+  DEFAULT_NEW_CARDS_PER_SESSION: 6,
+  /** Hard cap on new cards per session (server clamps to this) */
+  MAX_NEW_CARDS_PER_SESSION: 50,
+  /** Delay before test mode auto-advances after showing the result */
+  TEST_AUTO_ADVANCE_MS: 1200,
+  /** sessionStorage key prefix for in-progress review sessions */
+  SESSION_STORAGE_PREFIX: "mandolin:review-session:",
+  /** Debounce for persisting review settings changes to the server */
+  PREFS_SAVE_DEBOUNCE_MS: 800
 } as const
+
+/** Sources a review result can come from (mirrors ReviewHistory.source) */
+export const REVIEW_SOURCES = ["REVIEW", "LESSON", "DRILL"] as const
+export type ReviewSource = (typeof REVIEW_SOURCES)[number]
 
 /**
  * Spaced Repetition System (SM-2 algorithm) constants

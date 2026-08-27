@@ -21,10 +21,19 @@ const storySchema = z.object({
       hanzi: z.string().min(1),
       pinyin: z.string(),
       english: z.string(),
-      newWords: z.array(z.string()).optional()
+      newWords: z.array(z.string()).optional(),
+      // Per-word glosses for the new words so the reader can show pinyin/english
+      // and offer "Add to deck" without a deck lookup.
+      newWordDetails: z
+        .array(z.object({ hanzi: z.string().min(1), pinyin: z.string(), english: z.string() }))
+        .optional()
     })
   ).min(1)
 })
+
+// NDJSON status events emitted before the final story payload, in order.
+// Consumed by src/hooks/use-stories.ts to drive the progress label.
+type StoryGenerateStage = "selecting" | "generating" | "streaming" | "finalizing"
 
 export async function POST() {
   try {
@@ -95,7 +104,8 @@ ${vocabList}
       "hanzi": "Chinese sentence",
       "pinyin": "full pinyin for sentence",
       "english": "English translation",
-      "newWords": ["any new word not in student vocab"]
+      "newWords": ["any new word not in student vocab"],
+      "newWordDetails": [{ "hanzi": "new word", "pinyin": "its pinyin", "english": "its meaning" }]
     }
   ]
 }
@@ -105,17 +115,21 @@ Guidelines:
 - Create a coherent, interesting narrative (daily life, school, travel, etc.)
 - Every sentence should use at least one word from the student's vocabulary
 - Include some dialogue for variety
+- For every entry in "newWords", include a matching "newWordDetails" object with pinyin and a short English gloss. Use empty arrays when a sentence has no new words.
 
 CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside string values. Use Chinese quotation marks for dialogue. Ensure all JSON string values are properly escaped.`
 
     // Stream the response for faster perceived speed
     const encoder = new TextEncoder()
     const userId = session.user.id
+    const emitStatus = (controller: ReadableStreamDefaultController, status: StoryGenerateStage) =>
+      controller.enqueue(encoder.encode(JSON.stringify({ status }) + "\n"))
 
     const responseStream = new ReadableStream({
       async start(controller) {
         try {
-          controller.enqueue(encoder.encode('{"status":"generating"}\n'))
+          emitStatus(controller, "selecting")
+          emitStatus(controller, "generating")
 
           const stream = await anthropic.messages.stream({
             model: CLAUDE_MODEL,
@@ -125,12 +139,18 @@ CRITICAL: Return ONLY valid JSON. Do NOT use unescaped double quotes inside stri
           })
 
           let fullText = ""
+          let announcedStreaming = false
           for await (const event of stream) {
             if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
               fullText += event.delta.text
-              controller.enqueue(encoder.encode('{"status":"streaming"}\n'))
+              if (!announcedStreaming) {
+                announcedStreaming = true
+                emitStatus(controller, "streaming")
+              }
             }
           }
+
+          emitStatus(controller, "finalizing")
 
           const jsonText = stripMarkdownCodeBlock(fullText)
 

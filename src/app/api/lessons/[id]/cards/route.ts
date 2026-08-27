@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const removeSchema = z.object({
   cardIds: z.array(z.string()).min(1, "At least one card ID is required")
@@ -30,6 +31,7 @@ export async function DELETE(
     const result = await prisma.cardLesson.deleteMany({
       where: { lessonId, cardId: { in: cardIds } }
     })
+    if (result.count > 0) await markLessonPagesStale(prisma, [lessonId])
 
     return NextResponse.json({ success: true, removed: result.count })
   } catch (error) {

@@ -76,6 +76,10 @@ export default function CommunityLessonDetailPage({
         </div>
       </div>
 
+      <p className="text-sm text-muted-foreground">
+        Adds a copy of this lesson&apos;s cards to your deck as a new lesson.
+      </p>
+
       <Button
         className="w-full h-12"
         onClick={handleAdd}

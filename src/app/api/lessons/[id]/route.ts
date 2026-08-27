@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
 import { z } from "zod"
 import { updateLessonSchema } from "@/lib/validations/lesson"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 // GET /api/lessons/[id] - Get lesson details with cards
 export async function GET(
@@ -168,6 +169,11 @@ export async function PUT(
         ...(body.notes !== undefined ? { notes: body.notes || null } : {})
       }
     })
+
+    // Generated pages are built from the notes, so a notes change makes them stale
+    if (body.notes !== undefined && (body.notes || null) !== existingLesson.notes) {
+      await markLessonPagesStale(prisma, [lessonId])
+    }
 
     return NextResponse.json(updatedLesson)
   } catch (error) {

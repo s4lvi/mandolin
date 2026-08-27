@@ -7,17 +7,27 @@ import {
   calculateSRS,
   calculateXP,
   calculateLevel,
+  snapshotCardSRS,
   Quality
 } from "@/lib/srs"
 import { isSameLocalDay, isConsecutiveLocalDay, isValidTimeZone } from "@/lib/dates"
-import { REVIEW_DEFAULTS } from "@/lib/constants/review"
+import { REVIEW_DEFAULTS, REVIEW_SOURCES } from "@/lib/constants/review"
 
 const reviewResultSchema = z.object({
   cardId: z.string(),
   quality: z.number().int().min(0).max(3), // 0=AGAIN, 1=HARD, 2=GOOD, 3=EASY
   // IANA zone name used for streak / daily-progress day boundaries
-  timezone: z.string().max(64).optional().default("UTC")
+  timezone: z.string().max(64).optional().default("UTC"),
+  // Where the rating came from (review session, in-lesson practice, drill)
+  source: z.enum(REVIEW_SOURCES).optional().default("REVIEW")
 })
+
+// Parse and clamp a ?newLimit= query value (max new cards mixed into a session)
+function parseNewLimit(raw: string | null): number {
+  const parsed = parseInt(raw ?? "", 10)
+  if (Number.isNaN(parsed)) return REVIEW_DEFAULTS.DEFAULT_NEW_CARDS_PER_SESSION
+  return Math.min(REVIEW_DEFAULTS.MAX_NEW_CARDS_PER_SESSION, Math.max(0, parsed))
+}
 
 // Parse and clamp a ?limit= query value
 function parseLimit(raw: string | null): number {
@@ -39,6 +49,7 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url)
     const limit = parseLimit(searchParams.get("limit"))
+    const newLimit = parseNewLimit(searchParams.get("newLimit"))
     const lessonId = searchParams.get("lessonId")
     const types = searchParams.get("types")?.split(",").filter(Boolean) || []
     const allCards = searchParams.get("allCards") === "true"
@@ -105,8 +116,9 @@ export async function GET(req: Request) {
         take: limit
       })
     } else {
-      // SRS mode: cap new cards at 30% of limit, fill rest with due review cards
-      const maxNewCards = Math.max(3, Math.ceil(limit * 0.3))
+      // SRS mode: cap new cards at the user's per-session preference, fill the
+      // rest with due review cards
+      const maxNewCards = Math.min(newLimit, limit)
 
       // Fetch new cards and due review cards in parallel
       const [newCards, dueCards] = await Promise.all([
@@ -153,19 +165,22 @@ export async function GET(req: Request) {
     }
 
     // Run all supplementary queries in parallel
-    const [userStats, dueCount, totalCards, availableTags] = await Promise.all([
+    const [userStats, dueReviewCount, newCount, totalCards, availableTags] = await Promise.all([
       prisma.userStats.findUnique({
         where: { userId: session.user.id }
       }),
       prisma.card.count({
         where: {
           ...where,
+          state: { not: CardState.NEW },
           OR: [
             { nextReview: null },
-            { nextReview: { lte: now } },
-            { state: "NEW" }
+            { nextReview: { lte: now } }
           ]
         }
+      }),
+      prisma.card.count({
+        where: { ...where, state: CardState.NEW }
       }),
       prisma.card.count({ where }),
       prisma.tag.findMany({
@@ -183,7 +198,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
       cards,
       userStats,
-      dueCount,
+      dueCount: dueReviewCount + newCount,
+      dueReviewCount,
+      newCount,
       totalCards,
       availableTags
     })
@@ -205,7 +222,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { cardId, quality, timezone } = reviewResultSchema.parse(body)
+    const { cardId, quality, timezone, source } = reviewResultSchema.parse(body)
     const tz = isValidTimeZone(timezone) ? timezone : "UTC"
     const userId = session.user.id
 
@@ -241,7 +258,10 @@ export async function POST(req: Request) {
       quality as Quality
     )
 
-    const { updatedCard, updatedStats, xpEarned } = await prisma.$transaction(async (tx) => {
+    // Snapshot the pre-review SRS state so this review can be undone
+    const previousCard = { ...snapshotCardSRS(card) }
+
+    const { updatedCard, updatedStats, xpEarned, historyId } = await prisma.$transaction(async (tx) => {
       // Get or create user stats (fresh row inside the transaction)
       const userStats = await tx.userStats.upsert({
         where: { userId },
@@ -277,7 +297,7 @@ export async function POST(req: Request) {
       const xpEarned = calculateXP(quality as Quality, isStreak, card.state)
       const newLevel = calculateLevel(userStats.totalXp + xpEarned)
 
-      const [updatedCard, updatedStats] = await Promise.all([
+      const [updatedCard, updatedStats, history] = await Promise.all([
         tx.card.update({
           where: { id: cardId },
           data: {
@@ -312,12 +332,15 @@ export async function POST(req: Request) {
             easeFactor: srsResult.easeFactor,
             interval: srsResult.interval,
             xpEarned,
-            reviewedAt: now
-          }
+            reviewedAt: now,
+            source,
+            previousCard
+          },
+          select: { id: true }
         })
       ])
 
-      return { updatedCard, updatedStats, xpEarned }
+      return { updatedCard, updatedStats, xpEarned, historyId: history.id }
     })
 
     // Check for achievements
@@ -331,6 +354,7 @@ export async function POST(req: Request) {
       stats: updatedStats,
       xpEarned,
       newAchievements,
+      historyId,
       srsResult: {
         nextReview: srsResult.nextReview,
         interval: srsResult.interval,

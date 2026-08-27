@@ -54,6 +54,8 @@ export async function GET() {
         title: lesson.title,
         date: lesson.date,
         notes: lesson.notes,
+        sourceType: lesson.sourceType,
+        pagesStale: lesson.pagesStale,
         _count: lesson._count,
         lessonProgress: userProgress ? {
           currentPage: userProgress.currentPage,

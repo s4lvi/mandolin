@@ -25,11 +25,13 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
+import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff, CheckSquare } from "lucide-react"
 import { CardListSkeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
+import { CardLessonsDialog } from "@/components/lessons/card-lessons-dialog"
+import type { Card as CardType } from "@/types"
 
 const CARDS_PER_PAGE = 12
 
@@ -47,6 +49,10 @@ export default function DeckPage() {
   const [showAddToLessonModal, setShowAddToLessonModal] = useState(false)
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false)
   const [showPinyin, setShowPinyin] = useState(true)
+  const [manageCard, setManageCard] = useState<CardType | null>(null)
+
+  // Where "Edit card" should return to (keeps the lesson filter if one is active)
+  const editFrom = lessonIdFromUrl ? `/deck?lessonId=${lessonIdFromUrl}` : "/deck"
 
   const { data: cards, isLoading } = useCards({
     lessonId: lessonIdFromUrl || undefined
@@ -159,8 +165,16 @@ export default function DeckPage() {
         <div className="flex gap-2">
           {!selectionMode && (
             <>
-              <Button variant="outline" size="sm" onClick={handleToggleSelectionMode} className="hidden sm:flex">
-                Select Cards
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleSelectionMode}
+                aria-label="Select cards"
+                title="Select cards to add to a lesson"
+              >
+                <CheckSquare className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Select Cards</span>
+                <span className="sm:hidden ml-1">Select</span>
               </Button>
               <Link href="/upload">
                 <Button variant="outline" size="sm">
@@ -179,43 +193,46 @@ export default function DeckPage() {
         </div>
       </div>
 
-      {/* Selection Mode Toolbar */}
+      {/* Selection Mode Toolbar — sticks to the bottom on small screens so the
+          bulk actions stay reachable while scrolling through cards */}
       {selectionMode && (
-        <Card className="border-primary">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+        <Card className="border-primary sticky bottom-2 sm:static z-20 shadow-lg sm:shadow-none bg-card">
+          <CardContent className="py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
                 <span className="text-sm font-medium">
-                  {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
+                  {selectedCards.size} selected
                 </span>
                 {paginatedCards && (
                   <span className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={handleSelectAllPage}>
-                      Select Page
+                      Select page
                     </Button>
                     {filteredCards && filteredCards.length > CARDS_PER_PAGE && (
                       <Button variant="ghost" size="sm" onClick={handleSelectAllFiltered}>
-                        Select All {filteredCards.length}
+                        All {filteredCards.length}
                       </Button>
                     )}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-3 sm:flex sm:items-center gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   disabled={selectedCards.size === 0}
                   onClick={() => setShowAddToLessonModal(true)}
                 >
-                  Add to Lesson
+                  Add to lesson
                 </Button>
                 <Button
+                  size="sm"
                   disabled={selectedCards.size === 0}
                   onClick={() => setShowCreateLessonModal(true)}
                 >
-                  Create Lesson
+                  New lesson
                 </Button>
-                <Button variant="ghost" onClick={handleCancelSelection}>
+                <Button variant="ghost" size="sm" onClick={handleCancelSelection}>
                   Cancel
                 </Button>
               </div>
@@ -335,6 +352,8 @@ export default function DeckPage() {
                 isSelected={selectedCards.has(card.id)}
                 onToggleSelect={handleToggleCard}
                 showPinyin={showPinyin}
+                editFrom={editFrom}
+                onManageLessons={() => setManageCard(card)}
               />
             ))}
           </div>
@@ -420,6 +439,16 @@ export default function DeckPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {manageCard && (
+        <CardLessonsDialog
+          open={!!manageCard}
+          onClose={() => setManageCard(null)}
+          cardId={manageCard.id}
+          cardLabel={manageCard.hanzi}
+          currentLessonIds={(manageCard.lessons ?? []).map((l) => l.lessonId)}
+        />
+      )}
 
       {/* Add to Lesson Modal */}
       <LessonAssociationModal

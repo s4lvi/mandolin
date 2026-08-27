@@ -21,8 +21,8 @@ export function WhatsNewModal({ open, changelog, onComplete }: WhatsNewModalProp
   if (!changelog) return null
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
-      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col" showCloseButton={false}>
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onComplete() }}>
+      <DialogContent className="sm:max-w-[600px] max-h-[85vh] flex flex-col">
         <DialogHeader className="shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />

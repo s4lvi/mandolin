@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const associateLessonSchema = z.object({
   cardIds: z.array(z.string()).min(1, "At least one card ID is required"),
@@ -41,6 +42,7 @@ export async function POST(req: Request) {
       data: ownedCards.map((c) => ({ cardId: c.id, lessonId: data.lessonId })),
       skipDuplicates: true
     })
+    if (result.count > 0) await markLessonPagesStale(prisma, [data.lessonId])
 
     return NextResponse.json({
       success: true,

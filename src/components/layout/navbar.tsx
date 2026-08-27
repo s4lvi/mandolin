@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import Image from "next/image"
-import { User, LogOut, BarChart3, BookOpen, Upload, GraduationCap, Layers, Settings, Sparkles } from "lucide-react"
+import { User, LogOut, BarChart3, BookOpen, Upload, GraduationCap, Layers, Home, Sparkles } from "lucide-react"
 import { useDueCount } from "@/hooks/use-due-count"
 import packageJson from "../../../package.json"
 
@@ -110,13 +110,10 @@ export function Navbar() {
         <nav className="hidden lg:flex items-center gap-4">
           {session ? (
             <>
-              <NavLink href="/deck" english="Deck" chinese="卡片" icon={Layers} />
-              <NavLink href="/upload" english="Upload" chinese="上传" icon={Upload} />
+              <NavLink href="/" english="Home" chinese="主页" icon={Home} />
               <NavLink href="/review" english="Review" chinese="复习" icon={GraduationCap} badge={dueCount} />
               <NavLink href="/lessons" english="Learn" chinese="学习" icon={BookOpen} />
-              <NavLink href="/courses" english="Courses" chinese="课程" icon={GraduationCap} />
-              <NavLink href="/stories" english="Stories" chinese="故事" icon={BookOpen} />
-              <NavLink href="/stats" english="Stats" chinese="统计" icon={BarChart3} />
+              <NavLink href="/deck" english="Deck" chinese="卡片" icon={Layers} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm">
@@ -127,8 +124,20 @@ export function Navbar() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
                     <Link href="/profile" className="flex items-center">
-                      <Settings className="h-4 w-4 mr-2" />
+                      <User className="h-4 w-4 mr-2" />
                       Profile
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/stats" className="flex items-center">
+                      <BarChart3 className="h-4 w-4 mr-2" />
+                      Stats
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link href="/upload" className="flex items-center">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload notes
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>

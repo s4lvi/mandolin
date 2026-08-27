@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { markLessonPagesStale } from "@/lib/deck-import"
 import { CLAUDE_MODEL, MERGE_CONTEXT_PROMPT } from "@/lib/constants"
 import { z } from "zod"
 import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
@@ -56,6 +57,7 @@ export async function POST(
         where: { id: lessonId },
         data: { notes: newContext }
       })
+      await markLessonPagesStale(prisma, [lessonId])
 
       return NextResponse.json({
         success: true,
@@ -92,6 +94,7 @@ export async function POST(
       where: { id: lessonId },
       data: { notes: mergedContext }
     })
+    await markLessonPagesStale(prisma, [lessonId])
 
     return NextResponse.json({
       success: true,

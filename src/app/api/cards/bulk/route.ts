@@ -4,6 +4,7 @@ import { bulkCreateCardsSchema } from "@/lib/validations/card"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
 import { handleRouteError } from "@/lib/error-handler"
 import { createLogger } from "@/lib/logger"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const logger = createLogger("api/cards/bulk")
 
@@ -126,6 +127,10 @@ export async function POST(req: Request) {
         })
       )
     )
+
+    if (createdCards.length > 0 && referencedLessonIds.size > 0) {
+      await markLessonPagesStale(prisma, Array.from(referencedLessonIds))
+    }
 
     logger.info("Created cards in bulk", {
       deckId: deck.id,

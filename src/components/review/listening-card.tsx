@@ -9,14 +9,24 @@ import type { Card as CardType } from "@/types"
 import { preloadVoices } from "@/lib/speech"
 import { useSpeak } from "@/hooks/use-speak"
 import { AnswerButtons } from "./answer-buttons"
-import { Quality } from "@/lib/srs"
+import { Quality, previewIntervalLabels, isNewCard } from "@/lib/srs"
+import { useReviewKeys, NewBadge } from "./review-keys"
 
 interface ListeningCardProps {
   card: CardType
   onAnswer: (quality: Quality) => void
+  autoPlayAudio?: boolean
+  showHard?: boolean
+  disabled?: boolean
 }
 
-export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
+export function ListeningCard({
+  card,
+  onAnswer,
+  autoPlayAudio = true,
+  showHard = true,
+  disabled
+}: ListeningCardProps) {
   const [isRevealed, setIsRevealed] = useState(false)
   const { speak, isPlaying } = useSpeak()
 
@@ -32,12 +42,23 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
   // Reset and auto-play on new card
   useEffect(() => {
     setIsRevealed(false)
+    if (!autoPlayAudio) return
     const timer = setTimeout(() => {
       void speak(card.hanzi)
     }, 300)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.id])
+  }, [card.id, autoPlayAudio])
+
+  const intervalLabels = previewIntervalLabels(card)
+  const isNew = isNewCard(card)
+
+  useReviewKeys({
+    enabled: !disabled,
+    revealed: isRevealed,
+    onReveal: () => setIsRevealed(true),
+    onRate: onAnswer
+  })
 
   if (isRevealed) {
     return (
@@ -75,7 +96,12 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
           <p className="text-xs text-center text-muted-foreground mb-2">
             Did you recognize the word from audio alone?
           </p>
-          <AnswerButtons onAnswer={onAnswer} />
+          <AnswerButtons
+            onAnswer={onAnswer}
+            disabled={disabled}
+            intervalLabels={intervalLabels}
+            showHard={showHard}
+          />
         </CardContent>
       </Card>
     )
@@ -84,7 +110,8 @@ export function ListeningCard({ card, onAnswer }: ListeningCardProps) {
   // Audio-only front — no text shown
   return (
     <Card className="min-h-0">
-      <CardContent className="flex flex-col items-center justify-center py-8 px-4 sm:px-8">
+      <CardContent className="relative flex flex-col items-center justify-center py-8 px-4 sm:px-8">
+        {isNew && <NewBadge className="absolute top-3 left-3" />}
         <p className="text-sm text-muted-foreground mb-6">Listen and recall</p>
         <Button
           variant="outline"

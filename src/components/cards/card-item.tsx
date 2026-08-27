@@ -28,6 +28,8 @@ interface CardItemProps {
   showPinyin?: boolean
   onManageLessons?: (cardId: string) => void
   onRemoveFromLesson?: (cardId: string) => void
+  /** Path to return to after editing this card (passed as `?from=` to /deck/[cardId]) */
+  editFrom?: string
 }
 
 const typeColors = {
@@ -46,9 +48,13 @@ export function CardItem({
   onToggleSelect,
   showPinyin = true,
   onManageLessons,
-  onRemoveFromLesson
+  onRemoveFromLesson,
+  editFrom
 }: CardItemProps) {
   const [isPlaying, setIsPlaying] = useState(false)
+  const editHref = editFrom
+    ? `/deck/${card.id}?from=${encodeURIComponent(editFrom)}`
+    : `/deck/${card.id}`
   const colorClass = typeColors[card.type] || "bg-white"
   const togglePriorityMutation = useToggleCardPriority()
 
@@ -179,7 +185,7 @@ export function CardItem({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem asChild>
-                    <Link href={`/deck/${card.id}`} className="cursor-pointer">
+                    <Link href={editHref} className="cursor-pointer">
                       <Pencil className="h-4 w-4 mr-2" />
                       Edit
                     </Link>

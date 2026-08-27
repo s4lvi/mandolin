@@ -105,11 +105,14 @@ export async function POST(
       orderBy: { pageNumber: "asc" }
     })
 
-    // If pages exist and complete, return them unless regenerate requested
-    if (existingPages.length >= LESSON_TOTAL_PAGES && !regenerate) {
+    // If pages exist (complete or partial), return them unless regenerate
+    // requested. Partial sets are kept rather than regenerated so progress isn't
+    // invalidated. `stale` tells the client the card set changed since generation.
+    if (!regenerate && existingPages.length > 0) {
       return NextResponse.json({
         lessonId,
         totalPages: existingPages.length,
+        stale: lesson.pagesStale,
         pages: existingPages.map((page) => ({
           pageNumber: page.pageNumber,
           segmentCount: page.segments.length,
@@ -118,7 +121,8 @@ export async function POST(
       })
     }
 
-    // If regenerate requested, delete all existing pages
+    // If regenerate requested, delete all existing pages and the user's progress
+    // for them (the saved page/segment responses no longer refer to anything)
     if (regenerate && existingPages.length > 0) {
       await prisma.$transaction(async (tx) => {
         await tx.pageSegment.deleteMany({
@@ -127,20 +131,9 @@ export async function POST(
         await tx.lessonPage.deleteMany({
           where: { lessonId }
         })
-      })
-    }
-
-    // If pages partially exist (not regenerating), return what we have
-    // rather than deleting and regenerating (which would invalidate progress)
-    if (!regenerate && existingPages.length > 0) {
-      return NextResponse.json({
-        lessonId,
-        totalPages: existingPages.length,
-        pages: existingPages.map((page) => ({
-          pageNumber: page.pageNumber,
-          segmentCount: page.segments.length,
-          types: page.segments.map((s) => s.type)
-        }))
+        await tx.lessonProgress.deleteMany({
+          where: { lessonId, userId: deck.userId }
+        })
       })
     }
 
@@ -257,9 +250,16 @@ export async function POST(
       savedPages.push(page)
     }
 
+    // Freshly generated pages reflect the current card set
+    await prisma.lesson.update({
+      where: { id: lessonId },
+      data: { pagesStale: false }
+    })
+
     return NextResponse.json({
       lessonId,
       totalPages: savedPages.length,
+      stale: false,
       pages: savedPages.map((page) => ({
         pageNumber: page.pageNumber,
         segmentCount: page.segments.length,

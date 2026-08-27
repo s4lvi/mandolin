@@ -4,6 +4,7 @@ import { updateCardSchema } from "@/lib/validations/card"
 import { getAuthenticatedUser, verifyCardOwnership } from "@/lib/api-helpers"
 import { handleRouteError } from "@/lib/error-handler"
 import { createLogger } from "@/lib/logger"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const logger = createLogger("api/cards/[cardId]")
 
@@ -178,8 +179,15 @@ export async function DELETE(
       return NextResponse.json({ error: "Card not found" }, { status: 404 })
     }
 
-    await prisma.card.delete({
-      where: { id: cardId }
+    // Lessons this card belongs to lose a card, so their generated pages go stale
+    const memberships = await prisma.cardLesson.findMany({
+      where: { cardId },
+      select: { lessonId: true }
+    })
+
+    await prisma.$transaction(async (tx) => {
+      await tx.card.delete({ where: { id: cardId } })
+      await markLessonPagesStale(tx, memberships.map((m) => m.lessonId))
     })
 
     logger.info("Deleted card", { cardId })

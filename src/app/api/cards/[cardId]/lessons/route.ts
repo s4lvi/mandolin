@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
 import prisma from "@/lib/prisma"
 import { getAuthenticatedUserDeck } from "@/lib/api-helpers"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const setLessonsSchema = z.object({
   lessonIds: z.array(z.string())
@@ -44,15 +45,16 @@ export async function PUT(
     const toAdd = [...validIds].filter((id) => !existingIds.has(id))
     const toRemove = [...existingIds].filter((id) => !validIds.has(id))
 
-    await prisma.$transaction([
-      prisma.cardLesson.createMany({
+    await prisma.$transaction(async (tx) => {
+      await tx.cardLesson.createMany({
         data: toAdd.map((lessonId) => ({ cardId, lessonId })),
         skipDuplicates: true
-      }),
-      prisma.cardLesson.deleteMany({
+      })
+      await tx.cardLesson.deleteMany({
         where: { cardId, lessonId: { in: toRemove } }
       })
-    ])
+      await markLessonPagesStale(tx, [...toAdd, ...toRemove])
+    })
 
     return NextResponse.json({ success: true, added: toAdd.length, removed: toRemove.length })
   } catch (error) {

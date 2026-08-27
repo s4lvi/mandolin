@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import {
   Dialog,
   DialogContent,
@@ -9,6 +10,8 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Loader2 } from "lucide-react"
 import { useDeleteLesson } from "@/hooks/use-lessons"
 import { toast } from "sonner"
@@ -22,6 +25,8 @@ interface DeleteLessonDialogProps {
   onDeleted?: () => void
 }
 
+type CardChoice = "keep" | "delete"
+
 export function DeleteLessonDialog({
   open,
   onClose,
@@ -31,15 +36,26 @@ export function DeleteLessonDialog({
   onDeleted
 }: DeleteLessonDialogProps) {
   const deleteMutation = useDeleteLesson()
+  const [cardChoice, setCardChoice] = useState<CardChoice>("keep")
 
-  const handleDelete = async (deleteCards: boolean) => {
+  const cardsLabel = `${cardCount} card${cardCount === 1 ? "" : "s"}`
+
+  const handleClose = () => {
+    if (deleteMutation.isPending) return
+    setCardChoice("keep")
+    onClose()
+  }
+
+  const handleDelete = async () => {
+    const deleteCards = cardChoice === "delete"
     try {
       const res = await deleteMutation.mutateAsync({ lessonId, deleteCards })
       toast.success(
         deleteCards
           ? `Deleted ${lessonLabel} and ${res.deletedCards} card${res.deletedCards === 1 ? "" : "s"}`
-          : `Deleted ${lessonLabel}`
+          : `Deleted ${lessonLabel} (${cardsLabel} kept in your deck)`
       )
+      setCardChoice("keep")
       onClose()
       onDeleted?.()
     } catch (error) {
@@ -48,37 +64,53 @@ export function DeleteLessonDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && handleClose()}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Delete {lessonLabel}?</DialogTitle>
           <DialogDescription>
-            This lesson groups {cardCount} card{cardCount === 1 ? "" : "s"}. Choose what to remove.
+            This lesson groups {cardsLabel}. Choose what happens to them.
             Cards that also belong to another lesson are always kept.
           </DialogDescription>
         </DialogHeader>
 
-        <DialogFooter className="flex-col sm:flex-col gap-2">
-          <Button
-            variant="outline"
-            className="w-full"
-            disabled={deleteMutation.isPending}
-            onClick={() => handleDelete(false)}
-          >
-            {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Remove lesson only (keep cards)
+        <RadioGroup
+          value={cardChoice}
+          onValueChange={(v) => setCardChoice(v as CardChoice)}
+          disabled={deleteMutation.isPending}
+          className="gap-3"
+        >
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <RadioGroupItem value="keep" id="delete-lesson-keep" className="mt-0.5" />
+            <Label htmlFor="delete-lesson-keep" className="flex flex-col gap-1 cursor-pointer font-normal">
+              <span className="font-medium">Keep the {cardsLabel} in my deck</span>
+              <span className="text-xs text-muted-foreground">
+                Only the lesson grouping is removed. Recommended.
+              </span>
+            </Label>
+          </div>
+          <div className="flex items-start gap-3 rounded-md border p-3">
+            <RadioGroupItem value="delete" id="delete-lesson-cards" className="mt-0.5" />
+            <Label htmlFor="delete-lesson-cards" className="flex flex-col gap-1 cursor-pointer font-normal">
+              <span className="font-medium text-destructive">Also delete the {cardsLabel}</span>
+              <span className="text-xs text-muted-foreground">
+                Removes them from your deck along with their review history. Cannot be undone.
+              </span>
+            </Label>
+          </div>
+        </RadioGroup>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={deleteMutation.isPending}>
+            Cancel
           </Button>
           <Button
             variant="destructive"
-            className="w-full"
             disabled={deleteMutation.isPending}
-            onClick={() => handleDelete(true)}
+            onClick={handleDelete}
           >
             {deleteMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Delete lesson and its cards
-          </Button>
-          <Button variant="ghost" className="w-full" onClick={onClose} disabled={deleteMutation.isPending}>
-            Cancel
+            {cardChoice === "delete" ? "Delete lesson and cards" : "Delete lesson"}
           </Button>
         </DialogFooter>
       </DialogContent>

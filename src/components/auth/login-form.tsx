@@ -20,6 +20,13 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { loginSchema, type LoginInput } from "@/lib/validations/auth"
 
+/** Where to land after auth: an explicit same-origin ?callbackUrl, otherwise the dashboard. */
+function getCallbackUrl(): string {
+  if (typeof window === "undefined") return "/"
+  const cb = new URLSearchParams(window.location.search).get("callbackUrl")
+  return cb && cb.startsWith("/") && !cb.startsWith("//") ? cb : "/"
+}
+
 export function LoginForm() {
   const router = useRouter()
   const [error, setError] = useState<string | null>(null)
@@ -49,7 +56,7 @@ export function LoginForm() {
         return
       }
 
-      router.push("/deck")
+      router.push(getCallbackUrl())
       router.refresh()
     } catch {
       setError("Something went wrong")

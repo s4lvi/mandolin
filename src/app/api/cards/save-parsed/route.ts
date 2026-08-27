@@ -10,6 +10,7 @@ import { createLogger } from "@/lib/logger"
 import { z } from "zod"
 import Anthropic from "@anthropic-ai/sdk"
 import { CLAUDE_MODEL, MERGE_CONTEXT_PROMPT } from "@/lib/constants"
+import { markLessonPagesStale } from "@/lib/deck-import"
 
 const logger = createLogger("api/cards/save-parsed")
 const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
@@ -149,6 +150,11 @@ export async function POST(req: Request) {
             skipDuplicates: true
           })
           associatedCount = result.count
+        }
+
+        // Adding cards to an existing lesson invalidates its generated pages
+        if (existingLessonId && createdCount + associatedCount > 0) {
+          await markLessonPagesStale(tx, [existingLessonId])
         }
 
         return { lessonId, createdCount, associatedCount }

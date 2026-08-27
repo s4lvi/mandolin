@@ -12,6 +12,8 @@ interface FillInSegmentProps {
   pinyin: string
   translation: string
   hint?: string
+  /** Saved answer from a previous visit — renders as already answered, no re-submission */
+  initialResponse?: { correct: boolean; userAnswer: string } | null
   onAnswer: (isCorrect: boolean, userAnswer: string) => void
 }
 
@@ -21,14 +23,15 @@ export function FillInSegment({
   pinyin,
   translation,
   hint,
+  initialResponse,
   onAnswer
 }: FillInSegmentProps) {
-  const [userAnswer, setUserAnswer] = useState("")
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [userAnswer, setUserAnswer] = useState(initialResponse?.userAnswer ?? "")
+  const [isSubmitted, setIsSubmitted] = useState(!!initialResponse)
   const [showHint, setShowHint] = useState(false)
 
   const handleSubmit = () => {
-    if (!userAnswer.trim()) return
+    if (!userAnswer.trim() || isSubmitted) return
 
     const isCorrect =
       userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
@@ -36,8 +39,9 @@ export function FillInSegment({
     onAnswer(isCorrect, userAnswer)
   }
 
-  const isCorrect =
-    userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
+  const isCorrect = initialResponse
+    ? initialResponse.correct
+    : userAnswer.trim().toLowerCase() === correctAnswer.trim().toLowerCase()
 
   return (
     <Card className="border-l-4 border-l-green-500">

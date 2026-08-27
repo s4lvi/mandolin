@@ -3,7 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import type { Lesson } from "@prisma/client"
 
-// Extended Lesson type with card count and interactive lesson progress
+// Extended Lesson type with card count and interactive lesson progress.
+// `sourceType` and `pagesStale` come straight from the Lesson model.
 export interface LessonWithCount extends Lesson {
   _count?: {
     cards: number
@@ -221,6 +222,29 @@ export function useRemoveCardsFromLesson() {
       queryClient.invalidateQueries({ queryKey: ["lessons"] })
       queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
       queryClient.invalidateQueries({ queryKey: ["cards"] })
+    }
+  })
+}
+
+// Hook: Regenerate a lesson's interactive pages (also resets the user's progress
+// for that lesson server-side, since the old page/segment ids no longer exist)
+export function useRegenerateLessonPages() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (lessonId: string) => {
+      const res = await fetch(`/api/lessons/${lessonId}/generate-pages?regenerate=true`, {
+        method: "POST"
+      })
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        throw new Error(error.error || "Failed to regenerate lesson")
+      }
+      return res.json() as Promise<{ lessonId: string; totalPages: number; stale: boolean }>
+    },
+    onSuccess: (_data, lessonId) => {
+      queryClient.invalidateQueries({ queryKey: ["lessons"] })
+      queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
     }
   })
 }

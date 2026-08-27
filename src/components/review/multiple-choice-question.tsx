@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useMemo, useCallback } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -10,6 +10,9 @@ import { preloadVoices } from "@/lib/speech"
 import { useSpeak } from "@/hooks/use-speak"
 import { shuffle } from "@/lib/utils"
 import { toast } from "sonner"
+import { isNewCard } from "@/lib/srs"
+import { REVIEW_DEFAULTS } from "@/lib/constants/review"
+import { isEditableTarget, NewBadge } from "./review-keys"
 
 interface MultipleChoiceQuestionProps {
   questionText: string
@@ -49,19 +52,52 @@ export function MultipleChoiceQuestion({
     void speak(card.hanzi)
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (!selectedAnswer) return
 
     setShowFeedback(true)
-  }
+  }, [selectedAnswer])
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
+    if (!selectedAnswer || !showFeedback) return
     const isCorrect = selectedAnswer === correctAnswer
-    onAnswer(isCorrect, selectedAnswer!)
+    onAnswer(isCorrect, selectedAnswer)
     // Reset state for next card
     setSelectedAnswer(null)
     setShowFeedback(false)
-  }
+  }, [selectedAnswer, showFeedback, correctAnswer, onAnswer])
+
+  // Auto-advance shortly after the result is shown; tapping or Enter skips the wait
+  useEffect(() => {
+    if (!showFeedback) return
+    const timer = setTimeout(handleNext, REVIEW_DEFAULTS.TEST_AUTO_ADVANCE_MS)
+    return () => clearTimeout(timer)
+  }, [showFeedback, handleNext])
+
+  // Keyboard: 1–4 pick an option, Enter submits / advances
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
+      if (isEditableTarget(e.target)) return
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault()
+        if (showFeedback) handleNext()
+        else handleSubmit()
+        return
+      }
+      if (!showFeedback && /^[1-4]$/.test(e.key)) {
+        const option = options[Number(e.key) - 1]
+        if (option) {
+          e.preventDefault()
+          setSelectedAnswer(option)
+        }
+      }
+    }
+    window.addEventListener("keydown", handler)
+    return () => window.removeEventListener("keydown", handler)
+  }, [showFeedback, handleNext, handleSubmit, options])
+
+  const isNew = isNewCard(card)
 
   const handleReportProblem = async (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -97,7 +133,13 @@ export function MultipleChoiceQuestion({
     const isCorrect = selectedAnswer === correctAnswer
 
     return (
-      <Card className={`min-h-0 ${isCorrect ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-red-500 bg-red-50 dark:bg-red-950/20'}`}>
+      <Card
+        role="button"
+        tabIndex={0}
+        aria-label="Continue to next card"
+        onClick={handleNext}
+        className={`min-h-0 cursor-pointer ${isCorrect ? 'border-green-500 bg-green-50 dark:bg-green-950/20' : 'border-red-500 bg-red-50 dark:bg-red-950/20'}`}
+      >
         <CardContent className="p-4 sm:p-6">
           <div className="text-center mb-6">
             {isCorrect ? (
@@ -160,12 +202,9 @@ export function MultipleChoiceQuestion({
             </div>
 
             <div className="mt-4 space-y-2">
-              <Button
-                className="w-full"
-                onClick={handleNext}
-              >
-                Next
-              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                Tap anywhere to continue
+              </p>
               <div className="text-center">
                 <Button
                   variant="ghost"
@@ -188,7 +227,8 @@ export function MultipleChoiceQuestion({
   // Question view
   return (
     <Card className="min-h-0">
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="relative p-4 sm:p-6">
+        {isNew && <NewBadge className="absolute top-3 left-3" />}
         <div className="mb-6">
           <p className="text-xl font-medium text-center mb-6">{questionText}</p>
         </div>
@@ -204,6 +244,7 @@ export function MultipleChoiceQuestion({
                   : 'border-border hover:border-primary/50 hover:bg-accent'
               }`}
             >
+              <span className="hidden md:inline-block w-5 text-xs text-muted-foreground font-mono">{index + 1}</span>
               <span className="font-medium">{option}</span>
             </button>
           ))}

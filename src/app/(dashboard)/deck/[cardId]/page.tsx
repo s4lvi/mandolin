@@ -1,6 +1,7 @@
 "use client"
 
-import { useRouter, useParams } from "next/navigation"
+import { Suspense } from "react"
+import { useRouter, useParams, useSearchParams } from "next/navigation"
 import { useCard, useUpdateCard, useDeleteCard } from "@/hooks/use-cards"
 import { CardForm } from "@/components/cards/card-form"
 import { Button } from "@/components/ui/button"
@@ -18,10 +19,18 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 import { toast } from "sonner"
 import type { CreateCardInput } from "@/lib/validations/card"
 
-export default function EditCardPage() {
+// Only allow same-origin relative paths as a return target
+function safeReturnPath(from: string | null): string {
+  if (from && from.startsWith("/") && !from.startsWith("//")) return from
+  return "/deck"
+}
+
+function EditCardContent() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const cardId = params.cardId as string
+  const backPath = safeReturnPath(searchParams.get("from"))
 
   const { data: card, isLoading } = useCard(cardId)
   const updateCardMutation = useUpdateCard()
@@ -31,7 +40,7 @@ export default function EditCardPage() {
     try {
       await updateCardMutation.mutateAsync({ cardId, data })
       toast.success("Card updated")
-      router.push("/deck")
+      router.push(backPath)
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Failed to update card"
@@ -43,7 +52,7 @@ export default function EditCardPage() {
     try {
       await deleteCardMutation.mutateAsync(cardId)
       toast.success("Card deleted")
-      router.push("/deck")
+      router.push(backPath)
     } catch {
       toast.error("Failed to delete card")
     }
@@ -68,8 +77,8 @@ export default function EditCardPage() {
           <CardContent className="py-8">
             <p className="text-center text-muted-foreground">Card not found</p>
             <div className="text-center mt-4">
-              <Button variant="outline" onClick={() => router.push("/deck")}>
-                Back to Deck
+              <Button variant="outline" onClick={() => router.push(backPath)}>
+                Back
               </Button>
             </div>
           </CardContent>
@@ -81,7 +90,7 @@ export default function EditCardPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push("/deck")}>
+        <Button variant="ghost" size="icon" onClick={() => router.push(backPath)} aria-label="Back">
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div className="flex-1">
@@ -125,7 +134,7 @@ export default function EditCardPage() {
           <CardForm
             initialData={card}
             onSubmit={handleUpdate}
-            onCancel={() => router.push("/deck")}
+            onCancel={() => router.push(backPath)}
             isLoading={updateCardMutation.isPending}
           />
         </CardContent>
@@ -163,5 +172,23 @@ export default function EditCardPage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function EditCardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="max-w-2xl mx-auto">
+          <Card>
+            <CardContent className="py-8">
+              <p className="text-center text-muted-foreground">Loading card...</p>
+            </CardContent>
+          </Card>
+        </div>
+      }
+    >
+      <EditCardContent />
+    </Suspense>
   )
 }

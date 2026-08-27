@@ -110,3 +110,21 @@ export async function copyCardsToDeck(
     duplicates: cards.length - newCards.length
   }
 }
+
+/**
+ * Flag lessons whose card set just changed so their generated interactive pages
+ * are known to be out of date. Only lessons that already have pages are flagged
+ * (a lesson with no pages has nothing to go stale). Safe to call with an empty
+ * list. Works with either the base client or a transaction client.
+ */
+export async function markLessonPagesStale(
+  client: Prisma.TransactionClient | { lesson: Prisma.TransactionClient["lesson"] },
+  lessonIds: string[]
+): Promise<void> {
+  const ids = Array.from(new Set(lessonIds.filter(Boolean)))
+  if (ids.length === 0) return
+  await client.lesson.updateMany({
+    where: { id: { in: ids }, pages: { some: {} } },
+    data: { pagesStale: true }
+  })
+}
