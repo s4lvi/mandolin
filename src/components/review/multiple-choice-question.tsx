@@ -12,7 +12,7 @@ import { shuffle } from "@/lib/utils"
 import { toast } from "sonner"
 import { isNewCard } from "@/lib/srs"
 import { REVIEW_DEFAULTS } from "@/lib/constants/review"
-import { isEditableTarget, NewBadge } from "./review-keys"
+import { isEditableTarget, isNativeActivationTarget, NewBadge } from "./review-keys"
 
 interface MultipleChoiceQuestionProps {
   questionText: string
@@ -80,6 +80,8 @@ export function MultipleChoiceQuestion({
       if (e.metaKey || e.ctrlKey || e.altKey || e.repeat) return
       if (isEditableTarget(e.target)) return
       if (e.key === "Enter" || e.key === " ") {
+        // A focused button already clicks itself on Enter/Space
+        if (isNativeActivationTarget(e.target)) return
         e.preventDefault()
         if (showFeedback) handleNext()
         else handleSubmit()

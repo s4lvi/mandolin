@@ -173,12 +173,8 @@ export function Flashcard({
           aria-label="Flip card"
           className="cursor-pointer active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={handleCardTap}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              handleCardTap()
-            }
-          }}
+          // Enter/Space are handled once by useReviewKeys (a div with role="button"
+          // gets no native click, so no local key handler is needed)
           style={{ backgroundColor: swipeOverlay }}
         >
           <CardContent className="relative text-center py-8 sm:py-12 px-4">

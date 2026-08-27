@@ -11,15 +11,23 @@ import { NextResponse } from "next/server"
 
 interface Bucket {
   timestamps: number[]
+  /** Longest window this key has been checked against; used when pruning */
+  windowMs: number
 }
 
 const MAX_KEYS = 10_000
+const PRUNE_INTERVAL_MS = 60 * 1000
 const buckets = new Map<string, Bucket>()
+let lastPrune = 0
 
-function prune(now: number, windowMs: number) {
+// Evict expired entries using each bucket's own window, at most once a minute
+// and only when the store is at capacity.
+function prune(now: number) {
   if (buckets.size < MAX_KEYS) return
+  if (now - lastPrune < PRUNE_INTERVAL_MS) return
+  lastPrune = now
   for (const [key, bucket] of buckets) {
-    bucket.timestamps = bucket.timestamps.filter((t) => now - t < windowMs)
+    bucket.timestamps = bucket.timestamps.filter((t) => now - t < bucket.windowMs)
     if (bucket.timestamps.length === 0) buckets.delete(key)
   }
 }
@@ -39,12 +47,14 @@ export interface RateLimitResult {
 
 export function checkRateLimit(key: string, opts: RateLimitOptions): RateLimitResult {
   const now = Date.now()
-  prune(now, opts.windowMs)
+  prune(now)
 
   let bucket = buckets.get(key)
   if (!bucket) {
-    bucket = { timestamps: [] }
+    bucket = { timestamps: [], windowMs: opts.windowMs }
     buckets.set(key, bucket)
+  } else if (opts.windowMs > bucket.windowMs) {
+    bucket.windowMs = opts.windowMs
   }
   bucket.timestamps = bucket.timestamps.filter((t) => now - t < opts.windowMs)
 

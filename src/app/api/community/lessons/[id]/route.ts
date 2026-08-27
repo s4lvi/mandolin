@@ -27,7 +27,7 @@ export async function GET(
                   }
                 }
               },
-              orderBy: { order: "asc" }
+              orderBy: [{ order: "asc" }, { card: { createdAt: "asc" } }]
             }
           }
         }

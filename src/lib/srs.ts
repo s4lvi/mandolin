@@ -1,6 +1,5 @@
 // SM-2 Spaced Repetition Algorithm Implementation
 
-import { isSameLocalDay, isConsecutiveLocalDay } from "@/lib/dates"
 
 export enum Quality {
   AGAIN = 0, // Complete blackout, wrong answer
@@ -160,16 +159,6 @@ export function xpProgressInLevel(totalXp: number): { current: number; needed: n
     needed,
     percentage: Math.round((current / needed) * 100)
   }
-}
-
-// Check if dates are on the same calendar day (in the given IANA zone, default UTC)
-export function isSameDay(date1: Date, date2: Date, timeZone: string = "UTC"): boolean {
-  return isSameLocalDay(date1, date2, timeZone)
-}
-
-// Check if dates are consecutive calendar days (in the given IANA zone, default UTC)
-export function isConsecutiveDay(lastDate: Date, currentDate: Date, timeZone: string = "UTC"): boolean {
-  return isConsecutiveLocalDay(lastDate, currentDate, timeZone)
 }
 
 // Get quality label for display

@@ -33,6 +33,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { BookOpen, Undo2, Loader2, RotateCcw } from "lucide-react"
 import { isNative } from "@/lib/capacitor"
 import { isNewCard } from "@/lib/srs"
+import { shuffle } from "@/lib/utils"
 import { REVIEW_DEFAULTS } from "@/lib/constants/review"
 import { DEFAULT_REVIEW_PREFS, type ReviewPrefs } from "@/lib/validations/preferences"
 import type { StatsResponse } from "@/types/api-responses"
@@ -81,18 +82,6 @@ function prefToReviewMode(mode: ReviewPrefs["reviewMode"]): ReviewMode {
 function reviewModeToPref(mode: ReviewMode): ReviewPrefs["reviewMode"] {
   return mode === "test_easy" ? "test" : mode
 }
-function prefToTestDirection(dir: ReviewPrefs["testDirection"]): TestDirection {
-  return dir
-}
-
-function shuffleCards(cards: CardType[]): CardType[] {
-  const arr = [...cards]
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]]
-  }
-  return arr
-}
 
 async function fetchStats(): Promise<StatsResponse> {
   const res = await fetch("/api/stats")
@@ -117,7 +106,7 @@ export default function ReviewPage() {
   const [isStarted, setIsStarted] = useState(false)
   const [faceMode, setFaceMode] = useState<FaceMode>(prefs.faceMode)
   const [reviewMode, setReviewMode] = useState<ReviewMode>(urlMode || prefToReviewMode(prefs.reviewMode))
-  const [testDirection, setTestDirection] = useState<TestDirection>(prefToTestDirection(prefs.testDirection))
+  const [testDirection, setTestDirection] = useState<TestDirection>(prefs.testDirection)
   const [cardLimit, setCardLimit] = useState(String(prefs.cardLimit))
   const [allCards, setAllCards] = useState(prefs.includeAllCards)
   const [selectedTags, setSelectedTags] = useState<string[]>(prefs.selectedTags)
@@ -134,7 +123,7 @@ export default function ReviewPage() {
     const p = prefsData.reviewPrefs
     setFaceMode(p.faceMode)
     setReviewMode(urlMode || prefToReviewMode(p.reviewMode))
-    setTestDirection(prefToTestDirection(p.testDirection))
+    setTestDirection(p.testDirection)
     setCardLimit(String(p.cardLimit))
     setAllCards(p.includeAllCards)
     setSelectedTags(p.selectedTags)
@@ -349,7 +338,7 @@ export default function ReviewPage() {
 
   // ---- Session lifecycle ----------------------------------------------------
   const resetSessionState = (nextCards: CardType[], drill: boolean) => {
-    setSessionCards(shuffleCards(nextCards))
+    setSessionCards(shuffle(nextCards))
     setIsStarted(true)
     setIsDrill(drill)
     setEndedEarly(false)

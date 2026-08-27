@@ -121,14 +121,31 @@ const SESSION_QUERY_KEYS = [["review-cards"], ["due-count"], ["user-stats"], ["c
 export function useSubmitReview() {
   const queryClient = useQueryClient()
   const hasPendingInvalidation = useRef(false)
+  // Submissions still in flight; a completion request while any are pending is
+  // deferred until the last one settles so the refetched due count is accurate.
+  const inFlight = useRef(0)
+  const completeRequested = useRef(false)
 
   const invalidateSessionQueries = useCallback(() => {
+    if (inFlight.current > 0) {
+      completeRequested.current = true
+      return
+    }
+    completeRequested.current = false
     if (!hasPendingInvalidation.current) return
     hasPendingInvalidation.current = false
     for (const queryKey of SESSION_QUERY_KEYS) {
       queryClient.invalidateQueries({ queryKey })
     }
   }, [queryClient])
+
+  const trackStart = useCallback(() => {
+    inFlight.current++
+  }, [])
+  const trackSettled = useCallback(() => {
+    inFlight.current = Math.max(0, inFlight.current - 1)
+    if (completeRequested.current) invalidateSessionQueries()
+  }, [invalidateSessionQueries])
 
   // Flush on unmount (user leaves the review page after rating cards)
   useEffect(() => {
@@ -147,16 +164,20 @@ export function useSubmitReview() {
       quality: number
       source?: ReviewSource
     }) => submitReviewResult(cardId, quality, source),
+    onMutate: trackStart,
     onSuccess: () => {
       hasPendingInvalidation.current = true
-    }
+    },
+    onSettled: trackSettled
   })
 
   const undoMutation = useMutation({
     mutationFn: ({ historyId }: { historyId: string }) => undoReview(historyId),
+    onMutate: trackStart,
     onSuccess: () => {
       hasPendingInvalidation.current = true
-    }
+    },
+    onSettled: trackSettled
   })
 
   return {

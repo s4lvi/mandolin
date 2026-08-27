@@ -23,19 +23,24 @@ const KEY_TO_QUALITY: Record<string, Quality> = {
   "4": Quality.EASY
 }
 
-/** True when the keystroke belongs to a form control and must not be hijacked */
+/** True when the keystroke belongs to a text/form control and must not be hijacked */
 export function isEditableTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null
   if (!el || typeof el.tagName !== "string") return false
   const tag = el.tagName.toLowerCase()
-  return (
-    tag === "input" ||
-    tag === "textarea" ||
-    tag === "select" ||
-    tag === "button" ||
-    tag === "a" ||
-    el.isContentEditable
-  )
+  return tag === "input" || tag === "textarea" || tag === "select" || el.isContentEditable
+}
+
+/**
+ * True when Enter/Space on the focused element already triggers a native click
+ * (a <button> or <a>), so a global Enter/Space shortcut must stay out of the way.
+ * Digit shortcuts are unaffected.
+ */
+export function isNativeActivationTarget(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null
+  if (!el || typeof el.tagName !== "string") return false
+  const tag = el.tagName.toLowerCase()
+  return tag === "button" || tag === "a"
 }
 
 /**
@@ -56,6 +61,8 @@ export function useReviewKeys({
       if (isEditableTarget(e.target)) return
 
       if (e.key === " " || e.key === "Enter") {
+        // A focused button/link handles Enter/Space itself via its native click
+        if (isNativeActivationTarget(e.target)) return
         if (!revealed) {
           if (onReveal) {
             e.preventDefault()

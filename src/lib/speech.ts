@@ -14,6 +14,9 @@ let voicesPromise: Promise<void> | null = null
 
 // Module-level playback state
 let currentAudio: HTMLAudioElement | null = null
+// Settles the in-flight attempt (fires its onError exactly once) when a new
+// `speakChinese` call interrupts it, mirroring Web Speech's "interrupted" error.
+let interruptCurrent: (() => void) | null = null
 // Per-element flag: set when we tear an element down so its event handlers
 // (which may still fire during pause()/load()) never trigger a fallback.
 const cancelledAudio = new WeakSet<HTMLAudioElement>()
@@ -36,6 +39,11 @@ function stopCurrent(): void {
   if (typeof window !== "undefined" && "speechSynthesis" in window) {
     window.speechSynthesis.cancel()
   }
+  // Let the interrupted caller know it's over (its handlers are detached above,
+  // so this is the only notification it will get).
+  const interrupt = interruptCurrent
+  interruptCurrent = null
+  interrupt?.()
 }
 
 /**
@@ -55,8 +63,21 @@ function tryAzure(
   const audio = new Audio(url)
   currentAudio = audio
   let started = false
-  // Only one of onerror / play().catch may fall back or finish this attempt.
+  // Only one of onended / onerror / play().catch / interrupt may finish this attempt.
   let handled = false
+
+  const finish = (): boolean => {
+    if (handled) return false
+    handled = true
+    if (currentAudio === audio) currentAudio = null
+    if (interruptCurrent === interrupt) interruptCurrent = null
+    return true
+  }
+
+  const interrupt = () => {
+    if (finish()) onError?.()
+  }
+  interruptCurrent = interrupt
 
   const probeAzure = () => {
     fetch(url, { method: "HEAD" })
@@ -67,9 +88,7 @@ function tryAzure(
   }
 
   const fail = () => {
-    if (handled || cancelledAudio.has(audio)) return
-    handled = true
-    if (currentAudio === audio) currentAudio = null
+    if (cancelledAudio.has(audio) || !finish()) return
     probeAzure()
     if (started) {
       onEnd?.() // it played then died — don't double-play
@@ -84,9 +103,7 @@ function tryAzure(
     onStart?.()
   }
   audio.onended = () => {
-    if (cancelledAudio.has(audio) || handled) return
-    handled = true
-    if (currentAudio === audio) currentAudio = null
+    if (cancelledAudio.has(audio) || !finish()) return
     onEnd?.()
   }
   audio.onerror = fail
@@ -147,33 +164,56 @@ async function speakWithWebSpeech(
   onEnd?: () => void,
   onError?: () => void
 ): Promise<void> {
-  try {
-    if (typeof window === "undefined" || !("speechSynthesis" in window)) {
-      onError?.()
-      return
-    }
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) {
+    onError?.()
+    return
+  }
 
+  // Exactly one of onend / onerror ("interrupted" included) / interrupt / catch
+  // may finish this attempt.
+  let handled = false
+  const finish = (): boolean => {
+    if (handled) return false
+    handled = true
+    if (interruptCurrent === interrupt) interruptCurrent = null
+    return true
+  }
+  const interrupt = () => {
+    if (finish()) onError?.()
+  }
+  interruptCurrent = interrupt
+
+  try {
     await loadVoices()
+    // Interrupted by a newer speakChinese() while voices were loading
+    if (handled) return
     window.speechSynthesis.cancel()
     await new Promise((resolve) => setTimeout(resolve, 50))
+    if (handled) return
 
     const utterance = new SpeechSynthesisUtterance(text)
     utterance.lang = "zh-CN"
     utterance.rate = 0.8 // Slower for learning
     if (chineseVoice) utterance.voice = chineseVoice
 
-    utterance.onstart = () => onStart?.()
-    utterance.onend = () => onEnd?.()
+    utterance.onstart = () => {
+      if (!handled) onStart?.()
+    }
+    utterance.onend = () => {
+      if (finish()) onEnd?.()
+    }
     utterance.onerror = (event) => {
-      console.error("Speech synthesis error:", event)
-      onError?.()
+      if (event.error !== "interrupted" && event.error !== "canceled") {
+        console.error("Speech synthesis error:", event)
+      }
+      if (finish()) onError?.()
     }
 
     window.speechSynthesis.speak(utterance)
     if (window.speechSynthesis.paused) window.speechSynthesis.resume()
   } catch (error) {
     console.error("Error speaking Chinese:", error)
-    onError?.()
+    if (finish()) onError?.()
   }
 }
 

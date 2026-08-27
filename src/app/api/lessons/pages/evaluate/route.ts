@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     const { error, deck, userId } = await getAuthenticatedUserDeck()
     if (error) return error
 
-    const limited = rateLimited(`ai-light:${userId}`, RATE_LIMITS.AI_LIGHT)
+    const limited = rateLimited(`ai:light:${userId}`, RATE_LIMITS.AI_LIGHT)
     if (limited) return limited
 
     // Validate request body

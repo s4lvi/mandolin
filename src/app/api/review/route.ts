@@ -258,9 +258,6 @@ export async function POST(req: Request) {
       quality as Quality
     )
 
-    // Snapshot the pre-review SRS state so this review can be undone
-    const previousCard = { ...snapshotCardSRS(card) }
-
     const { updatedCard, updatedStats, xpEarned, historyId } = await prisma.$transaction(async (tx) => {
       // Get or create user stats (fresh row inside the transaction)
       const userStats = await tx.userStats.upsert({
@@ -268,6 +265,20 @@ export async function POST(req: Request) {
         create: { userId },
         update: {}
       })
+
+      // Snapshot the pre-review SRS state and the streak-related stats so this
+      // review can be undone exactly
+      const previousCard = {
+        ...snapshotCardSRS(card),
+        stats: {
+          currentStreak: userStats.currentStreak,
+          longestStreak: userStats.longestStreak,
+          lastReviewDate: userStats.lastReviewDate
+            ? userStats.lastReviewDate.toISOString()
+            : null,
+          dailyProgress: userStats.dailyProgress
+        }
+      }
 
       // Check streak against the user's local calendar
       let isStreak = false

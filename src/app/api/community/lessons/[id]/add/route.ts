@@ -16,8 +16,8 @@ export async function POST(
 
     const { id } = await params
 
-    const published = await prisma.publishedLesson.findUnique({
-      where: { id }
+    const published = await prisma.publishedLesson.findFirst({
+      where: { id, isApproved: true }
     })
 
     if (!published) {

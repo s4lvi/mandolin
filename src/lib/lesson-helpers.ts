@@ -15,18 +15,20 @@ export function lessonSourceLabel(lesson: { sourceType?: string | null }): "Cour
 /**
  * Get the next available lesson number for a *user-created* lesson.
  *
- * Only USER_CREATED lessons count toward the default so imported course and
+ * Starts just above the highest USER_CREATED number so imported course and
  * community lessons (which take high numbers) don't push the user's own
- * numbering around. Imports themselves use the max over all lessons (see
- * `copyCardsToDeck`), so uniqueness still holds.
+ * numbering around, then skips upward past any number already used by ANY
+ * lesson, since numbers are unique across the whole deck.
  */
 export function getNextLessonNumber(
   existingLessons?: Array<{ number: number; sourceType?: string | null }> | null
 ): number {
   if (!existingLessons || !Array.isArray(existingLessons)) return 1
   const own = existingLessons.filter(isUserCreatedLesson)
-  if (own.length === 0) return 1
-  return Math.max(...own.map((l) => l.number)) + 1
+  const used = new Set(existingLessons.map((l) => l.number))
+  let candidate = own.length === 0 ? 1 : Math.max(...own.map((l) => l.number)) + 1
+  while (used.has(candidate)) candidate++
+  return candidate
 }
 
 /**

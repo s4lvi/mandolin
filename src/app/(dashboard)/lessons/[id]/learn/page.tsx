@@ -15,6 +15,14 @@ import { TranslationSegment } from "@/components/lessons/interactive/translation
 import { FeedbackSegment } from "@/components/lessons/interactive/feedback-segment"
 import { toast } from "sonner"
 
+function getClientTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  } catch {
+    return "UTC"
+  }
+}
+
 // Segment content is stored as JSON; fields depend on the segment type.
 interface SegmentContent {
   title?: string
@@ -150,7 +158,7 @@ function InteractiveLessonContent({
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId, quality, source: "LESSON" })
+        body: JSON.stringify({ cardId, quality, source: "LESSON", timezone: getClientTimeZone() })
       })
       if (res.ok) invalidateStudyQueries()
     } catch {
@@ -164,7 +172,10 @@ function InteractiveLessonContent({
   useEffect(() => {
     const controller = new AbortController()
     initializeLesson(controller.signal)
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      setAdvancing(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId])
 
@@ -187,6 +198,7 @@ function InteractiveLessonContent({
     if (retryCount === 0) {
       setIsComplete(false)
       setCourseResult(null)
+      setAdvancing(false)
       setIsGenerating(true)
       setCurrentPage(null)
       setPosition({ totalPages: 0, pageNumber: 1 })

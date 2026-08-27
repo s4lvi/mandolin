@@ -119,27 +119,51 @@ export async function POST(req: Request) {
           lessonId = lesson.id
         }
 
+        // Bulk-insert the cards, then link them to the lesson / tags in two more
+        // batched writes (instead of one round trip per card)
         let createdCount = 0
-        for (const cardData of cardsToCreate) {
-          await tx.card.create({
-            data: {
+        if (cardsToCreate.length > 0) {
+          const created = await tx.card.createMany({
+            data: cardsToCreate.map((cardData) => ({
               hanzi: cardData.hanzi,
               pinyin: cardData.pinyin,
               english: cardData.english,
               notes: cardData.notes,
               type: cardData.type,
-              deckId: deck.id,
-              lessons: lessonId ? { create: { lessonId } } : undefined,
-              tags: cardData.tags
-                ? {
-                    create: cardData.tags.map(tagName => ({
-                      tagId: tagMap.get(tagName)!
-                    }))
-                  }
-                : undefined
-            }
+              deckId: deck.id
+            })),
+            skipDuplicates: true
           })
-          createdCount++
+          createdCount = created.count
+
+          const newCards = await tx.card.findMany({
+            where: {
+              deckId: deck.id,
+              hanzi: { in: cardsToCreate.map((c) => c.hanzi) }
+            },
+            select: { id: true, hanzi: true }
+          })
+          const newCardIdByHanzi = new Map(newCards.map((c) => [c.hanzi, c.id]))
+
+          if (lessonId) {
+            await tx.cardLesson.createMany({
+              data: newCards.map((c) => ({ cardId: c.id, lessonId: lessonId! })),
+              skipDuplicates: true
+            })
+          }
+
+          const tagLinks: { cardId: string; tagId: string }[] = []
+          for (const cardData of cardsToCreate) {
+            const cardId = newCardIdByHanzi.get(cardData.hanzi)
+            if (!cardId || !cardData.tags) continue
+            for (const tagName of cardData.tags) {
+              const tagId = tagMap.get(tagName)
+              if (tagId) tagLinks.push({ cardId, tagId })
+            }
+          }
+          if (tagLinks.length > 0) {
+            await tx.cardTag.createMany({ data: tagLinks, skipDuplicates: true })
+          }
         }
 
         // Step 6: Associate duplicate cards with lesson (no-op if already linked)

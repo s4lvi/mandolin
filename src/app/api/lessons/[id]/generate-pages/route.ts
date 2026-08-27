@@ -74,7 +74,7 @@ export async function POST(
       include: {
         cards: {
           include: { card: true },
-          orderBy: { order: "asc" }
+          orderBy: [{ order: "asc" }, { card: { createdAt: "asc" } }]
         }
       }
     })
@@ -118,22 +118,6 @@ export async function POST(
           segmentCount: page.segments.length,
           types: page.segments.map((s) => s.type)
         }))
-      })
-    }
-
-    // If regenerate requested, delete all existing pages and the user's progress
-    // for them (the saved page/segment responses no longer refer to anything)
-    if (regenerate && existingPages.length > 0) {
-      await prisma.$transaction(async (tx) => {
-        await tx.pageSegment.deleteMany({
-          where: { page: { lessonId } }
-        })
-        await tx.lessonPage.deleteMany({
-          where: { lessonId }
-        })
-        await tx.lessonProgress.deleteMany({
-          where: { lessonId, userId: deck.userId }
-        })
       })
     }
 
@@ -226,34 +210,53 @@ export async function POST(
       return true
     })
 
-    // Save all pages to database sequentially to avoid race conditions
-    const savedPages = []
-    for (const pageData of uniquePages) {
-      const page = await prisma.lessonPage.create({
-        data: {
-          lessonId,
-          pageNumber: pageData.pageNumber,
-          segments: {
-            create: pageData.segments.map((segment, segmentIndex) => ({
-              orderIndex: segmentIndex,
-              type: segment.type as SegmentType,
-              content: segment.content as Prisma.InputJsonValue
-            }))
-          }
-        },
-        include: {
-          segments: {
-            orderBy: { orderIndex: "asc" }
-          }
-        }
-      })
-      savedPages.push(page)
-    }
+    // Only now that generation succeeded and validated: swap the old pages for
+    // the new ones in a single transaction. On regenerate the old pages,
+    // segments and the user's progress (which refers to them) are removed; a
+    // failed generation above leaves the existing pages untouched.
+    const savedPages = await prisma.$transaction(async (tx) => {
+      if (regenerate && existingPages.length > 0) {
+        await tx.pageSegment.deleteMany({
+          where: { page: { lessonId } }
+        })
+        await tx.lessonPage.deleteMany({
+          where: { lessonId }
+        })
+        await tx.lessonProgress.deleteMany({
+          where: { lessonId, userId: deck.userId }
+        })
+      }
 
-    // Freshly generated pages reflect the current card set
-    await prisma.lesson.update({
-      where: { id: lessonId },
-      data: { pagesStale: false }
+      const saved = []
+      for (const pageData of uniquePages) {
+        const page = await tx.lessonPage.create({
+          data: {
+            lessonId,
+            pageNumber: pageData.pageNumber,
+            segments: {
+              create: pageData.segments.map((segment, segmentIndex) => ({
+                orderIndex: segmentIndex,
+                type: segment.type as SegmentType,
+                content: segment.content as Prisma.InputJsonValue
+              }))
+            }
+          },
+          include: {
+            segments: {
+              orderBy: { orderIndex: "asc" }
+            }
+          }
+        })
+        saved.push(page)
+      }
+
+      // Freshly generated pages reflect the current card set
+      await tx.lesson.update({
+        where: { id: lessonId },
+        data: { pagesStale: false }
+      })
+
+      return saved
     })
 
     return NextResponse.json({

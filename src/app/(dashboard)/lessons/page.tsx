@@ -39,6 +39,8 @@ function LessonCard({ lesson }: { lesson: LessonWithCount }) {
       className="hover:shadow-md transition-shadow cursor-pointer h-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       onClick={open}
       onKeyDown={(e) => {
+        // Only the card itself; inner buttons handle their own Enter/Space
+        if (e.target !== e.currentTarget) return
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault()
           open()

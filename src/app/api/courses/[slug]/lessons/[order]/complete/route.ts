@@ -104,25 +104,39 @@ export async function POST(
 
     // Unlock next lesson or complete the course
     if (nextLesson) {
-      await prisma.courseEnrollment.update({
-        where: { id: enrollment.id },
-        data: { currentLessonOrder: order + 1 }
-      })
+      // Re-completing an earlier lesson must never rewind the enrollment pointer
+      if (order + 1 > enrollment.currentLessonOrder) {
+        await prisma.courseEnrollment.update({
+          where: { id: enrollment.id },
+          data: { currentLessonOrder: order + 1 }
+        })
+      }
 
-      await prisma.courseLessonProgress.upsert({
+      // Unlock the next lesson without downgrading a COMPLETED / IN_PROGRESS status
+      const nextProgress = await prisma.courseLessonProgress.findUnique({
         where: {
           userId_courseLessonId: {
             userId: session.user.id,
             courseLessonId: nextLesson.id
           }
         },
-        update: { status: "UNLOCKED" },
-        create: {
-          userId: session.user.id,
-          courseLessonId: nextLesson.id,
-          status: "UNLOCKED"
-        }
+        select: { id: true, status: true }
       })
+
+      if (!nextProgress) {
+        await prisma.courseLessonProgress.create({
+          data: {
+            userId: session.user.id,
+            courseLessonId: nextLesson.id,
+            status: "UNLOCKED"
+          }
+        })
+      } else if (nextProgress.status === "LOCKED") {
+        await prisma.courseLessonProgress.updateMany({
+          where: { id: nextProgress.id, status: "LOCKED" },
+          data: { status: "UNLOCKED" }
+        })
+      }
 
       return NextResponse.json({
         completed: true,
