@@ -240,11 +240,46 @@ export function useRegenerateLessonPages() {
         const error = await res.json().catch(() => ({}))
         throw new Error(error.error || "Failed to regenerate lesson")
       }
-      return res.json() as Promise<{ lessonId: string; totalPages: number; stale: boolean }>
+      return res.json() as Promise<{
+        lessonId: string
+        totalPages: number
+        stale: boolean
+        generating: boolean
+      }>
     },
     onSuccess: (_data, lessonId) => {
       queryClient.invalidateQueries({ queryKey: ["lessons"] })
       queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
+      queryClient.invalidateQueries({ queryKey: ["lesson-pages-status", lessonId] })
     }
+  })
+}
+
+export interface LessonPagesStatus {
+  totalPages: number
+  generating: boolean
+  stale: boolean
+}
+
+async function fetchLessonPagesStatus(lessonId: string): Promise<LessonPagesStatus> {
+  const res = await fetch(`/api/lessons/${lessonId}/pages/status`)
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({}))
+    throw new Error(error.error || "Failed to fetch lesson status")
+  }
+  return res.json()
+}
+
+// Hook: Poll page-generation status while the background run is writing pages.
+// Polls every 2s while `enabled` and the server still reports `generating`,
+// then stops on its own.
+export function useLessonPagesStatus(lessonId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["lesson-pages-status", lessonId],
+    queryFn: () => fetchLessonPagesStatus(lessonId as string),
+    enabled: !!lessonId && enabled,
+    refetchInterval: (query) => (query.state.data?.generating === false ? false : 2000),
+    refetchIntervalInBackground: false,
+    staleTime: 0
   })
 }

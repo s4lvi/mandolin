@@ -8,9 +8,10 @@ import { isUserCreatedLesson, lessonSourceLabel } from "@/lib/lesson-helpers"
 import { ErrorBoundaryWithRouter as ErrorBoundary } from "@/components/error-boundary"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { BookOpen, ArrowRight, Play, Plus, Upload, CheckCircle } from "lucide-react"
+import { BookOpen, ArrowRight, Play, Plus, Upload, CheckCircle, Search } from "lucide-react"
 import { LessonListSkeleton } from "@/components/ui/skeleton"
 import { CreateLessonModal } from "@/components/lessons/create-lesson-modal"
 import { LearnTabs } from "@/components/layout/learn-tabs"
@@ -132,12 +133,22 @@ function LessonCard({ lesson }: { lesson: LessonWithCount }) {
 
 export default function LessonsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [search, setSearch] = useState("")
 
   const { data: lessons, isLoading } = useLessons()
 
   const list = Array.isArray(lessons) ? lessons : []
-  const ownLessons = list.filter(isUserCreatedLesson)
-  const importedLessons = list.filter((l) => !isUserCreatedLesson(l))
+  // Only offer a search box once the list is long enough to need one
+  const showSearch = list.length > 6
+  const q = search.trim().toLowerCase()
+  const matches = (l: LessonWithCount) =>
+    !q ||
+    `lesson ${l.number}`.includes(q) ||
+    String(l.number) === q ||
+    (l.title ?? "").toLowerCase().includes(q)
+  const visible = showSearch ? list.filter(matches) : list
+  const ownLessons = visible.filter(isUserCreatedLesson)
+  const importedLessons = visible.filter((l) => !isUserCreatedLesson(l))
 
   return (
     <ErrorBoundary>
@@ -167,6 +178,22 @@ export default function LessonsPage() {
         </div>
       </div>
 
+      {showSearch && (
+        <div className="sticky top-10 lg:top-16 z-10 -mx-3 px-3 py-2 lg:-mx-4 lg:px-4 bg-background/95 backdrop-blur-sm">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Search lessons by number or title..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-10"
+              aria-label="Search lessons"
+            />
+          </div>
+        </div>
+      )}
+
       {isLoading ? (
         <LessonListSkeleton />
       ) : list.length === 0 ? (
@@ -180,6 +207,10 @@ export default function LessonsPage() {
             <Button>Upload Notes</Button>
           </Link>
         </div>
+      ) : visible.length === 0 ? (
+        <p className="text-center text-muted-foreground py-8">
+          No lessons match &ldquo;{search.trim()}&rdquo;
+        </p>
       ) : (
         <>
           {ownLessons.length > 0 && (

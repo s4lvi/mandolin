@@ -57,7 +57,9 @@ export function PublishLessonDialog({
     setTagInput("")
   }
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (publishMutation.isPending) return
     if (!title.trim()) {
       toast.error("Please enter a title")
       return
@@ -88,6 +90,7 @@ export function PublishLessonDialog({
           </DialogDescription>
         </DialogHeader>
 
+        <form onSubmit={handleSubmit} className="contents">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="publish-title">Title *</Label>
@@ -149,7 +152,8 @@ export function PublishLessonDialog({
                     <button
                       type="button"
                       onClick={() => setTags(tags.filter((x) => x !== t))}
-                      className="hover:text-destructive"
+                      className="hover:text-destructive p-1 -m-1"
+                      aria-label={`Remove tag ${t}`}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -161,10 +165,10 @@ export function PublishLessonDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={publishMutation.isPending}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={publishMutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={publishMutation.isPending || !title.trim()}>
+          <Button type="submit" disabled={publishMutation.isPending || !title.trim()}>
             {publishMutation.isPending ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : (
@@ -173,6 +177,7 @@ export function PublishLessonDialog({
             Publish
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

@@ -93,6 +93,7 @@ model Lesson {
   notes       String?          @db.Text
   sourceType  LessonSourceType @default(USER_CREATED)
   pagesStale  Boolean          @default(false) // Cards changed since interactive pages were generated
+  pagesGenerating Boolean      @default(false) // Background generation of remaining pages in progress
   deckId      String
   createdAt   DateTime         @default(now())
 
@@ -391,6 +392,7 @@ model Story {
 
   @@index([userId])
   @@index([createdAt])
+  prefetched Boolean @default(false) // Generated ahead of time; surfaced on next "New Story"
 }
 
 // ─── Curriculum System ───
@@ -525,4 +527,11 @@ model PublishedLesson {
   @@index([publishedAt])
   @@index([addCount])
   @@index([level])
+}
+
+// Shared, deploy-safe cache for character decompositions (pure function of the character)
+model CharacterDecomposition {
+  hanzi     String   @id
+  data      Json
+  createdAt DateTime @default(now())
 }

@@ -12,6 +12,7 @@ import {
 } from "@/lib/srs"
 import { isSameLocalDay, isConsecutiveLocalDay, isValidTimeZone } from "@/lib/dates"
 import { REVIEW_DEFAULTS, REVIEW_SOURCES } from "@/lib/constants/review"
+import { prefetchTestQuestions, TEST_DIRECTIONS, type TestDirection } from "@/lib/test-question-prefetch"
 
 const reviewResultSchema = z.object({
   cardId: z.string(),
@@ -54,6 +55,10 @@ export async function GET(req: Request) {
     const types = searchParams.get("types")?.split(",").filter(Boolean) || []
     const allCards = searchParams.get("allCards") === "true"
     const tagIds = searchParams.get("tagIds")?.split(",").filter(Boolean) || []
+    // Optional: ?prefetchTest=1&direction=HANZI_TO_MEANING kicks off background
+    // test-question generation for the returned cards (test mode session start)
+    const prefetchTest = searchParams.get("prefetchTest") === "1"
+    const prefetchDirection = searchParams.get("direction")
 
     // Get user's deck
     const deck = await prisma.deck.findFirst({
@@ -194,6 +199,11 @@ export async function GET(req: Request) {
         orderBy: { name: "asc" }
       })
     ])
+
+    if (prefetchTest && TEST_DIRECTIONS.includes(prefetchDirection as TestDirection)) {
+      // Fire-and-forget; never rejects
+      void prefetchTestQuestions(cards.map((c) => c.id), prefetchDirection as TestDirection, session.user.id)
+    }
 
     return NextResponse.json({
       cards,

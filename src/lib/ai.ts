@@ -1,12 +1,57 @@
 import Anthropic from "@anthropic-ai/sdk"
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 import type { ExampleSentence } from "@/types"
-import { GENERATE_SENTENCE_PROMPT, CLAUDE_MODEL_FAST } from "@/lib/constants"
+import {
+  GENERATE_SENTENCE_SYSTEM,
+  GENERATE_SENTENCE_USER,
+  TEST_QUESTION_SYSTEM,
+  CLAUDE_MODEL_FAST
+} from "@/lib/constants"
 import { createLogger } from "@/lib/logger"
 import { AppError } from "@/lib/error-handler"
 
 const logger = createLogger("lib/ai")
-const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
+
+// ---------------------------------------------------------------------------
+// Shared client
+// ---------------------------------------------------------------------------
+
+let client: Anthropic | null = null
+
+/** Singleton Anthropic client shared by every route (60s timeout, 2 retries). */
+export function getAnthropic(): Anthropic {
+  if (!client) {
+    client = new Anthropic({ timeout: 60_000, maxRetries: 2 })
+  }
+  return client
+}
+
+/**
+ * Per-request override for short Haiku calls:
+ * `client.messages.parse(params, FAST_REQUEST_OPTIONS)`
+ */
+export const FAST_REQUEST_OPTIONS = { timeout: 15_000 } as const
+
+/** Wrap a fixed instruction block as a cacheable system prompt. */
+export function cachedSystem(text: string): Anthropic.TextBlockParam[] {
+  return [{ type: "text", text, cache_control: { type: "ephemeral" } }]
+}
+
+/** Log token usage so prompt-cache hits are verifiable in debug logs. */
+export function logUsage(log: ReturnType<typeof createLogger>, what: string, usage: Anthropic.Usage) {
+  log.debug(`${what} usage`, {
+    input: usage.input_tokens,
+    output: usage.output_tokens,
+    cacheRead: usage.cache_read_input_tokens ?? 0,
+    cacheWrite: usage.cache_creation_input_tokens ?? 0
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Errors
+// ---------------------------------------------------------------------------
 
 /** Thrown when the model returns output that fails schema validation. Maps to a 502. */
 export class AIResponseError extends AppError {
@@ -15,6 +60,38 @@ export class AIResponseError extends AppError {
     this.name = "AIResponseError"
   }
 }
+
+/**
+ * Map the SDK's typed errors to an AppError with a generic message
+ * (429 for rate limits, 502 for connection/API failures). Returns null for
+ * anything that isn't an Anthropic error so callers can fall through.
+ */
+export function mapAnthropicError(error: unknown): AppError | null {
+  if (error instanceof Anthropic.RateLimitError) {
+    logger.warn("Anthropic rate limited", { status: error.status, message: error.message })
+    return new AppError("AI service is busy, please try again shortly", 429, "AI_RATE_LIMITED")
+  }
+  if (error instanceof Anthropic.APIConnectionError) {
+    logger.error("Anthropic connection error", { message: error.message })
+    return new AppError("AI service is unavailable", 502, "AI_UNAVAILABLE")
+  }
+  if (error instanceof Anthropic.APIError) {
+    logger.error("Anthropic API error", { status: error.status, message: error.message })
+    return new AppError("AI service returned an error", 502, "AI_ERROR")
+  }
+  return null
+}
+
+/** NextResponse form of mapAnthropicError for routes that build responses inline. */
+export function anthropicErrorResponse(error: unknown): NextResponse | null {
+  const mapped = mapAnthropicError(error)
+  if (!mapped) return null
+  return NextResponse.json({ error: mapped.message }, { status: mapped.statusCode })
+}
+
+// ---------------------------------------------------------------------------
+// Schemas
+// ---------------------------------------------------------------------------
 
 const exampleSentenceSchema = z.object({
   sentence: z.string().min(1),
@@ -28,33 +105,6 @@ const testQuestionSchema = z.object({
   acceptableAnswers: z.array(z.string()),
   distractors: z.array(z.string()).min(1)
 })
-
-function extractJson(text: string): string {
-  let jsonText = text.trim()
-  // If wrapped in code blocks, extract the JSON
-  const codeBlockMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/)
-  if (codeBlockMatch) {
-    jsonText = codeBlockMatch[1].trim()
-  }
-  return jsonText
-}
-
-/** Parse + validate model JSON; logs details and throws AIResponseError on failure. */
-function parseModelJson<T>(schema: z.ZodType<T>, text: string, what: string): T {
-  let raw: unknown
-  try {
-    raw = JSON.parse(extractJson(text))
-  } catch (error) {
-    logger.error(`Failed to parse ${what} JSON`, { error, text: text.slice(0, 500) })
-    throw new AIResponseError()
-  }
-  const result = schema.safeParse(raw)
-  if (!result.success) {
-    logger.error(`${what} failed schema validation`, { issues: result.error.issues, text: text.slice(0, 500) })
-    throw new AIResponseError()
-  }
-  return result.data
-}
 
 export interface GenerateTestQuestionParams {
   card: {
@@ -74,31 +124,35 @@ export interface TestQuestionResponse {
   distractors: string[] // 12 items
 }
 
+// ---------------------------------------------------------------------------
+// Generation
+// ---------------------------------------------------------------------------
+
 export async function generateExampleSentence(
   grammarPoint: string,
   context?: string
 ): Promise<ExampleSentence> {
-  const prompt = GENERATE_SENTENCE_PROMPT
+  const userMessage = GENERATE_SENTENCE_USER
     .replace("{grammarPoint}", () => grammarPoint)
     .replace("{context}", () => context || "No additional context")
 
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL_FAST,
-    max_tokens: 256,
-    messages: [
-      {
-        role: "user",
-        content: prompt
-      }
-    ]
-  })
+  const response = await getAnthropic().messages.parse(
+    {
+      model: CLAUDE_MODEL_FAST,
+      max_tokens: 256,
+      system: cachedSystem(GENERATE_SENTENCE_SYSTEM),
+      messages: [{ role: "user", content: userMessage }],
+      output_config: { format: zodOutputFormat(exampleSentenceSchema) }
+    },
+    FAST_REQUEST_OPTIONS
+  )
+  logUsage(logger, "example sentence", response.usage)
 
-  const content = response.content[0]
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type")
+  if (!response.parsed_output) {
+    logger.error("Example sentence failed to parse", { stopReason: response.stop_reason })
+    throw new AIResponseError()
   }
-
-  return parseModelJson(exampleSentenceSchema, content.text, "example sentence")
+  return response.parsed_output
 }
 
 export async function generateTestQuestion(
@@ -106,93 +160,34 @@ export async function generateTestQuestion(
 ): Promise<TestQuestionResponse> {
   const { card, direction } = params
 
-  const prompt = buildTestQuestionPrompt(card, direction)
+  const response = await getAnthropic().messages.parse(
+    {
+      model: CLAUDE_MODEL_FAST,
+      max_tokens: 1024,
+      system: cachedSystem(TEST_QUESTION_SYSTEM),
+      messages: [{ role: "user", content: buildTestQuestionUserMessage(card, direction) }],
+      output_config: { format: zodOutputFormat(testQuestionSchema) }
+    },
+    FAST_REQUEST_OPTIONS
+  )
+  logUsage(logger, "test question", response.usage)
 
-  const response = await anthropic.messages.create({
-    model: CLAUDE_MODEL_FAST,
-    max_tokens: 1024,
-    messages: [
-      {
-        role: "user",
-        content: prompt
-      }
-    ]
-  })
-
-  const content = response.content[0]
-  if (content.type !== "text") {
-    throw new Error("Unexpected response type")
+  if (!response.parsed_output) {
+    logger.error("Test question failed to parse", { stopReason: response.stop_reason })
+    throw new AIResponseError()
   }
-
-  return parseModelJson(testQuestionSchema, content.text, "test question")
+  return response.parsed_output
 }
 
-function buildTestQuestionPrompt(
-  card: { hanzi: string; pinyin: string; english: string; type: string; notes?: string },
-  direction: "HANZI_TO_MEANING" | "MEANING_TO_HANZI" | "PINYIN_TO_HANZI"
+function buildTestQuestionUserMessage(
+  card: GenerateTestQuestionParams["card"],
+  direction: GenerateTestQuestionParams["direction"]
 ): string {
-  const directionInstructions = {
-    HANZI_TO_MEANING: `
-      Show the Chinese characters (hanzi) and pinyin.
-      Ask the user to provide the English meaning.
-      Question example: "What does ${card.hanzi} (${card.pinyin}) mean?"
-      Correct answer: "${card.english}"
-
-      IMPORTANT: All distractors must be in ENGLISH only (no Chinese characters or pinyin).
-      Distractors should be plausible English translations that are similar in meaning or context.
-    `,
-    MEANING_TO_HANZI: `
-      Show the English meaning.
-      Ask the user to provide the Chinese characters (hanzi).
-      Question example: "How do you write '${card.english}' in Chinese characters?"
-      Correct answer: "${card.hanzi}"
-
-      IMPORTANT: All distractors must be in CHINESE CHARACTERS (hanzi) only (no English or pinyin).
-      Distractors should be real Chinese characters with similar meaning or pronunciation.
-    `,
-    PINYIN_TO_HANZI: `
-      Show only the pinyin romanization.
-      Ask the user to provide the Chinese characters (hanzi).
-      Question example: "What are the Chinese characters for '${card.pinyin}'?"
-      Correct answer: "${card.hanzi}"
-
-      IMPORTANT: All distractors must be in CHINESE CHARACTERS (hanzi) only (no English or pinyin).
-      Distractors should be real Chinese characters with similar pronunciation or appearance.
-    `
-  }
-
-  return `You are helping create test questions for a Mandarin Chinese learning app.
-
-Given this flashcard:
+  return `Flashcard:
 - Hanzi (Chinese): ${card.hanzi}
 - Pinyin: ${card.pinyin}
 - English: ${card.english}
 - Type: ${card.type}
-${card.notes ? `- Notes: ${card.notes}` : ''}
-
-Create a test question for: ${direction}
-${directionInstructions[direction]}
-
-Please generate:
-
-1. **questionText**: A clear, natural question asking the user to provide the answer
-2. **correctAnswer**: The primary correct answer (single string)
-3. **acceptableAnswers**: 3-5 variations that should be accepted as correct (for text input validation)
-   - Include common variations, abbreviations, alternative translations
-   - For pinyin: include with/without tone marks, different tone number formats
-   - For English: include synonyms, slight variations in wording
-4. **distractors**: Exactly 12 plausible but INCORRECT answers for multiple choice
-   - Should be at similar difficulty level
-   - Should be contextually related (same topic, similar structure)
-   - Should be tempting wrong answers (common mistakes, similar-sounding words)
-   - For Chinese characters: use real characters, not gibberish
-   - Ensure variety in the distractors
-
-Return ONLY valid JSON in this exact format (no markdown, no extra text):
-{
-  "questionText": "your question here",
-  "correctAnswer": "primary answer",
-  "acceptableAnswers": ["variation1", "variation2", "variation3"],
-  "distractors": ["wrong1", "wrong2", "wrong3", "wrong4", "wrong5", "wrong6", "wrong7", "wrong8", "wrong9", "wrong10", "wrong11", "wrong12"]
-}`
+${card.notes ? `- Notes: ${card.notes}\n` : ""}
+Direction: ${direction}`
 }

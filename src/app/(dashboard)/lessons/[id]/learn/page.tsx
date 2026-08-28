@@ -13,6 +13,8 @@ import { MultipleChoiceSegment } from "@/components/lessons/interactive/multiple
 import { FillInSegment } from "@/components/lessons/interactive/fill-in-segment"
 import { TranslationSegment } from "@/components/lessons/interactive/translation-segment"
 import { FeedbackSegment } from "@/components/lessons/interactive/feedback-segment"
+import { useLessonPagesStatus } from "@/hooks/use-lessons"
+import { LESSON_TOTAL_PAGES } from "@/lib/constants"
 import { toast } from "sonner"
 
 function getClientTimeZone(): string {
@@ -116,6 +118,20 @@ function InteractiveLessonContent({
   // Cards changed since these pages were generated (server flag)
   const [pagesStale, setPagesStale] = useState(false)
   const [isRegenerating, setIsRegenerating] = useState(false)
+  // Remaining pages are still being written server-side; poll until they land
+  const [isWritingPages, setIsWritingPages] = useState(false)
+  const { data: pagesStatus } = useLessonPagesStatus(lessonId, isWritingPages)
+
+  // Grow totalPages as background pages arrive so "Next" unlocks page by page
+  useEffect(() => {
+    if (!pagesStatus) return
+    setPosition((prev) =>
+      pagesStatus.totalPages > prev.totalPages
+        ? { ...prev, totalPages: pagesStatus.totalPages }
+        : prev
+    )
+    if (!pagesStatus.generating) setIsWritingPages(false)
+  }, [pagesStatus])
 
   // Build hanzi → cardId map for SRS submission
   const hanziToCardId = new Map(lessonCards.map(c => [c.hanzi, c.id]))
@@ -179,14 +195,17 @@ function InteractiveLessonContent({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId])
 
-  // Load page when the position changes (after initial setup)
+  // Load page when the position changes (after initial setup). Keyed on
+  // whether pages exist rather than the count, so pages arriving in the
+  // background don't reload the page the user is on.
+  const hasPages = totalPages > 0
   useEffect(() => {
-    if (totalPages === 0) return
+    if (!hasPages) return
     const controller = new AbortController()
     loadPage(currentPageNumber, controller.signal)
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPageNumber, totalPages, lessonId])
+  }, [currentPageNumber, hasPages, lessonId])
 
   async function initializeLesson(
     signal: AbortSignal,
@@ -203,6 +222,7 @@ function InteractiveLessonContent({
       setCurrentPage(null)
       setPosition({ totalPages: 0, pageNumber: 1 })
       setPagesStale(false)
+      setIsWritingPages(false)
       responsesRef.current = {}
     }
     try {
@@ -228,6 +248,7 @@ function InteractiveLessonContent({
       const genData = await genRes.json()
       const generatedTotal: number = genData.totalPages
       const stale = !!genData.stale
+      const generating = !!genData.generating
 
       // Load lesson cards for SRS matching
       let cards: LessonCard[] = []
@@ -274,6 +295,7 @@ function InteractiveLessonContent({
       responsesRef.current = restored
       setPagesStale(stale)
       setPosition({ totalPages: generatedTotal, pageNumber: resumePage })
+      setIsWritingPages(generating)
       setIsGenerating(false)
       if (options.regenerate) {
         invalidateStudyQueries()
@@ -562,7 +584,12 @@ function InteractiveLessonContent({
     )
   }
 
-  const progress = (currentPageNumber / totalPages) * 100
+  // While pages are still being written, show the expected total so the
+  // progress bar doesn't jump around as they arrive.
+  const expectedTotal = isWritingPages ? Math.max(totalPages, LESSON_TOTAL_PAGES) : totalPages
+  const progress = (currentPageNumber / expectedTotal) * 100
+  const nextPageReady = currentPageNumber < totalPages
+  const waitingForNextPage = isWritingPages && !nextPageReady
 
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
@@ -575,8 +602,16 @@ function InteractiveLessonContent({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Exit Lesson
         </Button>
-        <div className="text-sm text-muted-foreground">
-          Page {currentPageNumber} of {totalPages}
+        <div className="text-sm text-muted-foreground flex items-center gap-3">
+          {isWritingPages && (
+            <span className="flex items-center gap-1.5 text-xs" role="status" aria-live="polite">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Writing page {totalPages + 1}…
+            </span>
+          )}
+          <span>
+            Page {currentPageNumber} of {expectedTotal}
+          </span>
         </div>
       </div>
 
@@ -702,8 +737,13 @@ function InteractiveLessonContent({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Previous
         </Button>
-        <Button onClick={handleNext}>
-          {currentPageNumber < totalPages ? (
+        <Button onClick={handleNext} disabled={waitingForNextPage}>
+          {waitingForNextPage ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Writing page {totalPages + 1}…
+            </>
+          ) : nextPageReady ? (
             <>
               Next
               <ArrowRight className="h-4 w-4 ml-2" />

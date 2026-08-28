@@ -20,6 +20,11 @@
     "Lesson exercises remember your answers, and finishing one offers to review its cards",
     "Select and organise cards from the deck on mobile",
     "Stories: tap any word for pinyin and meaning, add new words to your deck, and see generation progress",
-    "Empty screens now point you somewhere useful"
+    "Empty screens now point you somewhere useful",
+    "AI features are faster: cards and lesson pages appear as they're written instead of after a long wait",
+    "Interactive lessons start on page 1 while the rest is prepared in the background, and are pre-built right after you upload notes",
+    "Test questions are prepared for the whole session up front; the next story is ready before you ask for it",
+    "Saving parsed cards no longer requires scrolling to the bottom — a sticky bar shows your selection and the Save button",
+    "Sticky search/filters and selection bars on Deck and Lessons, larger tap targets, Enter submits dialogs, and dialog buttons stay visible on small screens"
   ]
 }

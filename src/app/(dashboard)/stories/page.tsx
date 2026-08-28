@@ -15,6 +15,7 @@ import {
   useStories,
   useDeleteStory,
   useGenerateStory,
+  useHasPrefetchedStory,
   STORY_STAGE_LABELS,
   type Story,
   type StorySentence
@@ -82,6 +83,8 @@ export default function StoriesPage() {
   const { data: cards, isLoading: isLoadingCards } = useCards()
   const deleteStoryMutation = useDeleteStory()
   const { generate, isGenerating, stage } = useGenerateStory()
+  const hasPrefetchedStory = useHasPrefetchedStory()
+  const newStoryLabel = hasPrefetchedStory ? "A new story is ready" : "New Story"
 
   const cardCount = cards?.length ?? 0
   const canGenerate = cardCount >= MIN_CARDS_FOR_STORY
@@ -226,7 +229,7 @@ export default function StoriesPage() {
               ) : (
                 <Sparkles className="h-4 w-4 mr-2" />
               )}
-              New story
+              {hasPrefetchedStory ? "A new story is ready" : "New story"}
             </Button>
           </CardContent>
         </Card>
@@ -257,8 +260,8 @@ export default function StoriesPage() {
               </>
             ) : (
               <>
-                <BookOpen className="h-4 w-4 mr-2" />
-                New Story
+                {hasPrefetchedStory ? <Sparkles className="h-4 w-4 mr-2" /> : <BookOpen className="h-4 w-4 mr-2" />}
+                {newStoryLabel}
               </>
             )}
           </Button>
@@ -305,7 +308,7 @@ export default function StoriesPage() {
               ) : (
                 <BookOpen className="h-4 w-4 mr-2" />
               )}
-              New Story
+              {newStoryLabel}
             </Button>
           </CardContent>
         </Card>

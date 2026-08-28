@@ -184,7 +184,8 @@ export default function CreateCoursePage() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-9 w-9"
+                      aria-label="Move lesson up"
                       disabled={index === 0}
                       onClick={() => moveLesson(index, -1)}
                     >
@@ -194,7 +195,8 @@ export default function CreateCoursePage() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-9 w-9"
+                      aria-label="Move lesson down"
                       disabled={index === selectedLessons.length - 1}
                       onClick={() => moveLesson(index, 1)}
                     >
@@ -204,7 +206,8 @@ export default function CreateCoursePage() {
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7"
+                      className="h-9 w-9"
+                      aria-label="Remove lesson from course"
                       onClick={() => toggleLesson(lesson.id)}
                     >
                       <X className="h-4 w-4" />

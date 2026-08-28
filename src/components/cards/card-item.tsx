@@ -117,10 +117,11 @@ export function CardItem({
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 shrink-0"
+                className="h-11 w-11 -m-2.5 sm:h-6 sm:w-6 sm:m-0 shrink-0"
                 onClick={playAudio}
                 disabled={isPlaying}
                 title="Play pronunciation"
+                aria-label="Play pronunciation"
               >
                 <Volume2 className={`h-4 w-4 ${isPlaying ? 'animate-pulse' : ''}`} />
               </Button>
@@ -160,11 +161,11 @@ export function CardItem({
             </div>
           </div>
           {!selectionMode && (
-            <div className="flex gap-1 ml-2">
+            <div className="flex gap-1 ml-2 -mr-2 -mt-2 sm:mr-0 sm:mt-0">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8"
+                className="h-11 w-11 sm:h-8 sm:w-8"
                 onClick={togglePriority}
                 disabled={togglePriorityMutation.isPending}
                 title={card.isPriority ? "Remove from priority" : "Mark as priority"}
@@ -179,7 +180,7 @@ export function CardItem({
               </Button>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <Button variant="ghost" size="icon" className="h-11 w-11 sm:h-8 sm:w-8" aria-label="Card actions">
                     <MoreVertical className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>

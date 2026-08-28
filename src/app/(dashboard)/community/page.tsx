@@ -69,6 +69,8 @@ export default function CommunityPage() {
           <Button
             variant={sort === "popular" ? "default" : "outline"}
             size="sm"
+            className="h-9"
+            aria-pressed={sort === "popular"}
             onClick={() => { setSort("popular"); setPage(1) }}
           >
             Popular
@@ -76,6 +78,8 @@ export default function CommunityPage() {
           <Button
             variant={sort === "recent" ? "default" : "outline"}
             size="sm"
+            className="h-9"
+            aria-pressed={sort === "recent"}
             onClick={() => { setSort("recent"); setPage(1) }}
           >
             Recent

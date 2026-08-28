@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Loader2 } from "lucide-react"
 import { useCreateLesson, useLessons } from "@/hooks/use-lessons"
 import { getNextLessonNumber } from "@/lib/lesson-helpers"
 import { toast } from "sonner"
@@ -41,7 +42,9 @@ export function CreateLessonModal({ open, onClose }: CreateLessonModalProps) {
     }
   })
 
-  const handleCreate = async () => {
+  const handleCreate = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (createLessonMutation.isPending) return
     if (!lessonNumber) {
       toast.error("Please enter a lesson number")
       return
@@ -93,6 +96,7 @@ export function CreateLessonModal({ open, onClose }: CreateLessonModalProps) {
           </DialogDescription>
         </DialogHeader>
 
+        <form onSubmit={handleCreate} className="contents">
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="lesson-number">
@@ -134,16 +138,18 @@ export function CreateLessonModal({ open, onClose }: CreateLessonModalProps) {
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>
+          <Button type="button" variant="outline" onClick={handleClose} disabled={createLessonMutation.isPending}>
             Cancel
           </Button>
           <Button
-            onClick={handleCreate}
+            type="submit"
             disabled={createLessonMutation.isPending || !lessonNumber}
           >
+            {createLessonMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {createLessonMutation.isPending ? "Creating..." : "Create Lesson"}
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

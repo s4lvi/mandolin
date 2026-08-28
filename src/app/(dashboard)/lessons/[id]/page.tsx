@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
@@ -34,8 +34,14 @@ import {
   RefreshCw
 } from "lucide-react"
 import { formatLessonTitle, lessonSourceLabel } from "@/lib/lesson-helpers"
+import { LESSON_TOTAL_PAGES } from "@/lib/constants"
 import { useUnpublishLesson } from "@/hooks/use-community"
-import { useRemoveCardsFromLesson, useLessons, useRegenerateLessonPages } from "@/hooks/use-lessons"
+import {
+  useRemoveCardsFromLesson,
+  useLessons,
+  useRegenerateLessonPages,
+  useLessonPagesStatus
+} from "@/hooks/use-lessons"
 import {
   Dialog,
   DialogContent,
@@ -108,12 +114,40 @@ export default function LessonDetailPage() {
   const removeFromLesson = useRemoveCardsFromLesson()
   const regenerateMutation = useRegenerateLessonPages()
   const { data: allLessons } = useLessons()
+  const queryClient = useQueryClient()
+
+  // Background page generation: one status fetch on load (it keeps polling
+  // every 2s only while the server reports `generating`).
+  const [watchGeneration, setWatchGeneration] = useState(false)
+  const [regenerateTriggered, setRegenerateTriggered] = useState(false)
+  const { data: pagesStatus } = useLessonPagesStatus(lessonId, watchGeneration)
+  const generating = regenerateMutation.isPending || !!pagesStatus?.generating
+  const isRegenerating = regenerateTriggered && generating
+
+  useEffect(() => {
+    if (!pagesStatus || pagesStatus.generating) return
+    // Generation finished: refresh the lesson (page count, stale flag)
+    if (regenerateTriggered) {
+      setRegenerateTriggered(false)
+      toast.success("Lesson regenerated with the current cards")
+    }
+    queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
+    queryClient.invalidateQueries({ queryKey: ["lessons"] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagesStatus?.generating])
 
   const handleRegenerate = async () => {
+    setRegenerateTriggered(true)
     try {
-      await regenerateMutation.mutateAsync(lessonId)
-      toast.success("Lesson regenerated with the current cards")
+      const result = await regenerateMutation.mutateAsync(lessonId)
+      if (result.generating) {
+        setWatchGeneration(true)
+      } else {
+        setRegenerateTriggered(false)
+        toast.success("Lesson regenerated with the current cards")
+      }
     } catch (error) {
+      setRegenerateTriggered(false)
       toast.error(error instanceof Error ? error.message : "Failed to regenerate lesson")
     }
   }
@@ -145,6 +179,11 @@ export default function LessonDetailPage() {
     retry: (failureCount, err) =>
       !(err instanceof LessonNotFoundError) && failureCount < 3
   })
+
+  // Start watching once the lesson is known to exist and has cards
+  useEffect(() => {
+    if (lesson && lesson.cards.length > 0) setWatchGeneration(true)
+  }, [lesson])
 
   if (error instanceof LessonNotFoundError) {
     return (
@@ -217,7 +256,8 @@ export default function LessonDetailPage() {
 
   const sourceLabel = lessonSourceLabel(lesson)
   const hasPages = (lesson._count?.pages ?? 0) > 0
-  const showStaleBanner = hasPages && !!lesson.pagesStale
+  const showStaleBanner = hasPages && !!lesson.pagesStale && !isRegenerating
+  const showPreparingBanner = generating && !isRegenerating
   const editFrom = `/lessons/${lesson.id}`
 
   return (
@@ -297,6 +337,34 @@ export default function LessonDetailPage() {
           </div>
         </div>
 
+        {isRegenerating && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+            <span className="flex-1">
+              Regenerating… page 1 is ready as soon as it lands; the rest are written in the
+              background{pagesStatus ? ` (${pagesStatus.totalPages} of ${LESSON_TOTAL_PAGES} pages so far)` : ""}.
+            </span>
+          </div>
+        )}
+
+        {showPreparingBanner && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+            <span className="flex-1">
+              Preparing your lesson… {pagesStatus?.totalPages ?? 0} of {LESSON_TOTAL_PAGES} pages ready.
+              You can start as soon as page 1 exists.
+            </span>
+          </div>
+        )}
+
         {showStaleBanner && (
           <div
             role="status"
@@ -311,9 +379,9 @@ export default function LessonDetailPage() {
               size="sm"
               variant="outline"
               onClick={handleRegenerate}
-              disabled={regenerateMutation.isPending}
+              disabled={generating}
             >
-              {regenerateMutation.isPending ? (
+              {generating ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : (
                 <RefreshCw className="h-4 w-4 mr-2" />

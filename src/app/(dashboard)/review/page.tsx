@@ -314,27 +314,18 @@ export default function ReviewPage() {
     }
   }, [userStats])
 
-  // Prefetch next 3 test questions when index changes
+  // Prefetch test questions for the whole session once at start (server dedupes
+  // and caches per card+direction; the per-card route falls back for misses)
   useEffect(() => {
     if (reviewMode === "test_easy" && sessionCards.length > 0 && sessionActive) {
-      const nextCards = []
-      for (let i = 1; i <= REVIEW_DEFAULTS.PREFETCH_AHEAD; i++) {
-        const nextIndex = currentIndex + i
-        if (nextIndex < sessionCards.length) {
-          nextCards.push(sessionCards[nextIndex].id)
-        }
-      }
-
-      if (nextCards.length > 0) {
-        prefetchMutation.mutate({
-          cardIds: nextCards,
-          direction: testDirection
-        })
-      }
+      prefetchMutation.mutate({
+        cardIds: sessionCards.map((c) => c.id),
+        direction: testDirection
+      })
     }
-    // Don't include prefetchMutation in deps - it's a stable mutation function
+    // prefetchMutation is a stable mutation object
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentIndex, reviewMode, testDirection, sessionCards, sessionActive])
+  }, [reviewMode, testDirection, sessionCards, sessionActive])
 
   // ---- Session lifecycle ----------------------------------------------------
   const resetSessionState = (nextCards: CardType[], drill: boolean) => {

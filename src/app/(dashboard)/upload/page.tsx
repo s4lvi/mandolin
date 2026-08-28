@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { useParseNotes } from "@/hooks/use-upload"
@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Upload, Check, X, Loader2, CheckCircle, Play, BookOpen, Layers } from "lucide-react"
 import { AILoading } from "@/components/ui/ai-loading"
+import { ReviewActionBar } from "@/components/upload/review-action-bar"
 import { toast } from "sonner"
 import type { ParsedCard, CardType } from "@/types"
 
@@ -95,7 +96,16 @@ export default function UploadPage() {
   const [saveResult, setSaveResult] = useState<SaveResult | null>(null)
   const [lessonNumberError, setLessonNumberError] = useState<string | null>(null)
 
-  const { parseStatus, ...parseNotesMutation } = useParseNotes()
+  // Cards arrive one at a time while the parser streams; each is appended to
+  // the review list immediately and the flow jumps to step 2 on the first one.
+  const receivedCardRef = useRef(false)
+  const { parseStatus, streamedCount, ...parseNotesMutation } = useParseNotes({
+    onCard: (card) => {
+      receivedCardRef.current = true
+      setParsedCards((cards) => [...cards, { ...card, selected: !card.isDuplicate }])
+      setStep(2)
+    }
+  })
   const { data: lessons } = useLessons()
 
   // Warn user before navigating away during AI parsing
@@ -132,6 +142,10 @@ export default function UploadPage() {
       return
     }
 
+    setParsedCards([])
+    setGeneratedLessonContext("")
+    receivedCardRef.current = false
+
     try {
       const result = await parseNotesMutation.mutateAsync({
         notes,
@@ -141,12 +155,15 @@ export default function UploadPage() {
         selectedLessonId: lessonMode === "existing" ? selectedLessonId : undefined
       })
 
-      setParsedCards(
-        result.cards.map((card) => ({
+      // The final payload is authoritative; keep any selection changes the
+      // user made while cards were still streaming in.
+      setParsedCards((streamed) => {
+        const selectedByHanzi = new Map(streamed.map((c) => [c.hanzi, c.selected]))
+        return result.cards.map((card) => ({
           ...card,
-          selected: !card.isDuplicate  // Only select new cards, deselect duplicates
+          selected: card.isDuplicate ? false : (selectedByHanzi.get(card.hanzi) ?? true)
         }))
-      )
+      })
 
       // Store generated lesson context
       if (result.lessonContext) {
@@ -154,6 +171,10 @@ export default function UploadPage() {
       }
 
       setStep(2)
+
+      if (result.warning) {
+        toast.warning(result.warning, { duration: 8000 })
+      }
 
       if (result.duplicatesFound > 0 && lessonMode !== "none") {
         toast.info(
@@ -165,6 +186,8 @@ export default function UploadPage() {
         )
       }
     } catch (error) {
+      // Nothing usable arrived: go back to the notes so they can retry
+      if (!receivedCardRef.current) setStep(1)
       toast.error(
         error instanceof Error ? error.message : "Failed to parse notes"
       )
@@ -176,6 +199,12 @@ export default function UploadPage() {
       cards.map((card, i) =>
         i === index && !card.isDuplicate ? { ...card, selected: !card.selected } : card
       )
+    )
+  }
+
+  const setAllSelected = (selected: boolean) => {
+    setParsedCards((cards) =>
+      cards.map((card) => (card.isDuplicate ? card : { ...card, selected }))
     )
   }
 
@@ -360,9 +389,10 @@ export default function UploadPage() {
   }
 
   if (step === 2) {
-    const savingLabel = `Saving ${selectedNewCards} card${selectedNewCards !== 1 ? "s" : ""}…`
+    const isParsing = parseNotesMutation.isPending
+    const linkCount = lessonMode !== "none" ? duplicateCards : 0
     return (
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6 pb-20 lg:pb-0">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold">Review Parsed Cards</h1>
@@ -373,24 +403,36 @@ export default function UploadPage() {
             <StepIndicator step={2} />
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => setStep(1)} disabled={isSaving}>
+            <Button variant="outline" onClick={() => setStep(1)} disabled={isSaving || isParsing}>
               Back to Edit
-            </Button>
-            <Button
-              onClick={handleSaveCards}
-              disabled={isSaving || selectedNewCards === 0}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  {savingLabel}
-                </>
-              ) : (
-                `Save ${selectedNewCards} card${selectedNewCards !== 1 ? "s" : ""}${duplicateCards > 0 && lessonMode !== "none" ? ` + link ${duplicateCards}` : ""}`
-              )}
             </Button>
           </div>
         </div>
+
+        {isParsing && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+            <span>
+              Found {streamedCount} card{streamedCount !== 1 ? "s" : ""}… still reading your notes.
+              You can review cards while the rest come in.
+            </span>
+          </div>
+        )}
+
+        <ReviewActionBar
+          selected={selectedNewCards}
+          total={totalNewCards}
+          linkCount={linkCount}
+          isSaving={isSaving}
+          isParsing={isParsing}
+          onSelectAll={() => setAllSelected(true)}
+          onSelectNone={() => setAllSelected(false)}
+          onSave={handleSaveCards}
+        />
 
         <div className="space-y-3">
           {parsedCards.map((card, index) =>
@@ -637,7 +679,10 @@ Phrases:
               statusLabels={{
                 generating_context: "Generating lesson context",
                 parsing_cards: "Extracting flashcards from your notes",
-                streaming: "AI is building your cards",
+                streaming:
+                  streamedCount > 0
+                    ? `Found ${streamedCount} card${streamedCount !== 1 ? "s" : ""}`
+                    : "AI is building your cards"
               }}
             />
           ) : (

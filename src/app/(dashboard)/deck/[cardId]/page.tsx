@@ -13,7 +13,8 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger
+  DialogTrigger,
+  DialogClose
 } from "@/components/ui/dialog"
 import { ArrowLeft, Trash2 } from "lucide-react"
 import { toast } from "sonner"
@@ -101,7 +102,7 @@ function EditCardContent() {
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="destructive" size="icon">
+            <Button variant="destructive" size="icon" aria-label="Delete card">
               <Trash2 className="h-4 w-4" />
             </Button>
           </DialogTrigger>
@@ -113,7 +114,9 @@ function EditCardContent() {
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
-              <Button variant="outline">Cancel</Button>
+              <DialogClose asChild>
+                <Button variant="outline">Cancel</Button>
+              </DialogClose>
               <Button
                 variant="destructive"
                 onClick={handleDelete}

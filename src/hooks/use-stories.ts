@@ -27,26 +27,47 @@ export interface Story {
 }
 
 /** Status events streamed by POST /api/stories/generate, in order. */
-export type StoryGenerateStage = "selecting" | "generating" | "streaming" | "finalizing"
+export type StoryGenerateStage = "selecting" | "generating" | "finalizing"
 
-export const STORY_STAGE_ORDER: StoryGenerateStage[] = ["selecting", "generating", "streaming", "finalizing"]
+export const STORY_STAGE_ORDER: StoryGenerateStage[] = ["selecting", "generating", "finalizing"]
 
 export const STORY_STAGE_LABELS: Record<StoryGenerateStage, string> = {
   selecting: "Choosing vocabulary",
   generating: "Writing story",
-  streaming: "Writing story",
   finalizing: "Adding pinyin"
 }
 
-async function fetchStories(): Promise<Story[]> {
+interface StoriesResponse {
+  stories: Story[]
+  /** A story was generated ahead of time; "New Story" will return it instantly. */
+  hasPrefetched: boolean
+}
+
+async function fetchStories(): Promise<StoriesResponse> {
   const res = await fetch("/api/stories")
   if (!res.ok) throw new Error("Failed to fetch stories")
   const data = await res.json()
-  return data.stories ?? []
+  return { stories: data.stories ?? [], hasPrefetched: Boolean(data.hasPrefetched) }
 }
 
+const STORIES_QUERY_KEY = ["stories"]
+
 export function useStories() {
-  return useQuery({ queryKey: ["stories"], queryFn: fetchStories })
+  return useQuery({
+    queryKey: STORIES_QUERY_KEY,
+    queryFn: fetchStories,
+    select: (data) => data.stories
+  })
+}
+
+/** True when the server has a prefetched story waiting for "New Story". */
+export function useHasPrefetchedStory() {
+  const { data } = useQuery({
+    queryKey: STORIES_QUERY_KEY,
+    queryFn: fetchStories,
+    select: (data) => data.hasPrefetched
+  })
+  return data ?? false
 }
 
 export function useDeleteStory() {

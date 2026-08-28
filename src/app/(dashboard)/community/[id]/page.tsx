@@ -133,7 +133,7 @@ export default function CommunityLessonDetailPage({
               <button
                 type="button"
                 onClick={() => speakChinese(card.hanzi)}
-                className="text-muted-foreground hover:text-foreground shrink-0"
+                className="text-muted-foreground hover:text-foreground shrink-0 flex items-center justify-center h-11 w-11 -my-2.5 -ml-2.5 sm:h-8 sm:w-8 sm:-my-1 sm:-ml-1 rounded-md"
                 aria-label="Play pronunciation"
               >
                 <Volume2 className="h-3.5 w-3.5" />

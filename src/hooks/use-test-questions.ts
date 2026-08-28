@@ -32,13 +32,23 @@ export function useTestQuestion(cardId: string, direction: string) {
   })
 }
 
-// Prefetch questions sequentially to avoid rate limits
+/**
+ * Kick off server-side background generation of cached test questions for a
+ * session's cards. Call once at test-session start with the session's card ids;
+ * the server generates only the missing ones (4 at a time) and returns
+ * immediately, so `useTestQuestion` hits the cache as the user advances.
+ */
 export function usePrefetchTestQuestions() {
   return useMutation({
     mutationFn: async ({ cardIds, direction }: PrefetchTestQuestionsRequest) => {
-      // Fetch one at a time to avoid concurrent Claude API calls
-      for (const cardId of cardIds) {
-        await fetchTestQuestion(cardId, direction)
+      if (cardIds.length === 0) return
+      const res = await fetch("/api/test-questions/prefetch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardIds: cardIds.slice(0, 100), direction })
+      })
+      if (!res.ok) {
+        throw new Error("Failed to prefetch test questions")
       }
     }
   })
