@@ -1,16 +1,25 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { z } from "zod"
-import Anthropic from "@anthropic-ai/sdk"
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod"
 import { PREDEFINED_TAGS, CLAUDE_MODEL_FAST } from "@/lib/constants"
+import {
+  getAnthropic,
+  FAST_REQUEST_OPTIONS,
+  cachedSystem,
+  logUsage,
+  anthropicErrorResponse
+} from "@/lib/ai"
 import { rateLimited, RATE_LIMITS } from "@/lib/rate-limit"
 import { createLogger } from "@/lib/logger"
 
 const logger = createLogger("api/autofill-card")
-const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
-const tagsResponseSchema = z.array(z.string())
-const typeResponseSchema = z.enum(["VOCABULARY", "GRAMMAR", "PHRASE", "IDIOM"])
+// Structured outputs require an object at the top level, so wrap the values
+const tagsResponseSchema = z.object({ tags: z.array(z.string()) })
+const typeResponseSchema = z.object({
+  type: z.enum(["VOCABULARY", "GRAMMAR", "PHRASE", "IDIOM"])
+})
 
 function badAiResponse(details: unknown) {
   logger.error("AI returned an unexpected response", details)
@@ -29,6 +38,8 @@ const autofillSchema = z.object({
   })
 })
 
+// Fixed instructions per field — sent as a (cacheable) system prompt; only the
+// card context goes in the user message.
 const AUTOFILL_PROMPTS: Record<string, string> = {
   hanzi: `Given the context about a Mandarin Chinese word/phrase, provide the Chinese characters (hanzi).
 Return ONLY the hanzi, nothing else.`,
@@ -46,7 +57,6 @@ Keep it concise (1-2 sentences).
 Return ONLY the notes, nothing else.`,
 
   type: `Given the context about a Mandarin Chinese word/phrase, determine its type.
-Return ONLY one of: VOCABULARY, GRAMMAR, PHRASE, or IDIOM
 - VOCABULARY: Single words or common 2-character compounds
 - GRAMMAR: Grammar patterns or structures
 - PHRASE: Common expressions or greetings
@@ -54,9 +64,7 @@ Return ONLY one of: VOCABULARY, GRAMMAR, PHRASE, or IDIOM
 
   tags: `Given the context about a Mandarin Chinese word/phrase, suggest 2-4 relevant tags.
 Choose ONLY from these allowed tags:
-${PREDEFINED_TAGS.join(", ")}
-
-Return a JSON array of tag names. Example: ["HSK-1", "noun", "common"]`
+${PREDEFINED_TAGS.join(", ")}`
 }
 
 export async function POST(req: Request) {
@@ -90,75 +98,66 @@ export async function POST(req: Request) {
       )
     }
 
-    const prompt = `${AUTOFILL_PROMPTS[field]}
-
-Context:
-${contextParts.join("\n")}
-
-Your response:`
-
-    const response = await anthropic.messages.create({
+    const anthropic = getAnthropic()
+    const base = {
       model: CLAUDE_MODEL_FAST,
       max_tokens: 256,
-      messages: [
-        {
-          role: "user",
-          content: prompt
-        }
-      ]
-    })
-
-    const content = response.content[0]
-    if (content.type !== "text") {
-      throw new Error("Unexpected response type")
+      system: cachedSystem(AUTOFILL_PROMPTS[field]),
+      messages: [{ role: "user" as const, content: `Context:\n${contextParts.join("\n")}` }]
     }
 
-    let result = content.text.trim()
-
-    // For tags field, parse as JSON array
     if (field === "tags") {
-      // Try to extract JSON if wrapped in code blocks
-      const jsonMatch = result.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/)
-      if (jsonMatch) {
-        result = jsonMatch[1]
-      }
-      let raw: unknown
-      try {
-        raw = JSON.parse(result)
-      } catch (error) {
-        return badAiResponse({ field, error, text: result.slice(0, 500) })
-      }
-      const parsed = tagsResponseSchema.safeParse(raw)
-      if (!parsed.success) {
-        return badAiResponse({ field, issues: parsed.error.issues, text: result.slice(0, 500) })
+      const response = await anthropic.messages.parse(
+        { ...base, output_config: { format: zodOutputFormat(tagsResponseSchema) } },
+        FAST_REQUEST_OPTIONS
+      )
+      logUsage(logger, `autofill ${field}`, response.usage)
+      if (!response.parsed_output) {
+        return badAiResponse({ field, stopReason: response.stop_reason })
       }
       // Filter to only allowed tags
       const allowed = new Set<string>(PREDEFINED_TAGS)
-      const validTags = parsed.data.filter((tag) => allowed.has(tag))
+      const validTags = response.parsed_output.tags.filter((tag) => allowed.has(tag))
       return NextResponse.json({ value: validTags })
     }
 
     if (field === "type") {
-      const parsed = typeResponseSchema.safeParse(result.toUpperCase())
-      if (!parsed.success) {
-        return badAiResponse({ field, text: result.slice(0, 500) })
+      const response = await anthropic.messages.parse(
+        { ...base, output_config: { format: zodOutputFormat(typeResponseSchema) } },
+        FAST_REQUEST_OPTIONS
+      )
+      logUsage(logger, `autofill ${field}`, response.usage)
+      if (!response.parsed_output) {
+        return badAiResponse({ field, stopReason: response.stop_reason })
       }
-      return NextResponse.json({ value: parsed.data })
+      return NextResponse.json({ value: response.parsed_output.type })
     }
 
+    // Free-text fields
+    const response = await anthropic.messages.create(base, FAST_REQUEST_OPTIONS)
+    logUsage(logger, `autofill ${field}`, response.usage)
+
+    const content = response.content[0]
+    if (!content || content.type !== "text") {
+      return badAiResponse({ field, stopReason: response.stop_reason })
+    }
+
+    const result = content.text.trim()
     if (!result) {
       return badAiResponse({ field, text: "" })
     }
 
     return NextResponse.json({ value: result })
   } catch (error) {
-    logger.error("Error autofilling card", { error })
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         { error: error.issues[0].message },
         { status: 400 }
       )
     }
+    const aiError = anthropicErrorResponse(error)
+    if (aiError) return aiError
+    logger.error("Error autofilling card", { error })
     return NextResponse.json(
       { error: "Failed to autofill card" },
       { status: 500 }

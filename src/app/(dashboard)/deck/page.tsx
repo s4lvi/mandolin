@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { useSearchParams } from "next/navigation"
 import { useCards, useDeleteCard } from "@/hooks/use-cards"
@@ -25,11 +25,13 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
-import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff } from "lucide-react"
+import { Plus, Search, Upload, BookOpen, X, ChevronLeft, ChevronRight, Eye, EyeOff, CheckSquare } from "lucide-react"
 import { CardListSkeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { LessonAssociationModal } from "@/components/lessons/lesson-association-modal"
+import { CardLessonsDialog } from "@/components/lessons/card-lessons-dialog"
+import type { Card as CardType } from "@/types"
 
 const CARDS_PER_PAGE = 12
 
@@ -47,6 +49,10 @@ export default function DeckPage() {
   const [showAddToLessonModal, setShowAddToLessonModal] = useState(false)
   const [showCreateLessonModal, setShowCreateLessonModal] = useState(false)
   const [showPinyin, setShowPinyin] = useState(true)
+  const [manageCard, setManageCard] = useState<CardType | null>(null)
+
+  // Where "Edit card" should return to (keeps the lesson filter if one is active)
+  const editFrom = lessonIdFromUrl ? `/deck?lessonId=${lessonIdFromUrl}` : "/deck"
 
   const { data: cards, isLoading } = useCards({
     lessonId: lessonIdFromUrl || undefined
@@ -78,6 +84,14 @@ export default function DeckPage() {
   const startIndex = (currentPage - 1) * CARDS_PER_PAGE
   const endIndex = startIndex + CARDS_PER_PAGE
   const paginatedCards = filteredCards?.slice(startIndex, endIndex)
+
+  // Jump back to the top of the list whenever the page changes so the user
+  // isn't left staring at the pagination controls after tapping "Next"
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.scrollY > 0) {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }
+  }, [currentPage])
 
   // Reset to page 1 when filters change
   const handleSearchChange = (value: string) => {
@@ -153,14 +167,22 @@ export default function DeckPage() {
 
   return (
     <ErrorBoundary>
-      <div className="space-y-6">
+      <div className={`space-y-6 ${selectionMode ? "pb-32 lg:pb-0" : ""}`}>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold">My Deck</h1>
         <div className="flex gap-2">
           {!selectionMode && (
             <>
-              <Button variant="outline" size="sm" onClick={handleToggleSelectionMode} className="hidden sm:flex">
-                Select Cards
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleToggleSelectionMode}
+                aria-label="Select cards"
+                title="Select cards to add to a lesson"
+              >
+                <CheckSquare className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Select Cards</span>
+                <span className="sm:hidden ml-1">Select</span>
               </Button>
               <Link href="/upload">
                 <Button variant="outline" size="sm">
@@ -179,43 +201,47 @@ export default function DeckPage() {
         </div>
       </div>
 
-      {/* Selection Mode Toolbar */}
+      {/* Selection Mode Toolbar — pinned above the bottom tab bar on small
+          screens so the bulk actions stay reachable while scrolling through
+          cards (it sits in the header area on desktop) */}
       {selectionMode && (
-        <Card className="border-primary">
-          <CardContent className="py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+        <Card className="border-primary fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] lg:static lg:inset-auto z-40 shadow-lg lg:shadow-none bg-card">
+          <CardContent className="py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+              <div className="flex items-center justify-between sm:justify-start gap-3">
                 <span className="text-sm font-medium">
-                  {selectedCards.size} card{selectedCards.size !== 1 ? 's' : ''} selected
+                  {selectedCards.size} selected
                 </span>
                 {paginatedCards && (
                   <span className="flex items-center gap-1">
                     <Button variant="ghost" size="sm" onClick={handleSelectAllPage}>
-                      Select Page
+                      Select page
                     </Button>
                     {filteredCards && filteredCards.length > CARDS_PER_PAGE && (
                       <Button variant="ghost" size="sm" onClick={handleSelectAllFiltered}>
-                        Select All {filteredCards.length}
+                        All {filteredCards.length}
                       </Button>
                     )}
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="grid grid-cols-3 sm:flex sm:items-center gap-2">
                 <Button
                   variant="outline"
+                  size="sm"
                   disabled={selectedCards.size === 0}
                   onClick={() => setShowAddToLessonModal(true)}
                 >
-                  Add to Lesson
+                  Add to lesson
                 </Button>
                 <Button
+                  size="sm"
                   disabled={selectedCards.size === 0}
                   onClick={() => setShowCreateLessonModal(true)}
                 >
-                  Create Lesson
+                  New lesson
                 </Button>
-                <Button variant="ghost" onClick={handleCancelSelection}>
+                <Button variant="ghost" size="sm" onClick={handleCancelSelection}>
                   Cancel
                 </Button>
               </div>
@@ -224,8 +250,9 @@ export default function DeckPage() {
         </Card>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="relative flex-1">
+      {/* Search + filters stay pinned under the navbar while scrolling the list */}
+      <div className="sticky top-10 lg:top-16 z-10 -mx-3 px-3 py-2 lg:-mx-4 lg:px-4 bg-background/95 backdrop-blur-sm flex flex-row gap-2 sm:gap-4">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search cards or tags..."
@@ -235,7 +262,7 @@ export default function DeckPage() {
           />
         </div>
         <Select value={typeFilter} onValueChange={handleTypeFilterChange}>
-          <SelectTrigger className="w-[140px] sm:w-[180px]">
+          <SelectTrigger className="w-[120px] sm:w-[180px]" aria-label="Filter by type">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
@@ -249,8 +276,10 @@ export default function DeckPage() {
         <Button
           variant={showPinyin ? "outline" : "default"}
           size="icon"
+          className="shrink-0"
           onClick={() => setShowPinyin(!showPinyin)}
           title={showPinyin ? "Hide pinyin" : "Show pinyin"}
+          aria-label={showPinyin ? "Hide pinyin" : "Show pinyin"}
         >
           {showPinyin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </Button>
@@ -335,6 +364,8 @@ export default function DeckPage() {
                 isSelected={selectedCards.has(card.id)}
                 onToggleSelect={handleToggleCard}
                 showPinyin={showPinyin}
+                editFrom={editFrom}
+                onManageLessons={() => setManageCard(card)}
               />
             ))}
           </div>
@@ -420,6 +451,16 @@ export default function DeckPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {manageCard && (
+        <CardLessonsDialog
+          open={!!manageCard}
+          onClose={() => setManageCard(null)}
+          cardId={manageCard.id}
+          cardLabel={manageCard.hanzi}
+          currentLessonIds={(manageCard.lessons ?? []).map((l) => l.lessonId)}
+        />
+      )}
 
       {/* Add to Lesson Modal */}
       <LessonAssociationModal

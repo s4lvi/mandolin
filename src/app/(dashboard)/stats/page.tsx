@@ -9,6 +9,7 @@ import {
   CardTitle
 } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
+import { usePreferences } from "@/hooks/use-preferences"
 import {
   Flame,
   Star,
@@ -76,6 +77,7 @@ export default function StatsPage() {
     queryKey: ["user-stats"],
     queryFn: fetchStats
   })
+  const { data: prefs } = usePreferences()
 
   if (isLoading) {
     return (
@@ -94,13 +96,22 @@ export default function StatsPage() {
   }
 
   const { stats, achievements, allAchievements, cardStats, dailyReviews, accuracy, cardReviewStats } = data
+  // Goal comes from preferences (source of truth); the stats payload is the fallback.
+  const dailyGoal: number = prefs?.dailyGoal ?? stats.dailyGoal ?? 20
 
   // Generate last 30 days for heatmap
+  const localDateKey = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, "0")
+    const day = String(d.getDate()).padStart(2, "0")
+    return `${y}-${m}-${day}`
+  }
   const last30Days = []
   for (let i = 29; i >= 0; i--) {
     const date = new Date()
     date.setDate(date.getDate() - i)
-    const dateStr = date.toISOString().split("T")[0]
+    // Key by the user's local calendar day to match the server's tz bucketing
+    const dateStr = localDateKey(date)
     last30Days.push({
       date: dateStr,
       count: dailyReviews[dateStr] || 0,
@@ -167,12 +178,12 @@ export default function StatsPage() {
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Daily Goal</CardTitle>
           <CardDescription>
-            {stats.dailyProgress} / {stats.dailyGoal} cards reviewed today
+            {stats.dailyProgress} / {dailyGoal} cards reviewed today
           </CardDescription>
         </CardHeader>
         <CardContent>
           <ProgressBar
-            value={(stats.dailyProgress / stats.dailyGoal) * 100}
+            value={dailyGoal > 0 ? (stats.dailyProgress / dailyGoal) * 100 : 0}
             showLabel
           />
         </CardContent>

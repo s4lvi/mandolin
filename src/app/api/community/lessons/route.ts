@@ -9,8 +9,10 @@ export async function GET(req: NextRequest) {
     const search = searchParams.get("search") || ""
     const level = searchParams.get("level")
     const sort = searchParams.get("sort") || "recent"
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = Math.min(parseInt(searchParams.get("limit") || "20"), 50)
+    const rawPage = parseInt(searchParams.get("page") || "1", 10)
+    const page = Number.isFinite(rawPage) && rawPage >= 1 ? rawPage : 1
+    const rawLimit = parseInt(searchParams.get("limit") || "20", 10)
+    const limit = Number.isFinite(rawLimit) ? Math.min(50, Math.max(1, rawLimit)) : 20
 
     const where: Prisma.PublishedLessonWhereInput = { isApproved: true }
 

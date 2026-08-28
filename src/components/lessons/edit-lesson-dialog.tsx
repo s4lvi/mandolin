@@ -52,8 +52,9 @@ export function EditLessonDialog({
       ? `Lesson ${parsedNumber} already exists`
       : null
 
-  const handleSave = async () => {
-    if (numberError) return
+  const handleSave = async (e?: React.FormEvent) => {
+    e?.preventDefault()
+    if (numberError || updateMutation.isPending) return
     try {
       await updateMutation.mutateAsync({
         lessonId,
@@ -78,6 +79,7 @@ export function EditLessonDialog({
           <DialogDescription>Rename, renumber, or update this lesson&apos;s notes.</DialogDescription>
         </DialogHeader>
 
+        <form onSubmit={handleSave} className="contents">
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="lesson-number">Lesson number</Label>
@@ -113,14 +115,15 @@ export function EditLessonDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={updateMutation.isPending}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={updateMutation.isPending || !!numberError}>
+          <Button type="submit" disabled={updateMutation.isPending || !!numberError}>
             {updateMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save
           </Button>
         </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )

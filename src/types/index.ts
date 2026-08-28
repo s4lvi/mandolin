@@ -14,16 +14,22 @@ export interface CardTag {
   tag: Tag
 }
 
+export type LessonSourceType = "USER_CREATED" | "COURSE" | "COMMUNITY"
+
 export interface Lesson {
   id: string
   number: number
   title?: string
   date?: string
   notes?: string
+  sourceType?: LessonSourceType
+  /** Cards changed since the interactive pages were generated */
+  pagesStale?: boolean
   deckId: string
   createdAt: string
   _count?: {
     cards: number
+    pages?: number
   }
 }
 

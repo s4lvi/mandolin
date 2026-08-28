@@ -19,6 +19,8 @@ interface TranslationSegmentProps {
   sourceText: string
   acceptableTranslations: string[]
   hint?: string
+  /** Saved answer from a previous visit — renders as already answered, no re-submission */
+  initialResponse?: { correct: boolean; userAnswer: string } | null
   onAnswer: (userAnswer: string) => Promise<{ correct: boolean; feedback?: TranslationFeedback }>
 }
 
@@ -27,17 +29,20 @@ export function TranslationSegment({
   sourceText,
   acceptableTranslations,
   hint,
+  initialResponse,
   onAnswer
 }: TranslationSegmentProps) {
-  const [userAnswer, setUserAnswer] = useState("")
+  const [userAnswer, setUserAnswer] = useState(initialResponse?.userAnswer ?? "")
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [result, setResult] = useState<{ correct: boolean; feedback?: TranslationFeedback } | null>(null)
+  const [result, setResult] = useState<{ correct: boolean; feedback?: TranslationFeedback } | null>(
+    initialResponse ? { correct: initialResponse.correct } : null
+  )
   const [showHint, setShowHint] = useState(false)
 
   const direction = type === "TRANSLATION_EN_ZH" ? "Chinese" : "English"
 
   const handleSubmit = async () => {
-    if (!userAnswer.trim() || isSubmitting) return
+    if (!userAnswer.trim() || isSubmitting || result) return
 
     setIsSubmitting(true)
     try {
@@ -139,7 +144,7 @@ export function TranslationSegment({
           )}
         </div>
 
-        {result?.feedback && (
+        {result && (
           <div className="text-xs text-muted-foreground">
             <details>
               <summary className="cursor-pointer hover:text-foreground">

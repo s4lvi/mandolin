@@ -81,6 +81,9 @@ export default function CourseDetailPage({
 
       {/* Course header */}
       <div>
+        <p className="text-sm text-muted-foreground mb-2">
+          A course is a sequence of lessons you unlock in order.
+        </p>
         <h1 className="text-2xl sm:text-3xl font-bold">{course.title}</h1>
         {course.description && (
           <p className="text-muted-foreground mt-1">{course.description}</p>

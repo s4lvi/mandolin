@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { generateExampleSentence } from "@/lib/ai"
+import { generateExampleSentence, mapAnthropicError } from "@/lib/ai"
 import { getAuthenticatedUser } from "@/lib/api-helpers"
 import { handleRouteError } from "@/lib/error-handler"
 import { createLogger } from "@/lib/logger"
@@ -33,6 +33,6 @@ export async function POST(req: Request) {
     return NextResponse.json(sentence)
   } catch (error) {
     logger.error("Failed to generate sentence", { error })
-    return handleRouteError(error)
+    return handleRouteError(mapAnthropicError(error) ?? error)
   }
 }

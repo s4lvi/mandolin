@@ -6,9 +6,10 @@ import { useQuery } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Navbar } from "@/components/layout/navbar"
-import { BookOpen, Upload, Brain, Flame, Star, Zap, Target, GraduationCap, Layers, Headphones, PenLine, Puzzle, ArrowRight } from "lucide-react"
+import { BookOpen, Upload, Brain, Flame, Target, GraduationCap, Layers, Headphones, PenLine, Puzzle, ArrowRight, BarChart3 } from "lucide-react"
 import { BottomTabBar } from "@/components/layout/bottom-tab-bar"
 import { ContinueLearning } from "@/components/dashboard/continue-learning"
+import { usePreferences } from "@/hooks/use-preferences"
 
 // Progress bar component
 function ProgressBar({ value, className }: { value: number; className?: string }) {
@@ -36,6 +37,7 @@ function Dashboard() {
     queryKey: ["user-stats"],
     queryFn: fetchStats
   })
+  const { data: prefs } = usePreferences()
 
   if (isLoading) {
     return (
@@ -49,138 +51,97 @@ function Dashboard() {
   const cardStats = data?.cardStats
   const userName = session?.user?.name?.trim()
 
+  const totalCards: number = cardStats?.total ?? 0
+  const due: number = cardStats?.dueToday ?? 0
+  const streak: number = stats?.currentStreak ?? 0
+  const dailyGoal: number = prefs?.dailyGoal ?? stats?.dailyGoal ?? 20
+  const dailyProgress: number = stats?.dailyProgress ?? 0
+  const goalPct = dailyGoal > 0 ? (dailyProgress / dailyGoal) * 100 : 0
+
+  const deckEmpty = totalCards === 0
+  const hero = deckEmpty
+    ? { href: "/upload", label: "Add your first cards", icon: Upload }
+    : due > 0
+    ? { href: "/review", label: `Review ${due} due`, icon: GraduationCap }
+    : { href: "/review", label: "Nothing due · Review anyway", icon: GraduationCap }
+
   return (
     <main className="container mx-auto px-4 py-8 space-y-6">
-      {/* Welcome and Quick Actions */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">
-            Welcome back{userName ? `, ${userName}` : ''}!
-          </h1>
-          <p className="text-muted-foreground">
-            {cardStats?.dueToday || 0} cards due for review
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <Link href="/review">
-            <Button size="lg" className="gap-2">
-              <GraduationCap className="h-5 w-5" />
-              Review Now
-            </Button>
-          </Link>
-          <Link href="/upload">
-            <Button variant="outline" size="lg" className="gap-2">
-              <Upload className="h-5 w-5" />
-              Upload Notes
-            </Button>
-          </Link>
-        </div>
-      </div>
+      {/* Hero: one primary CTA plus today's numbers */}
+      <Card className="border-primary/30 bg-gradient-to-br from-orange-50 via-yellow-50 to-green-50 dark:from-orange-950/20 dark:via-yellow-950/10 dark:to-green-950/20">
+        <CardContent className="p-5 sm:p-6 space-y-4">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              Welcome back{userName ? `, ${userName}` : ""}!
+            </h1>
+            <p className="text-muted-foreground text-sm">
+              {deckEmpty
+                ? "Paste your class notes and you'll have flashcards in under a minute."
+                : due > 0
+                ? `${due} ${due === 1 ? "card is" : "cards are"} ready for review.`
+                : "You're all caught up for now."}
+            </p>
+          </div>
 
-      {/* Continue learning — most relevant in-progress course */}
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            <Link href={hero.href} className="sm:shrink-0">
+              <Button size="lg" className="w-full sm:w-auto gap-2 text-base">
+                <hero.icon className="h-5 w-5" />
+                {hero.label}
+              </Button>
+            </Link>
+            {!deckEmpty && (
+              <Link href="/upload" className="sm:shrink-0">
+                <Button variant="outline" size="lg" className="w-full sm:w-auto gap-2">
+                  <Upload className="h-5 w-5" />
+                  Upload notes
+                </Button>
+              </Link>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+            <span className="flex items-center gap-1.5 font-medium" title="Day streak">
+              <Flame className="h-4 w-4 text-red-500" />
+              {streak}-day streak
+            </span>
+            <span className="flex items-center gap-2 flex-1 min-w-[160px]" title="Daily goal">
+              <Target className="h-4 w-4 text-green-600" />
+              <span className="whitespace-nowrap font-medium">
+                {dailyProgress} / {dailyGoal} today
+              </span>
+              <ProgressBar value={goalPct} className="flex-1 max-w-[160px]" />
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {stats?.totalXp ?? 0} XP · Level {stats?.level ?? 1}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Continue learning — in-progress courses and lessons */}
       <ContinueLearning />
 
-      {/* Stats Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-950/20 dark:to-orange-950/20 border-yellow-200 dark:border-yellow-900/30">
-          <CardContent className="p-4 text-center">
-            <Zap className="h-6 w-6 text-yellow-600 dark:text-yellow-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold">{stats?.totalXp || 0}</p>
-            <p className="text-xs text-muted-foreground">Total XP</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20 border-orange-200 dark:border-orange-900/30">
-          <CardContent className="p-4 text-center">
-            <Star className="h-6 w-6 text-orange-600 dark:text-orange-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold">{stats?.level || 1}</p>
-            <p className="text-xs text-muted-foreground">Level</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 border-red-200 dark:border-red-900/30">
-          <CardContent className="p-4 text-center">
-            <Flame className="h-6 w-6 text-red-600 dark:text-red-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold">{stats?.currentStreak || 0}</p>
-            <p className="text-xs text-muted-foreground">Day Streak</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-gradient-to-br from-green-50 to-yellow-50 dark:from-green-950/20 dark:to-yellow-950/20 border-green-200 dark:border-green-900/30">
-          <CardContent className="p-4 text-center">
-            <Target className="h-6 w-6 text-green-600 dark:text-green-500 mx-auto mb-1" />
-            <p className="text-2xl font-bold">{cardStats?.learned || 0}</p>
-            <p className="text-xs text-muted-foreground">Learned</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Daily Progress */}
-      {stats && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Daily Goal</CardTitle>
-            <CardDescription>
-              {stats.dailyProgress} / {stats.dailyGoal} cards reviewed today
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ProgressBar value={(stats.dailyProgress / stats.dailyGoal) * 100} />
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Card Progress */}
-      {cardStats && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Card Progress</CardTitle>
-            <CardDescription>{cardStats.total} total cards in your deck</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-5 gap-1 sm:gap-2 text-center text-sm">
-              <div className="p-2 bg-blue-50 rounded">
-                <p className="font-bold text-blue-600">{cardStats.new}</p>
-                <p className="text-xs text-muted-foreground">New</p>
-              </div>
-              <div className="p-2 bg-yellow-50 rounded">
-                <p className="font-bold text-yellow-600">{cardStats.learning}</p>
-                <p className="text-xs text-muted-foreground">Learning</p>
-              </div>
-              <div className="p-2 bg-orange-50 rounded">
-                <p className="font-bold text-orange-600">{cardStats.review}</p>
-                <p className="text-xs text-muted-foreground">Review</p>
-              </div>
-              <div className="p-2 bg-green-50 rounded">
-                <p className="font-bold text-green-600">{cardStats.learned}</p>
-                <p className="text-xs text-muted-foreground">Learned</p>
-              </div>
-              <div className="p-2 bg-purple-50 rounded">
-                <p className="font-bold text-purple-600">{cardStats.dueToday}</p>
-                <p className="text-xs text-muted-foreground">Due</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Quick Links */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid sm:grid-cols-3 gap-4">
+        <Link href="/lessons">
+          <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
+            <CardContent className="p-4 flex items-center gap-3">
+              <BookOpen className="h-8 w-8 text-primary" />
+              <div>
+                <p className="font-medium">Learn</p>
+                <p className="text-sm text-muted-foreground">Lessons, courses & stories</p>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
         <Link href="/deck">
           <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
               <Layers className="h-8 w-8 text-primary" />
               <div>
                 <p className="font-medium">My Deck</p>
-                <p className="text-sm text-muted-foreground">Browse and edit cards</p>
-              </div>
-            </CardContent>
-          </Card>
-        </Link>
-        <Link href="/lessons">
-          <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
-            <CardContent className="p-4 flex items-center gap-3">
-              <BookOpen className="h-8 w-8 text-primary" />
-              <div>
-                <p className="font-medium">Lessons</p>
-                <p className="text-sm text-muted-foreground">View by lesson</p>
+                <p className="text-sm text-muted-foreground">{totalCards} cards · browse & edit</p>
               </div>
             </CardContent>
           </Card>
@@ -188,9 +149,9 @@ function Dashboard() {
         <Link href="/stats">
           <Card className="hover:bg-orange-50/50 dark:hover:bg-orange-950/20 transition-colors cursor-pointer h-full">
             <CardContent className="p-4 flex items-center gap-3">
-              <Star className="h-8 w-8 text-primary" />
+              <BarChart3 className="h-8 w-8 text-primary" />
               <div>
-                <p className="font-medium">Full Stats</p>
+                <p className="font-medium">Full stats</p>
                 <p className="text-sm text-muted-foreground">Achievements & history</p>
               </div>
             </CardContent>

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useEffect } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
 import ReactMarkdown from "react-markdown"
@@ -30,11 +30,26 @@ import {
   Trash2,
   Plus,
   AlertCircle,
+  AlertTriangle,
   RefreshCw
 } from "lucide-react"
-import { formatLessonTitle } from "@/lib/lesson-helpers"
+import { formatLessonTitle, lessonSourceLabel } from "@/lib/lesson-helpers"
+import { LESSON_TOTAL_PAGES } from "@/lib/constants"
 import { useUnpublishLesson } from "@/hooks/use-community"
-import { useRemoveCardsFromLesson, useLessons } from "@/hooks/use-lessons"
+import {
+  useRemoveCardsFromLesson,
+  useLessons,
+  useRegenerateLessonPages,
+  useLessonPagesStatus
+} from "@/hooks/use-lessons"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import { PublishLessonDialog } from "@/components/lessons/publish-lesson-dialog"
 import { EditLessonDialog } from "@/components/lessons/edit-lesson-dialog"
 import { DeleteLessonDialog } from "@/components/lessons/delete-lesson-dialog"
@@ -57,11 +72,13 @@ interface LessonDetail {
   date?: string
   notes?: string
   sourceType?: string
+  pagesStale?: boolean
   deckId: string
   createdAt: string
   cards: CardType[]
   lessonProgress: LessonProgress | null
   publishedLesson?: { id: string; title: string; addCount: number } | null
+  _count?: { pages: number }
 }
 
 class LessonNotFoundError extends Error {
@@ -91,10 +108,49 @@ export default function LessonDetailPage() {
   const [showEdit, setShowEdit] = useState(false)
   const [showDelete, setShowDelete] = useState(false)
   const [showAddCards, setShowAddCards] = useState(false)
+  const [showUnpublish, setShowUnpublish] = useState(false)
   const [manageCard, setManageCard] = useState<CardType | null>(null)
   const unpublishMutation = useUnpublishLesson()
   const removeFromLesson = useRemoveCardsFromLesson()
+  const regenerateMutation = useRegenerateLessonPages()
   const { data: allLessons } = useLessons()
+  const queryClient = useQueryClient()
+
+  // Background page generation: one status fetch on load (it keeps polling
+  // every 2s only while the server reports `generating`).
+  const [watchGeneration, setWatchGeneration] = useState(false)
+  const [regenerateTriggered, setRegenerateTriggered] = useState(false)
+  const { data: pagesStatus } = useLessonPagesStatus(lessonId, watchGeneration)
+  const generating = regenerateMutation.isPending || !!pagesStatus?.generating
+  const isRegenerating = regenerateTriggered && generating
+
+  useEffect(() => {
+    if (!pagesStatus || pagesStatus.generating) return
+    // Generation finished: refresh the lesson (page count, stale flag)
+    if (regenerateTriggered) {
+      setRegenerateTriggered(false)
+      toast.success("Lesson regenerated with the current cards")
+    }
+    queryClient.invalidateQueries({ queryKey: ["lesson", lessonId] })
+    queryClient.invalidateQueries({ queryKey: ["lessons"] })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagesStatus?.generating])
+
+  const handleRegenerate = async () => {
+    setRegenerateTriggered(true)
+    try {
+      const result = await regenerateMutation.mutateAsync(lessonId)
+      if (result.generating) {
+        setWatchGeneration(true)
+      } else {
+        setRegenerateTriggered(false)
+        toast.success("Lesson regenerated with the current cards")
+      }
+    } catch (error) {
+      setRegenerateTriggered(false)
+      toast.error(error instanceof Error ? error.message : "Failed to regenerate lesson")
+    }
+  }
 
   const handleRemoveFromLesson = async (cardId: string) => {
     try {
@@ -109,6 +165,7 @@ export default function LessonDetailPage() {
     try {
       await unpublishMutation.mutateAsync(lessonId)
       toast.success("Lesson removed from the community")
+      setShowUnpublish(false)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to unpublish")
     }
@@ -122,6 +179,11 @@ export default function LessonDetailPage() {
     retry: (failureCount, err) =>
       !(err instanceof LessonNotFoundError) && failureCount < 3
   })
+
+  // Start watching once the lesson is known to exist and has cards
+  useEffect(() => {
+    if (lesson && lesson.cards.length > 0) setWatchGeneration(true)
+  }, [lesson])
 
   if (error instanceof LessonNotFoundError) {
     return (
@@ -192,6 +254,12 @@ export default function LessonDetailPage() {
     return "Not Started"
   }
 
+  const sourceLabel = lessonSourceLabel(lesson)
+  const hasPages = (lesson._count?.pages ?? 0) > 0
+  const showStaleBanner = hasPages && !!lesson.pagesStale && !isRegenerating
+  const showPreparingBanner = generating && !isRegenerating
+  const editFrom = `/lessons/${lesson.id}`
+
   return (
     <ErrorBoundary>
       <div className="space-y-6">
@@ -206,8 +274,13 @@ export default function LessonDetailPage() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">
+              <h1 className="text-2xl sm:text-3xl font-bold flex flex-wrap items-center gap-2">
                 {formatLessonTitle(lesson.number, lesson.title)}
+                {sourceLabel && (
+                  <Badge variant="outline" className="text-xs font-medium align-middle">
+                    {sourceLabel}
+                  </Badge>
+                )}
               </h1>
               <p className="text-muted-foreground">
                 {lesson.cards.length} cards • {getStatusLabel()}
@@ -248,14 +321,10 @@ export default function LessonDetailPage() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleUnpublish}
+                  onClick={() => setShowUnpublish(true)}
                   disabled={unpublishMutation.isPending}
                 >
-                  {unpublishMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Unpublish"
-                  )}
+                  Unpublish
                 </Button>
               </div>
             )}
@@ -267,6 +336,60 @@ export default function LessonDetailPage() {
             </Link>
           </div>
         </div>
+
+        {isRegenerating && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+            <span className="flex-1">
+              Regenerating… page 1 is ready as soon as it lands; the rest are written in the
+              background{pagesStatus ? ` (${pagesStatus.totalPages} of ${LESSON_TOTAL_PAGES} pages so far)` : ""}.
+            </span>
+          </div>
+        )}
+
+        {showPreparingBanner && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm"
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-primary shrink-0" />
+            <span className="flex-1">
+              Preparing your lesson… {pagesStatus?.totalPages ?? 0} of {LESSON_TOTAL_PAGES} pages ready.
+              You can start as soon as page 1 exists.
+            </span>
+          </div>
+        )}
+
+        {showStaleBanner && (
+          <div
+            role="status"
+            className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm"
+          >
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="flex-1">
+              Cards changed since this lesson was generated. Regenerating rebuilds the
+              exercises and restarts your progress.
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleRegenerate}
+              disabled={generating}
+            >
+              {generating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
+              Regenerate
+            </Button>
+          </div>
+        )}
 
         {/* Progress Stats */}
         <Card>
@@ -315,12 +438,6 @@ export default function LessonDetailPage() {
                     You haven&apos;t started this lesson yet
                   </p>
                 </div>
-                <Link href={`/lessons/${lesson.id}/learn`}>
-                  <Button>
-                    <Play className="h-4 w-4 mr-2" />
-                    Start Lesson
-                  </Button>
-                </Link>
               </div>
             )}
           </CardContent>
@@ -356,14 +473,8 @@ export default function LessonDetailPage() {
           </Collapsible>
         )}
 
-        {/* Quick Actions */}
+        {/* Quick Actions (the Start/Continue action lives in the header) */}
         <div className="flex flex-wrap gap-3">
-          <Link href={`/lessons/${lesson.id}/learn`}>
-            <Button variant="outline">
-              <BookOpen className="h-4 w-4 mr-2" />
-              {isComplete ? "Review Lesson" : lessonProgress ? "Continue Lesson" : "Start Lesson"}
-            </Button>
-          </Link>
           <Link href={`/review?lessonId=${lesson.id}`}>
             <Button variant="outline">
               <Play className="h-4 w-4 mr-2" />
@@ -409,6 +520,7 @@ export default function LessonDetailPage() {
                   key={card.id}
                   card={card}
                   onTagClick={() => {}}
+                  editFrom={editFrom}
                   onManageLessons={() => setManageCard(card)}
                   onRemoveFromLesson={() => handleRemoveFromLesson(card.id)}
                 />
@@ -444,6 +556,36 @@ export default function LessonDetailPage() {
         cardCount={lesson.cards.length}
         onDeleted={() => router.push("/lessons")}
       />
+
+      <Dialog open={showUnpublish} onOpenChange={(o) => !o && !unpublishMutation.isPending && setShowUnpublish(false)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Unpublish this lesson?</DialogTitle>
+            <DialogDescription>
+              It will be removed from the community and other learners won&apos;t be able to
+              find or add it. Copies people already added to their decks are unaffected.
+              You can publish it again later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowUnpublish(false)}
+              disabled={unpublishMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleUnpublish}
+              disabled={unpublishMutation.isPending}
+            >
+              {unpublishMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Unpublish
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AddCardsToLessonDialog
         open={showAddCards}

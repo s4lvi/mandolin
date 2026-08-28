@@ -16,6 +16,7 @@ model User {
   bio             String?          @db.Text
   hasSeenWelcome  Boolean          @default(false)
   lastSeenVersion String?          // Track which app version user has seen
+  reviewPrefs     Json?            // Persisted review session defaults (see ReviewPrefs in validations/preferences.ts)
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
 
@@ -91,6 +92,8 @@ model Lesson {
   date        DateTime?
   notes       String?          @db.Text
   sourceType  LessonSourceType @default(USER_CREATED)
+  pagesStale  Boolean          @default(false) // Cards changed since interactive pages were generated
+  pagesGenerating Boolean      @default(false) // Background generation of remaining pages in progress
   deckId      String
   createdAt   DateTime         @default(now())
 
@@ -245,6 +248,8 @@ model ReviewHistory {
   interval    Int
   xpEarned    Int      @default(0)
   reviewedAt  DateTime @default(now())
+  source      String   @default("REVIEW") // REVIEW | LESSON | DRILL
+  previousCard Json?   // Snapshot of SRS fields before this review, for undo
 
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   card        Card     @relation(fields: [cardId], references: [id], onDelete: Cascade)
@@ -387,6 +392,7 @@ model Story {
 
   @@index([userId])
   @@index([createdAt])
+  prefetched Boolean @default(false) // Generated ahead of time; surfaced on next "New Story"
 }
 
 // ─── Curriculum System ───
@@ -521,4 +527,11 @@ model PublishedLesson {
   @@index([publishedAt])
   @@index([addCount])
   @@index([level])
+}
+
+// Shared, deploy-safe cache for character decompositions (pure function of the character)
+model CharacterDecomposition {
+  hanzi     String   @id
+  data      Json
+  createdAt DateTime @default(now())
 }

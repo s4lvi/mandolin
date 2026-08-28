@@ -1,198 +1,108 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Volume2, BookOpen, Eye, EyeOff, Trash2, Clock } from "lucide-react"
+import { Loader2, Volume2, BookOpen, Eye, EyeOff, Trash2, Clock, Upload, RotateCcw, Sparkles } from "lucide-react"
 import { StoryListSkeleton } from "@/components/ui/skeleton"
 import { AILoading } from "@/components/ui/ai-loading"
+import { LearnTabs } from "@/components/layout/learn-tabs"
 import { speakChinese } from "@/lib/speech"
-import { useSpeak } from "@/hooks/use-speak"
+import { useCards } from "@/hooks/use-cards"
+import {
+  useStories,
+  useDeleteStory,
+  useGenerateStory,
+  useHasPrefetchedStory,
+  STORY_STAGE_LABELS,
+  type Story,
+  type StorySentence
+} from "@/hooks/use-stories"
+import { SentenceDisplay } from "@/components/stories/sentence-display"
+import { WordSheet } from "@/components/stories/word-sheet"
+import type { StoryWordInfo } from "@/components/stories/story-words"
+import { DEFAULT_STORY_PREFS, loadStoryPrefs, saveStoryPrefs, type StoryPrefs } from "@/components/stories/story-prefs"
 import { toast } from "sonner"
 import type { StoryDisplayMode } from "@/types"
 
-interface StorySentence {
-  hanzi: string
-  pinyin: string
-  english: string
-  newWords?: string[]
-}
+const MIN_CARDS_FOR_STORY = 3
 
-interface Story {
-  id?: string
-  title: string
-  titlePinyin: string
-  titleEnglish: string
-  sentences: StorySentence[]
-  createdAt?: string
-}
-
-function SentenceDisplay({
-  sentence,
-  displayMode
+function ReadingModeToggle({
+  displayMode,
+  onChange
 }: {
-  sentence: StorySentence
   displayMode: StoryDisplayMode
+  onChange: (mode: StoryDisplayMode) => void
 }) {
-  // Pinyin visibility derives from the display mode; a per-sentence "reveal"
-  // override is cleared whenever the mode changes.
-  const [pinyinRevealed, setPinyinRevealed] = useState(false)
-  const [lastMode, setLastMode] = useState(displayMode)
-  if (lastMode !== displayMode) {
-    setLastMode(displayMode)
-    setPinyinRevealed(false)
-  }
-  const showPinyin = displayMode === "hanzi_pinyin_audio" || pinyinRevealed
-  const [showEnglish, setShowEnglish] = useState(false)
-  const { speak, isPlaying } = useSpeak()
-
-  const playAudio = () => {
-    if (isPlaying) return
-    void speak(sentence.hanzi)
-  }
-
   return (
-    <div className="group py-3 px-3 md:px-4 rounded-lg hover:bg-muted/50 transition-colors">
-      <div className="flex items-start gap-3">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-11 w-11 shrink-0 mt-0.5"
-          onClick={playAudio}
-          disabled={isPlaying}
-          aria-label="Play pronunciation"
-        >
-          <Volume2 className={`h-5 w-5 ${isPlaying ? "animate-pulse text-primary" : ""}`} />
-        </Button>
-
-        <div className="flex-1 min-w-0">
-          {/* Hanzi — 22-24px for readability */}
-          <p className="text-[22px] md:text-2xl leading-relaxed break-words">{sentence.hanzi}</p>
-
-          {/* Reveal buttons — pill-shaped for easy tapping */}
-          <div className="flex flex-wrap gap-2 mt-2">
-            {showPinyin ? (
-              <p className="text-sm text-muted-foreground break-words">{sentence.pinyin}</p>
-            ) : (
-              <button
-                className="text-xs px-3 py-1.5 rounded-full border border-primary/30 text-primary/70 hover:bg-primary/10 active:bg-primary/20 min-h-[32px]"
-                onClick={() => setPinyinRevealed(true)}
-              >
-                pinyin
-              </button>
-            )}
-
-            {showEnglish ? (
-              <p className="text-sm text-blue-600 dark:text-blue-400 break-words">{sentence.english}</p>
-            ) : (
-              <button
-                className="text-xs px-3 py-1.5 rounded-full border border-blue-500/30 text-blue-500/70 hover:bg-blue-500/10 active:bg-blue-500/20 min-h-[32px]"
-                onClick={() => setShowEnglish(true)}
-              >
-                english
-              </button>
-            )}
-          </div>
-
-          {/* New words indicator */}
-          {sentence.newWords && sentence.newWords.length > 0 && (
-            <div className="flex gap-1 mt-2">
-              {sentence.newWords.map((word) => (
-                <Badge key={word} variant="secondary" className="text-xs">
-                  new: {word}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+    <div className="flex items-center gap-2">
+      <span className="text-sm text-muted-foreground">Reading mode:</span>
+      <Button
+        variant={displayMode === "hanzi_audio" ? "default" : "outline"}
+        size="sm"
+        onClick={() => onChange("hanzi_audio")}
+      >
+        <EyeOff className="h-3 w-3 mr-1" />
+        Immersion
+      </Button>
+      <Button
+        variant={displayMode === "hanzi_pinyin_audio" ? "default" : "outline"}
+        size="sm"
+        onClick={() => onChange("hanzi_pinyin_audio")}
+      >
+        <Eye className="h-3 w-3 mr-1" />
+        With Pinyin
+      </Button>
     </div>
   )
 }
 
 export default function StoriesPage() {
   const [activeStory, setActiveStory] = useState<Story | null>(null)
-  const [isGenerating, setIsGenerating] = useState(false)
-  const [displayMode, setDisplayMode] = useState<StoryDisplayMode>("hanzi_audio")
   const [isPlayingAll, setIsPlayingAll] = useState(false)
-  const queryClient = useQueryClient()
+  const [tappedWord, setTappedWord] = useState<StoryWordInfo | null>(null)
 
-  const { data: savedStoriesData, isLoading: isLoadingStories } = useQuery({
-    queryKey: ["stories"],
-    queryFn: async () => {
-      const res = await fetch("/api/stories")
-      if (!res.ok) throw new Error("Failed to fetch stories")
-      return res.json()
-    }
-  })
+  // Reader preferences persisted in localStorage; restored after mount so the
+  // server render and first client render agree.
+  const [prefs, setPrefs] = useState<StoryPrefs>(DEFAULT_STORY_PREFS)
+  const [prefsLoaded, setPrefsLoaded] = useState(false)
+  useEffect(() => {
+    setPrefs(loadStoryPrefs())
+    setPrefsLoaded(true)
+  }, [])
+  useEffect(() => {
+    if (prefsLoaded) saveStoryPrefs(prefs)
+  }, [prefs, prefsLoaded])
+  const displayMode = prefs.displayMode
+  const setDisplayMode = (displayMode: StoryDisplayMode) => setPrefs((p) => ({ ...p, displayMode }))
+  const setReadAloud = (readAloud: boolean) => setPrefs((p) => ({ ...p, readAloud }))
 
-  const savedStories: Story[] = savedStoriesData?.stories || []
+  const { data: savedStories = [], isLoading: isLoadingStories } = useStories()
+  const { data: cards, isLoading: isLoadingCards } = useCards()
+  const deleteStoryMutation = useDeleteStory()
+  const { generate, isGenerating, stage } = useGenerateStory()
+  const hasPrefetchedStory = useHasPrefetchedStory()
+  const newStoryLabel = hasPrefetchedStory ? "A new story is ready" : "New Story"
+
+  const cardCount = cards?.length ?? 0
+  const canGenerate = cardCount >= MIN_CARDS_FOR_STORY
 
   const generateStory = async () => {
-    setIsGenerating(true)
     setActiveStory(null)
     try {
-      const res = await fetch("/api/stories/generate", { method: "POST" })
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.error || "Failed to generate story")
-      }
-
-      // Handle NDJSON streaming response
-      const reader = res.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) throw new Error("No response body")
-
-      let buffer = ""
-      let story: Story | null = null
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split("\n")
-        buffer = lines.pop() || "" // Keep incomplete last line
-
-        for (const line of lines) {
-          if (!line.trim()) continue
-          try {
-            const data = JSON.parse(line)
-            if (data.error) throw new Error(data.error)
-            if (data.sentences) {
-              story = data // Final story payload
-            }
-            // Status messages ("generating", "streaming") are ignored — just keep waiting
-          } catch (e) {
-            if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
-              throw e
-            }
-          }
-        }
-      }
-
-      if (story) {
-        setActiveStory(story)
-        queryClient.invalidateQueries({ queryKey: ["stories"] })
-      } else {
-        throw new Error("No story received")
-      }
+      const story = await generate()
+      setActiveStory(story)
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to generate story")
-    } finally {
-      setIsGenerating(false)
     }
   }
 
   const deleteStory = async (storyId: string) => {
     if (!window.confirm("Delete this story? This can't be undone.")) return
     try {
-      const res = await fetch(`/api/stories?id=${storyId}`, { method: "DELETE" })
-      if (!res.ok) throw new Error("Failed to delete story")
-      queryClient.invalidateQueries({ queryKey: ["stories"] })
+      await deleteStoryMutation.mutateAsync(storyId)
       if (activeStory?.id === storyId) setActiveStory(null)
       toast.success("Story deleted")
     } catch {
@@ -219,8 +129,18 @@ export default function StoriesPage() {
     setIsPlayingAll(false)
   }
 
+  // "Read Aloud" preference: auto-play the story when it opens.
+  const activeStoryId = activeStory?.id
+  useEffect(() => {
+    if (!activeStoryId || !prefsLoaded || !prefs.readAloud) return
+    void playAllSentences()
+    // Only fire when a story is opened, not on every preference change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStoryId, prefsLoaded])
+
   // Reading view for an active story
   if (activeStory) {
+    const newWordCount = activeStory.sentences.reduce((acc, s) => acc + (s.newWords?.length || 0), 0)
     return (
       <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-3">
@@ -231,7 +151,7 @@ export default function StoriesPage() {
             )}
             <p className="text-sm text-muted-foreground">{activeStory.titleEnglish}</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
               size="sm"
@@ -253,24 +173,22 @@ export default function StoriesPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant={displayMode === "hanzi_audio" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setDisplayMode("hanzi_audio")}
-          >
-            <EyeOff className="h-3 w-3 mr-1" />
-            Immersion
-          </Button>
-          <Button
-            variant={displayMode === "hanzi_pinyin_audio" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setDisplayMode("hanzi_pinyin_audio")}
-          >
-            <Eye className="h-3 w-3 mr-1" />
-            With Pinyin
-          </Button>
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <ReadingModeToggle displayMode={displayMode} onChange={setDisplayMode} />
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              className="h-4 w-4 accent-primary"
+              checked={prefs.readAloud}
+              onChange={(e) => setReadAloud(e.target.checked)}
+            />
+            Read aloud when a story opens
+          </label>
         </div>
+
+        <p className="text-xs text-muted-foreground">
+          Tap an underlined word to see its meaning or add it to your deck.
+        </p>
 
         <Card>
           <CardContent className="py-4 divide-y">
@@ -279,6 +197,8 @@ export default function StoriesPage() {
                 key={index}
                 sentence={sentence}
                 displayMode={displayMode}
+                cards={cards}
+                onWordTap={setTappedWord}
               />
             ))}
           </CardContent>
@@ -286,10 +206,35 @@ export default function StoriesPage() {
 
         <div className="text-center text-sm text-muted-foreground">
           {activeStory.sentences.length} sentences
-          {activeStory.sentences.some(s => s.newWords && s.newWords.length > 0) && (
-            <> with {activeStory.sentences.reduce((acc, s) => acc + (s.newWords?.length || 0), 0)} new words</>
-          )}
+          {newWordCount > 0 && <> with {newWordCount} new words</>}
         </div>
+
+        {/* End-of-story actions */}
+        <Card>
+          <CardContent className="py-6 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/review" className="w-full sm:w-auto">
+              <Button className="w-full">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Review your deck
+              </Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={generateStory}
+              disabled={isGenerating || !canGenerate}
+            >
+              {isGenerating ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4 mr-2" />
+              )}
+              {hasPrefetchedStory ? "A new story is ready" : "New story"}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <WordSheet word={tappedWord} onClose={() => setTappedWord(null)} />
       </div>
     )
   }
@@ -297,63 +242,58 @@ export default function StoriesPage() {
   // Stories list view
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex items-center justify-between">
+      <LearnTabs />
+
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Short Stories</h1>
           <p className="text-muted-foreground">
             AI-generated reading practice using your vocabulary
           </p>
         </div>
-        <Button
-          onClick={generateStory}
-          disabled={isGenerating}
-        >
-          {isGenerating ? (
-            <>
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              Generating...
-            </>
-          ) : (
-            <>
-              <BookOpen className="h-4 w-4 mr-2" />
-              New Story
-            </>
-          )}
-        </Button>
+        {canGenerate && (
+          <Button onClick={generateStory} disabled={isGenerating}>
+            {isGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                {hasPrefetchedStory ? <Sparkles className="h-4 w-4 mr-2" /> : <BookOpen className="h-4 w-4 mr-2" />}
+                {newStoryLabel}
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
-      {/* AI loading overlay */}
+      {/* AI loading overlay driven by the generate stream's status events */}
       {isGenerating && (
-        <AILoading
-          status="generating"
-          statusLabels={{ generating: "Writing your story" }}
-        />
+        <AILoading status={stage} statusLabels={STORY_STAGE_LABELS} />
       )}
 
-      {/* Display mode selector */}
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-muted-foreground">Reading mode:</span>
-        <Button
-          variant={displayMode === "hanzi_audio" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setDisplayMode("hanzi_audio")}
-        >
-          <EyeOff className="h-3 w-3 mr-1" />
-          Immersion
-        </Button>
-        <Button
-          variant={displayMode === "hanzi_pinyin_audio" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setDisplayMode("hanzi_pinyin_audio")}
-        >
-          <Eye className="h-3 w-3 mr-1" />
-          With Pinyin
-        </Button>
-      </div>
+      <ReadingModeToggle displayMode={displayMode} onChange={setDisplayMode} />
 
-      {/* Saved stories */}
-      {isLoadingStories ? (
+      {isLoadingStories || isLoadingCards ? (
         <StoryListSkeleton />
+      ) : !canGenerate && savedStories.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-lg font-medium mb-2">Build your vocabulary first</h3>
+            <p className="text-muted-foreground mb-4">
+              Stories are built from your vocabulary. Add at least {MIN_CARDS_FOR_STORY} cards to generate one.
+              {cardCount > 0 && <> You have {cardCount} so far.</>}
+            </p>
+            <Link href="/upload">
+              <Button>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload notes
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
       ) : savedStories.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
@@ -368,12 +308,18 @@ export default function StoriesPage() {
               ) : (
                 <BookOpen className="h-4 w-4 mr-2" />
               )}
-              New Story
+              {newStoryLabel}
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-3">
+          {!canGenerate && (
+            <p className="text-sm text-muted-foreground">
+              Add at least {MIN_CARDS_FOR_STORY} cards to generate new stories.{" "}
+              <Link href="/upload" className="underline">Upload notes</Link>
+            </p>
+          )}
           {savedStories.map((story) => (
             <Card
               key={story.id}
@@ -399,6 +345,7 @@ export default function StoriesPage() {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Delete story"
                     onClick={(e) => {
                       e.stopPropagation()
                       deleteStory(story.id!)

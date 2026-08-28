@@ -6,10 +6,30 @@ import type { ParseNotesRequest, ParseNotesResponse } from "@/types/api-response
 
 export type ParseStatus = "idle" | "processing" | "generating_context" | "parsing_cards" | "streaming"
 
+export type StreamedParsedCard = ParseNotesResponse["cards"][number]
+
+export interface ParseNotesResult extends ParseNotesResponse {
+  /** Non-fatal problem reported by the server (e.g. notes were truncated) */
+  warning?: string
+}
+
+interface StreamCallbacks {
+  onStatus: (status: ParseStatus) => void
+  onCard: (card: StreamedParsedCard) => void
+}
+
+/**
+ * Consumes the parse-notes NDJSON stream. Events:
+ *   {"status": ...}            progress heartbeat
+ *   {"type":"card","card":..}  one parsed card, forwarded immediately
+ *   {"type":"warning",...}     non-fatal notice, attached to the result
+ *   {"type":"done", ...}       final ParseNotesResponse payload
+ *   {"error": ...}             fatal
+ */
 async function parseNotesStreaming(
   input: ParseNotesRequest,
-  onStatus: (status: ParseStatus) => void
-): Promise<ParseNotesResponse> {
+  { onStatus, onCard }: StreamCallbacks
+): Promise<ParseNotesResult> {
   const res = await fetch("/api/parse-notes", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -17,7 +37,7 @@ async function parseNotesStreaming(
   })
 
   if (!res.ok) {
-    const error = await res.json()
+    const error = await res.json().catch(() => ({}))
     throw new Error(error.error || "Failed to parse notes")
   }
 
@@ -27,75 +47,83 @@ async function parseNotesStreaming(
   }
 
   const decoder = new TextDecoder()
-  let result: ParseNotesResponse | null = null
+  let result: ParseNotesResult | null = null
+  let warning: string | undefined
   let buffer = ""
+
+  const handleLine = (line: string) => {
+    if (!line.trim()) return
+    let data: Record<string, unknown>
+    try {
+      data = JSON.parse(line)
+    } catch {
+      return // partial/garbled line; ignore
+    }
+
+    if (typeof data.error === "string") {
+      throw new Error(data.error)
+    }
+    if (typeof data.status === "string") {
+      onStatus(data.status as ParseStatus)
+      return
+    }
+    switch (data.type) {
+      case "card":
+        onCard(data.card as StreamedParsedCard)
+        break
+      case "warning":
+        warning = String(data.message)
+        break
+      case "done":
+        result = data as unknown as ParseNotesResult
+        break
+      default:
+        // Legacy shape: the final payload without a type discriminator
+        if (Array.isArray(data.cards)) result = data as unknown as ParseNotesResult
+    }
+  }
 
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
 
     buffer += decoder.decode(value, { stream: true })
-
     const lines = buffer.split("\n")
     buffer = lines.pop() || ""
-
-    for (const line of lines) {
-      if (!line.trim()) continue
-
-      try {
-        const data = JSON.parse(line)
-
-        if (data.error) {
-          throw new Error(data.error)
-        }
-
-        // Surface status updates
-        if (data.status) {
-          onStatus(data.status as ParseStatus)
-        }
-
-        if (data.cards) {
-          result = data
-        }
-      } catch (e) {
-        if (e instanceof SyntaxError) {
-          continue
-        }
-        throw e
-      }
-    }
+    for (const line of lines) handleLine(line)
   }
-
-  if (buffer.trim()) {
-    try {
-      const data = JSON.parse(buffer)
-      if (data.error) {
-        throw new Error(data.error)
-      }
-      if (data.cards) {
-        result = data
-      }
-    } catch {
-      // Ignore parse errors
-    }
-  }
+  handleLine(buffer)
 
   if (!result) {
     throw new Error("No valid response received")
   }
 
   onStatus("idle")
-  return result
+  return warning ? { ...(result as ParseNotesResult), warning } : result
 }
 
-export function useParseNotes() {
+export interface UseParseNotesOptions {
+  /** Called for each card as soon as the server has parsed it */
+  onCard?: (card: StreamedParsedCard) => void
+}
+
+export function useParseNotes({ onCard }: UseParseNotesOptions = {}) {
   const [parseStatus, setParseStatus] = useState<ParseStatus>("idle")
+  const [streamedCount, setStreamedCount] = useState(0)
 
   const mutation = useMutation({
-    mutationFn: (input: ParseNotesRequest) =>
-      parseNotesStreaming(input, setParseStatus),
+    mutationFn: (input: ParseNotesRequest) => {
+      setStreamedCount(0)
+      return parseNotesStreaming(input, {
+        onStatus: setParseStatus,
+        onCard: (card) => {
+          setStreamedCount((n) => n + 1)
+          onCard?.(card)
+        }
+      })
+    },
     onError: () => setParseStatus("idle")
   })
 
-  return { ...mutation, parseStatus }
+  return { ...mutation, parseStatus, streamedCount }
 }

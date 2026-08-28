@@ -1,0 +1,30 @@
+{
+  "version": "0.8.0",
+  "title": "One-Tap Reviews & a Clearer Map",
+  "changes": [
+    "Review starts with one tap — your mode, card face, and filters are remembered between sessions",
+    "Mid-session progress is saved: refresh or switch apps and pick up where you left off",
+    "Undo now really undoes — the rating, XP, and scheduling are all reverted",
+    "Keyboard shortcuts while reviewing: Space to flip, 1–4 to rate, U to undo",
+    "Interval previews on every rating button in every mode, and the Hard button is available on mobile",
+    "New cards are labelled, and you choose how many new cards each session introduces",
+    "Test mode advances automatically after you answer",
+    "Practicing missed cards no longer affects their schedule",
+    "Simpler navigation: Home · Review · Learn · Profile on mobile; Stories lives under Learn",
+    "Home shows your streak, today's goal, and what to continue — signing in lands you there",
+    "Shorter, skippable welcome that starts you with notes or a course",
+    "Daily goal, new-cards-per-session, audio, and Hard-button preferences are editable in Profile",
+    "Uploads now confirm success (or tell you what went wrong) with a real completion step",
+    "Lessons from courses and the community are labelled and no longer shift your own lesson numbering",
+    "Lessons prompt you to regenerate interactive pages after their cards change",
+    "Lesson exercises remember your answers, and finishing one offers to review its cards",
+    "Select and organise cards from the deck on mobile",
+    "Stories: tap any word for pinyin and meaning, add new words to your deck, and see generation progress",
+    "Empty screens now point you somewhere useful",
+    "AI features are faster: cards and lesson pages appear as they're written instead of after a long wait",
+    "Interactive lessons start on page 1 while the rest is prepared in the background, and are pre-built right after you upload notes",
+    "Test questions are prepared for the whole session up front; the next story is ready before you ask for it",
+    "Saving parsed cards no longer requires scrolling to the bottom — a sticky bar shows your selection and the Save button",
+    "Sticky search/filters and selection bars on Deck and Lessons, larger tap targets, Enter submits dialogs, and dialog buttons stay visible on small screens"
+  ]
+}

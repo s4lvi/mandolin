@@ -1,6 +1,5 @@
 // SM-2 Spaced Repetition Algorithm Implementation
 
-import { isSameLocalDay, isConsecutiveLocalDay } from "@/lib/dates"
 
 export enum Quality {
   AGAIN = 0, // Complete blackout, wrong answer
@@ -162,16 +161,6 @@ export function xpProgressInLevel(totalXp: number): { current: number; needed: n
   }
 }
 
-// Check if dates are on the same calendar day (in the given IANA zone, default UTC)
-export function isSameDay(date1: Date, date2: Date, timeZone: string = "UTC"): boolean {
-  return isSameLocalDay(date1, date2, timeZone)
-}
-
-// Check if dates are consecutive calendar days (in the given IANA zone, default UTC)
-export function isConsecutiveDay(lastDate: Date, currentDate: Date, timeZone: string = "UTC"): boolean {
-  return isConsecutiveLocalDay(lastDate, currentDate, timeZone)
-}
-
 // Get quality label for display
 export function getQualityLabel(quality: Quality): string {
   switch (quality) {
@@ -211,5 +200,111 @@ export function getQualityColor(quality: Quality): string {
       return "text-green-500"
     case Quality.EASY:
       return "text-blue-500"
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers shared by the review UI and the review API
+// ---------------------------------------------------------------------------
+
+/** SRS fields snapshotted into ReviewHistory.previousCard so a review can be undone */
+export interface SRSSnapshot {
+  easeFactor: number
+  interval: number
+  repetitions: number
+  state: "NEW" | "LEARNING" | "REVIEW" | "LEARNED"
+  nextReview: string | null
+  lastReviewed: string | null
+  correctCount: number
+  incorrectCount: number
+}
+
+export function snapshotCardSRS(card: {
+  easeFactor: number
+  interval: number
+  repetitions: number
+  state: SRSSnapshot["state"]
+  nextReview: Date | string | null
+  lastReviewed: Date | string | null
+  correctCount: number
+  incorrectCount: number
+}): SRSSnapshot {
+  const toIso = (d: Date | string | null) =>
+    d == null ? null : d instanceof Date ? d.toISOString() : d
+  return {
+    easeFactor: card.easeFactor,
+    interval: card.interval,
+    repetitions: card.repetitions,
+    state: card.state,
+    nextReview: toIso(card.nextReview),
+    lastReviewed: toIso(card.lastReviewed),
+    correctCount: card.correctCount,
+    incorrectCount: card.incorrectCount
+  }
+}
+
+/** Validate an unknown JSON value as an SRSSnapshot (used when restoring on undo) */
+export function parseSRSSnapshot(value: unknown): SRSSnapshot | null {
+  if (!value || typeof value !== "object") return null
+  const v = value as Record<string, unknown>
+  const states = ["NEW", "LEARNING", "REVIEW", "LEARNED"]
+  if (
+    typeof v.easeFactor !== "number" ||
+    typeof v.interval !== "number" ||
+    typeof v.repetitions !== "number" ||
+    typeof v.state !== "string" ||
+    !states.includes(v.state) ||
+    typeof v.correctCount !== "number" ||
+    typeof v.incorrectCount !== "number"
+  ) {
+    return null
+  }
+  return {
+    easeFactor: v.easeFactor,
+    interval: v.interval,
+    repetitions: v.repetitions,
+    state: v.state as SRSSnapshot["state"],
+    nextReview: typeof v.nextReview === "string" ? v.nextReview : null,
+    lastReviewed: typeof v.lastReviewed === "string" ? v.lastReviewed : null,
+    correctCount: v.correctCount,
+    incorrectCount: v.incorrectCount
+  }
+}
+
+/** A card the user has never successfully reviewed */
+export function isNewCard(card: {
+  state?: string | null
+  repetitions?: number | null
+  lastReviewed?: string | Date | null
+}): boolean {
+  if (card.state === "NEW") return true
+  return (card.repetitions ?? 0) === 0 && !card.lastReviewed
+}
+
+export interface IntervalLabels {
+  again: string
+  hard: string
+  good: string
+  easy: string
+}
+
+/** Human-readable next-interval preview for each rating button */
+export function previewIntervalLabels(card: {
+  easeFactor?: number | null
+  interval?: number | null
+  repetitions?: number | null
+  state?: string | null
+}): IntervalLabels {
+  const srs: SRSCard = {
+    easeFactor: card.easeFactor ?? 2.5,
+    interval: card.interval ?? 0,
+    repetitions: card.repetitions ?? 0,
+    state: (card.state ?? "NEW") as SRSCard["state"]
+  }
+  return {
+    again: formatInterval(previewInterval(srs, Quality.AGAIN)),
+    hard: formatInterval(previewInterval(srs, Quality.HARD)),
+    good: formatInterval(previewInterval(srs, Quality.GOOD)),
+    easy: formatInterval(previewInterval(srs, Quality.EASY))
   }
 }

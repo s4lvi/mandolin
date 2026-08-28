@@ -9,10 +9,11 @@ import { Loader2, Sparkles, Volume2, Puzzle } from "lucide-react"
 import { AnswerButtons } from "./answer-buttons"
 import type { Card as CardType, FaceMode, ExampleSentence } from "@/types"
 import { speakChinese, preloadVoices } from "@/lib/speech"
-import { previewInterval, formatInterval, Quality } from "@/lib/srs"
+import { previewIntervalLabels, isNewCard, Quality } from "@/lib/srs"
 import { useSpeak } from "@/hooks/use-speak"
 import { useSwipe } from "@/hooks/use-swipe"
 import { isNative } from "@/lib/capacitor"
+import { useReviewKeys, NewBadge } from "./review-keys"
 
 // Re-exported so existing consumers can keep importing Quality from here
 export { Quality }
@@ -25,6 +26,10 @@ interface FlashcardProps {
   exampleSentence?: ExampleSentence
   isGenerating?: boolean
   isSubmitting?: boolean
+  /** Auto-play hanzi audio when the card appears (never when the front is English) */
+  autoPlayAudio?: boolean
+  /** Show the Hard button on mobile */
+  showHard?: boolean
 }
 
 export function Flashcard({
@@ -34,7 +39,9 @@ export function Flashcard({
   onGenerateExample,
   exampleSentence,
   isGenerating,
-  isSubmitting
+  isSubmitting,
+  autoPlayAudio = true,
+  showHard = true
 }: FlashcardProps) {
   const [isFlipped, setIsFlipped] = useState(false)
   const { speak, isPlaying } = useSpeak()
@@ -70,16 +77,18 @@ export function Flashcard({
     preloadVoices()
   }, [])
 
-  // Reset flip state and auto-play audio when card changes
+  // Reset flip state and auto-play audio when card changes. Never read the
+  // hanzi aloud when the front is English (it would give away the answer).
   useEffect(() => {
     setIsFlipped(false)
     setShowPinyin(faceMode !== "immersion")
+    if (!autoPlayAudio || faceMode === "english") return
     // Auto-play pronunciation for the new card (slight delay for smooth transition)
     const timer = setTimeout(() => {
       speakChinese(card.hanzi)
     }, 300)
     return () => clearTimeout(timer)
-  }, [card.id, card.hanzi, faceMode])
+  }, [card.id, card.hanzi, faceMode, autoPlayAudio])
 
   const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation() // Prevent card flip
@@ -128,18 +137,8 @@ export function Flashcard({
   })
 
   // Compute actual SRS intervals for each quality button
-  const cardSRS = {
-    easeFactor: card.easeFactor ?? 2.5,
-    interval: card.interval ?? 0,
-    repetitions: card.repetitions ?? 0,
-    state: (card.state ?? "NEW") as "NEW" | "LEARNING" | "REVIEW" | "LEARNED"
-  }
-  const intervalLabels = {
-    again: formatInterval(previewInterval(cardSRS, Quality.AGAIN)),
-    hard: formatInterval(previewInterval(cardSRS, Quality.HARD)),
-    good: formatInterval(previewInterval(cardSRS, Quality.GOOD)),
-    easy: formatInterval(previewInterval(cardSRS, Quality.EASY)),
-  }
+  const intervalLabels = previewIntervalLabels(card)
+  const isNew = isNewCard(card)
 
   const handleCardTap = () => {
     if (!isFlipped) {
@@ -151,6 +150,14 @@ export function Flashcard({
       }
     }
   }
+
+  // Space/Enter flips, 1–4 rates once flipped
+  useReviewKeys({
+    enabled: !isSubmitting,
+    revealed: isFlipped,
+    onReveal: handleCardTap,
+    onRate: onAnswer
+  })
 
   return (
     <div
@@ -166,15 +173,12 @@ export function Flashcard({
           aria-label="Flip card"
           className="cursor-pointer active:scale-[0.98] transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={handleCardTap}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              handleCardTap()
-            }
-          }}
+          // Enter/Space are handled once by useReviewKeys (a div with role="button"
+          // gets no native click, so no local key handler is needed)
           style={{ backgroundColor: swipeOverlay }}
         >
-          <CardContent className="text-center py-8 sm:py-12 px-4">
+          <CardContent className="relative text-center py-8 sm:py-12 px-4">
+            {isNew && <NewBadge className="absolute top-3 left-3" />}
             <div className="flex items-center justify-center gap-3">
               <p
                 className={`font-bold ${
@@ -261,6 +265,7 @@ export function Flashcard({
               onAnswer={onAnswer}
               disabled={isSubmitting}
               intervalLabels={intervalLabels}
+              showHard={showHard}
             />
           </div>
 

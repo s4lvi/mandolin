@@ -69,21 +69,32 @@ export interface FetchReviewCardsParams {
   types?: string[]
   allCards?: boolean
   tagIds?: string[]
+  /** Max new (never-reviewed) cards to mix into the session (0..50) */
+  newLimit?: number
 }
 
 export interface ReviewResponse {
   cards: Card[]
   userStats: UserStats | null
+  /** Total cards matching the filter that are due or new */
   dueCount: number
+  /** Cards matching the filter that are due for review (previously reviewed) */
+  dueReviewCount?: number
+  /** Cards matching the filter that have never been reviewed */
+  newCount?: number
   totalCards: number
   availableTags: Tag[]
 }
+
+export type ReviewSource = "REVIEW" | "LESSON" | "DRILL"
 
 export interface SubmitReviewRequest {
   cardId: string
   quality: number
   /** IANA timezone used for streak / daily-progress day boundaries */
   timezone?: string
+  /** Where the rating came from; defaults to REVIEW */
+  source?: ReviewSource
 }
 
 export interface ReviewResult {
@@ -92,6 +103,19 @@ export interface ReviewResult {
   xpEarned: number
   newAchievements: AchievementInfo[]
   srsResult: SRSResult
+  /** ReviewHistory row id, passed to POST /api/review/undo */
+  historyId: string
+}
+
+export interface UndoReviewRequest {
+  historyId: string
+}
+
+export interface UndoReviewResponse {
+  card: Card
+  stats: UserStats
+  /** XP that was removed from the user's total */
+  xpReverted: number
 }
 
 /**

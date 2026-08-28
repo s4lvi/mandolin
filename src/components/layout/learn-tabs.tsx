@@ -2,17 +2,18 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { BookOpen, GraduationCap, Users } from "lucide-react"
+import { BookOpen, GraduationCap, Users, BookText } from "lucide-react"
 
 const TABS = [
   { href: "/lessons", label: "My Lessons", icon: BookOpen },
   { href: "/courses", label: "Courses", icon: GraduationCap },
-  { href: "/community", label: "Community", icon: Users }
+  { href: "/community", label: "Community", icon: Users },
+  { href: "/stories", label: "Stories", icon: BookText }
 ]
 
 /**
  * Segmented navigation shared across the Learn hub pages
- * (My Lessons / Courses / Community).
+ * (My Lessons / Courses / Community / Stories).
  */
 export function LearnTabs() {
   const pathname = usePathname()
@@ -29,6 +30,7 @@ export function LearnTabs() {
           <Link
             key={tab.href}
             href={tab.href}
+            aria-current={active ? "page" : undefined}
             className={`flex items-center justify-center gap-1.5 flex-1 min-w-fit whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
               active
                 ? "bg-background text-foreground shadow-sm"

@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation"
 import { useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
-import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Trophy } from "lucide-react"
+import { ArrowLeft, ArrowRight, Loader2, CheckCircle, Trophy, RefreshCw, AlertTriangle, Play } from "lucide-react"
 import { AILoading } from "@/components/ui/ai-loading"
 import { TextSegment } from "@/components/lessons/interactive/text-segment"
 import { FlashcardSegment } from "@/components/lessons/interactive/flashcard-segment"
@@ -13,7 +13,17 @@ import { MultipleChoiceSegment } from "@/components/lessons/interactive/multiple
 import { FillInSegment } from "@/components/lessons/interactive/fill-in-segment"
 import { TranslationSegment } from "@/components/lessons/interactive/translation-segment"
 import { FeedbackSegment } from "@/components/lessons/interactive/feedback-segment"
+import { useLessonPagesStatus } from "@/hooks/use-lessons"
+import { LESSON_TOTAL_PAGES } from "@/lib/constants"
 import { toast } from "sonner"
+
+function getClientTimeZone(): string {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+  } catch {
+    return "UTC"
+  }
+}
 
 // Segment content is stored as JSON; fields depend on the segment type.
 interface SegmentContent {
@@ -105,6 +115,23 @@ function InteractiveLessonContent({
   const responsesRef = useRef<ResponsesByPage>({})
   const [isComplete, setIsComplete] = useState(false)
   const [lessonCards, setLessonCards] = useState<LessonCard[]>([])
+  // Cards changed since these pages were generated (server flag)
+  const [pagesStale, setPagesStale] = useState(false)
+  const [isRegenerating, setIsRegenerating] = useState(false)
+  // Remaining pages are still being written server-side; poll until they land
+  const [isWritingPages, setIsWritingPages] = useState(false)
+  const { data: pagesStatus } = useLessonPagesStatus(lessonId, isWritingPages)
+
+  // Grow totalPages as background pages arrive so "Next" unlocks page by page
+  useEffect(() => {
+    if (!pagesStatus) return
+    setPosition((prev) =>
+      pagesStatus.totalPages > prev.totalPages
+        ? { ...prev, totalPages: pagesStatus.totalPages }
+        : prev
+    )
+    if (!pagesStatus.generating) setIsWritingPages(false)
+  }, [pagesStatus])
 
   // Build hanzi → cardId map for SRS submission
   const hanziToCardId = new Map(lessonCards.map(c => [c.hanzi, c.id]))
@@ -147,7 +174,7 @@ function InteractiveLessonContent({
       const res = await fetch("/api/review", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId, quality })
+        body: JSON.stringify({ cardId, quality, source: "LESSON", timezone: getClientTimeZone() })
       })
       if (res.ok) invalidateStudyQueries()
     } catch {
@@ -161,34 +188,51 @@ function InteractiveLessonContent({
   useEffect(() => {
     const controller = new AbortController()
     initializeLesson(controller.signal)
-    return () => controller.abort()
+    return () => {
+      controller.abort()
+      setAdvancing(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId])
 
-  // Load page when the position changes (after initial setup)
+  // Load page when the position changes (after initial setup). Keyed on
+  // whether pages exist rather than the count, so pages arriving in the
+  // background don't reload the page the user is on.
+  const hasPages = totalPages > 0
   useEffect(() => {
-    if (totalPages === 0) return
+    if (!hasPages) return
     const controller = new AbortController()
     loadPage(currentPageNumber, controller.signal)
     return () => controller.abort()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentPageNumber, totalPages, lessonId])
+  }, [currentPageNumber, hasPages, lessonId])
 
-  async function initializeLesson(signal: AbortSignal, retryCount = 0) {
+  async function initializeLesson(
+    signal: AbortSignal,
+    retryCount = 0,
+    options: { regenerate?: boolean } = {}
+  ) {
     // Reset per-lesson state (the same component is reused when advancing
     // to the next course lesson, which only changes the route params)
     if (retryCount === 0) {
       setIsComplete(false)
       setCourseResult(null)
+      setAdvancing(false)
       setIsGenerating(true)
       setCurrentPage(null)
       setPosition({ totalPages: 0, pageNumber: 1 })
+      setPagesStale(false)
+      setIsWritingPages(false)
       responsesRef.current = {}
     }
     try {
-      // Generate pages and fetch lesson cards in parallel
+      // Generate pages and fetch lesson cards in parallel. Regenerating also
+      // clears saved progress server-side (old page/segment ids are gone).
+      const genUrl = options.regenerate
+        ? `/api/lessons/${lessonId}/generate-pages?regenerate=true`
+        : `/api/lessons/${lessonId}/generate-pages`
       const [genRes, lessonRes] = await Promise.all([
-        fetch(`/api/lessons/${lessonId}/generate-pages`, { method: "POST", signal }),
+        fetch(genUrl, { method: "POST", signal }),
         fetch(`/api/lessons/${lessonId}`, { signal })
       ])
 
@@ -196,13 +240,15 @@ function InteractiveLessonContent({
         // Retry once — AI responses occasionally fail on first attempt
         if (retryCount < 1) {
           console.warn("Page generation failed, retrying...")
-          return initializeLesson(signal, retryCount + 1)
+          return initializeLesson(signal, retryCount + 1, options)
         }
         throw new Error("Failed to generate pages")
       }
 
       const genData = await genRes.json()
       const generatedTotal: number = genData.totalPages
+      const stale = !!genData.stale
+      const generating = !!genData.generating
 
       // Load lesson cards for SRS matching
       let cards: LessonCard[] = []
@@ -247,14 +293,30 @@ function InteractiveLessonContent({
       // Commit everything at once so the page-load effect fires a single time
       setLessonCards(cards)
       responsesRef.current = restored
+      setPagesStale(stale)
       setPosition({ totalPages: generatedTotal, pageNumber: resumePage })
+      setIsWritingPages(generating)
       setIsGenerating(false)
+      if (options.regenerate) {
+        invalidateStudyQueries()
+        toast.success("Lesson regenerated with the current cards")
+      }
     } catch (error) {
       if (signal.aborted) return
       console.error("Error initializing lesson:", error)
-      toast.error("Failed to generate lesson pages")
+      toast.error(options.regenerate ? "Failed to regenerate lesson" : "Failed to generate lesson pages")
       router.push(`/lessons/${lessonId}`)
+    } finally {
+      if (!signal.aborted) setIsRegenerating(false)
     }
+  }
+
+  // Rebuild the pages from the current card set. Progress for this lesson is
+  // reset server-side by the regenerate call, and the lesson reloads from page 1.
+  async function handleRegenerate() {
+    if (isRegenerating) return
+    setIsRegenerating(true)
+    await initializeLesson(new AbortController().signal, 0, { regenerate: true })
   }
 
   async function loadPage(pageNumber: number, signal: AbortSignal) {
@@ -418,6 +480,12 @@ function InteractiveLessonContent({
     }
   }
 
+  // Saved response for a segment on the current page, if the user already answered it
+  function savedResponseFor(segmentId: string): LessonResponse | null {
+    const pageResponses = responsesRef.current[currentPageNumber] || []
+    return pageResponses.find((r) => r.segmentId === segmentId) ?? null
+  }
+
   function handlePrevious() {
     if (currentPageNumber > 1) {
       setPosition((prev) => ({ ...prev, pageNumber: prev.pageNumber - 1 }))
@@ -429,7 +497,9 @@ function InteractiveLessonContent({
     return (
       <div className="max-w-3xl mx-auto py-12">
         <div className="space-y-4">
-          <h2 className="text-2xl font-bold text-center">Generating Your Interactive Lesson</h2>
+          <h2 className="text-2xl font-bold text-center">
+            {isRegenerating ? "Regenerating Your Interactive Lesson" : "Generating Your Interactive Lesson"}
+          </h2>
           <AILoading
             status="generating"
             statusLabels={{ generating: "Creating exercises and content" }}
@@ -462,7 +532,17 @@ function InteractiveLessonContent({
                 ? "Nice work — the next lesson is now unlocked."
                 : "Great job completing this interactive lesson."}
           </p>
+          <p className="text-sm text-muted-foreground">
+            Exercise answers count as reviews for these cards.
+          </p>
           <div className="flex flex-wrap gap-4 justify-center pt-4">
+            <Button
+              variant={inCourse && hasNext && !courseDone ? "outline" : "default"}
+              onClick={() => router.push(`/review?lessonId=${lessonId}`)}
+            >
+              <Play className="h-4 w-4 mr-2" />
+              Review these cards now
+            </Button>
             {inCourse && hasNext && !courseDone && (
               <Button onClick={handleNextLesson} disabled={advancing}>
                 {advancing ? (
@@ -481,7 +561,7 @@ function InteractiveLessonContent({
                 Back to Course
               </Button>
             ) : (
-              <Button onClick={() => router.push(`/lessons/${lessonId}`)}>
+              <Button variant="outline" onClick={() => router.push(`/lessons/${lessonId}`)}>
                 Back to Lesson
               </Button>
             )}
@@ -504,7 +584,12 @@ function InteractiveLessonContent({
     )
   }
 
-  const progress = (currentPageNumber / totalPages) * 100
+  // While pages are still being written, show the expected total so the
+  // progress bar doesn't jump around as they arrive.
+  const expectedTotal = isWritingPages ? Math.max(totalPages, LESSON_TOTAL_PAGES) : totalPages
+  const progress = (currentPageNumber / expectedTotal) * 100
+  const nextPageReady = currentPageNumber < totalPages
+  const waitingForNextPage = isWritingPages && !nextPageReady
 
   return (
     <div className="max-w-3xl mx-auto py-6 space-y-6">
@@ -517,13 +602,42 @@ function InteractiveLessonContent({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Exit Lesson
         </Button>
-        <div className="text-sm text-muted-foreground">
-          Page {currentPageNumber} of {totalPages}
+        <div className="text-sm text-muted-foreground flex items-center gap-3">
+          {isWritingPages && (
+            <span className="flex items-center gap-1.5 text-xs" role="status" aria-live="polite">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Writing page {totalPages + 1}…
+            </span>
+          )}
+          <span>
+            Page {currentPageNumber} of {expectedTotal}
+          </span>
         </div>
       </div>
 
       {/* Progress Bar */}
       <Progress value={progress} className="h-2" />
+
+      {pagesStale && (
+        <div
+          role="status"
+          className="flex flex-col sm:flex-row sm:items-center gap-3 rounded-lg border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 p-3 text-sm"
+        >
+          <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+          <span className="flex-1">
+            Cards changed since this lesson was generated. Regenerating rebuilds the
+            exercises from the current cards and restarts your progress.
+          </span>
+          <Button size="sm" variant="outline" onClick={handleRegenerate} disabled={isRegenerating}>
+            {isRegenerating ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Regenerate
+          </Button>
+        </div>
+      )}
 
       {/* Segments */}
       <div className="space-y-6">
@@ -557,7 +671,10 @@ function InteractiveLessonContent({
                   options={segment.content.options}
                   correctIndex={segment.content.correctIndex}
                   explanation={segment.content.explanation}
-                  onAnswer={(isCorrect) => handleAnswer(segment.id, isCorrect)}
+                  initialResponse={savedResponseFor(segment.id)}
+                  onAnswer={(isCorrect, userAnswer) =>
+                    handleAnswer(segment.id, isCorrect, userAnswer)
+                  }
                 />
               )
 
@@ -570,6 +687,7 @@ function InteractiveLessonContent({
                   pinyin={segment.content.pinyin}
                   translation={segment.content.translation}
                   hint={segment.content.hint}
+                  initialResponse={savedResponseFor(segment.id)}
                   onAnswer={(isCorrect, userAnswer) =>
                     handleAnswer(segment.id, isCorrect, userAnswer)
                   }
@@ -585,6 +703,7 @@ function InteractiveLessonContent({
                   sourceText={segment.content.sourceText}
                   acceptableTranslations={segment.content.acceptableTranslations}
                   hint={segment.content.hint}
+                  initialResponse={savedResponseFor(segment.id)}
                   onAnswer={(userAnswer) =>
                     handleTranslationAnswer(segment.id, userAnswer)
                   }
@@ -618,8 +737,13 @@ function InteractiveLessonContent({
           <ArrowLeft className="h-4 w-4 mr-2" />
           Previous
         </Button>
-        <Button onClick={handleNext}>
-          {currentPageNumber < totalPages ? (
+        <Button onClick={handleNext} disabled={waitingForNextPage}>
+          {waitingForNextPage ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Writing page {totalPages + 1}…
+            </>
+          ) : nextPageReady ? (
             <>
               Next
               <ArrowRight className="h-4 w-4 ml-2" />

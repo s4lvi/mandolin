@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import prisma from "@/lib/prisma"
+import { hasPrefetchedStory, prefetchNextStory } from "@/lib/story-prefetch"
 
 // GET /api/stories - List user's saved stories
 export async function GET() {
@@ -10,20 +11,28 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const stories = await prisma.story.findMany({
-      where: { userId: session.user.id },
-      orderBy: { createdAt: "desc" },
-      select: {
-        id: true,
-        title: true,
-        titlePinyin: true,
-        titleEnglish: true,
-        sentences: true,
-        createdAt: true
-      }
-    })
+    const userId = session.user.id
+    const [stories, hasPrefetched] = await Promise.all([
+      prisma.story.findMany({
+        // Prefetched stories stay hidden until "New Story" claims them
+        where: { userId, prefetched: false },
+        orderBy: { createdAt: "desc" },
+        select: {
+          id: true,
+          title: true,
+          titlePinyin: true,
+          titleEnglish: true,
+          sentences: true,
+          createdAt: true
+        }
+      }),
+      hasPrefetchedStory(userId)
+    ])
 
-    return NextResponse.json({ stories })
+    // Make sure the next story is ready by the time the user asks for it
+    if (!hasPrefetched) void prefetchNextStory(userId)
+
+    return NextResponse.json({ stories, hasPrefetched })
   } catch (error) {
     console.error("Error fetching stories:", error)
     return NextResponse.json(

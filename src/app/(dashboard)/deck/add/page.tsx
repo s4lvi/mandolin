@@ -6,7 +6,7 @@ import { useCreateCard } from "@/hooks/use-cards"
 import { CardForm } from "@/components/cards/card-form"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Plus, X } from "lucide-react"
+import { Plus, X, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import type { CreateCardInput } from "@/lib/validations/card"
 
@@ -64,7 +64,12 @@ export default function AddCardsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+      <Button variant="ghost" size="sm" onClick={() => router.push("/deck")}>
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Back to Deck
+      </Button>
+
+      <div className="flex justify-between items-center gap-3">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold">Add Cards</h1>
           <p className="text-muted-foreground">
@@ -88,6 +93,8 @@ export default function AddCardsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    className="h-11 w-11 sm:h-9 sm:w-9"
+                    aria-label={`Remove card ${index + 1}`}
                     onClick={() => removeEntry(entry.id)}
                   >
                     <X className="h-4 w-4" />

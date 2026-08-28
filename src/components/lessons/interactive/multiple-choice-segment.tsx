@@ -7,12 +7,28 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Label } from "@/components/ui/label"
 import { CheckCircle2, XCircle } from "lucide-react"
 
+export interface SavedSegmentResponse {
+  correct: boolean
+  userAnswer: string
+}
+
 interface MultipleChoiceSegmentProps {
   question: string
   options: string[]
   correctIndex: number
   explanation: string
-  onAnswer: (isCorrect: boolean) => void
+  /** Saved answer from a previous visit — renders as already answered, no re-submission */
+  initialResponse?: SavedSegmentResponse | null
+  /** `userAnswer` is the chosen option index as a string (persisted for restore) */
+  onAnswer: (isCorrect: boolean, userAnswer: string) => void
+}
+
+function restoreIndex(response: SavedSegmentResponse | null | undefined, correctIndex: number): number | null {
+  if (!response) return null
+  const parsed = parseInt(response.userAnswer, 10)
+  if (!Number.isNaN(parsed)) return parsed
+  // Older saves didn't record the choice — show the correct one if they got it right
+  return response.correct ? correctIndex : null
 }
 
 export function MultipleChoiceSegment({
@@ -20,18 +36,21 @@ export function MultipleChoiceSegment({
   options,
   correctIndex,
   explanation,
+  initialResponse,
   onAnswer
 }: MultipleChoiceSegmentProps) {
   const id = useId()
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-  const [isSubmitted, setIsSubmitted] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(() =>
+    restoreIndex(initialResponse, correctIndex)
+  )
+  const [isSubmitted, setIsSubmitted] = useState(!!initialResponse)
 
   const handleSubmit = () => {
-    if (selectedIndex === null) return
+    if (selectedIndex === null || isSubmitted) return
 
-    const isCorrect = selectedIndex === correctIndex
+    const isCorrect = initialResponse ? initialResponse.correct : selectedIndex === correctIndex
     setIsSubmitted(true)
-    onAnswer(isCorrect)
+    onAnswer(isCorrect, String(selectedIndex))
   }
 
   const isCorrect = selectedIndex === correctIndex

@@ -3,16 +3,16 @@ import prisma from "@/lib/prisma"
 import { Prisma } from "@prisma/client"
 import {
   getAuthenticatedUserDeck,
-  verifyLessonOwnership,
-  stripMarkdownCodeBlock
+  verifyLessonOwnership
 } from "@/lib/api-helpers"
 import { createLogger } from "@/lib/logger"
 import { z } from "zod"
-import Anthropic from "@anthropic-ai/sdk"
-import { CLAUDE_MODEL, MERGE_CONTEXT_PROMPT } from "@/lib/constants"
+import { CLAUDE_MODEL_SMART, MERGE_CONTEXT_SYSTEM, MERGE_CONTEXT_USER } from "@/lib/constants"
+import { getAnthropic, cachedSystem, logUsage } from "@/lib/ai"
+import { markLessonPagesStale } from "@/lib/deck-import"
+import { enqueuePageGeneration } from "@/lib/page-generation"
 
 const logger = createLogger("api/cards/save-parsed")
-const anthropic = new Anthropic({ timeout: 60_000, maxRetries: 2 })
 
 const cardSchema = z.object({
   hanzi: z.string().min(1).max(100),
@@ -118,27 +118,51 @@ export async function POST(req: Request) {
           lessonId = lesson.id
         }
 
+        // Bulk-insert the cards, then link them to the lesson / tags in two more
+        // batched writes (instead of one round trip per card)
         let createdCount = 0
-        for (const cardData of cardsToCreate) {
-          await tx.card.create({
-            data: {
+        if (cardsToCreate.length > 0) {
+          const created = await tx.card.createMany({
+            data: cardsToCreate.map((cardData) => ({
               hanzi: cardData.hanzi,
               pinyin: cardData.pinyin,
               english: cardData.english,
               notes: cardData.notes,
               type: cardData.type,
-              deckId: deck.id,
-              lessons: lessonId ? { create: { lessonId } } : undefined,
-              tags: cardData.tags
-                ? {
-                    create: cardData.tags.map(tagName => ({
-                      tagId: tagMap.get(tagName)!
-                    }))
-                  }
-                : undefined
-            }
+              deckId: deck.id
+            })),
+            skipDuplicates: true
           })
-          createdCount++
+          createdCount = created.count
+
+          const newCards = await tx.card.findMany({
+            where: {
+              deckId: deck.id,
+              hanzi: { in: cardsToCreate.map((c) => c.hanzi) }
+            },
+            select: { id: true, hanzi: true }
+          })
+          const newCardIdByHanzi = new Map(newCards.map((c) => [c.hanzi, c.id]))
+
+          if (lessonId) {
+            await tx.cardLesson.createMany({
+              data: newCards.map((c) => ({ cardId: c.id, lessonId: lessonId! })),
+              skipDuplicates: true
+            })
+          }
+
+          const tagLinks: { cardId: string; tagId: string }[] = []
+          for (const cardData of cardsToCreate) {
+            const cardId = newCardIdByHanzi.get(cardData.hanzi)
+            if (!cardId || !cardData.tags) continue
+            for (const tagName of cardData.tags) {
+              const tagId = tagMap.get(tagName)
+              if (tagId) tagLinks.push({ cardId, tagId })
+            }
+          }
+          if (tagLinks.length > 0) {
+            await tx.cardTag.createMany({ data: tagLinks, skipDuplicates: true })
+          }
         }
 
         // Step 6: Associate duplicate cards with lesson (no-op if already linked)
@@ -149,6 +173,11 @@ export async function POST(req: Request) {
             skipDuplicates: true
           })
           associatedCount = result.count
+        }
+
+        // Adding cards to an existing lesson invalidates its generated pages
+        if (existingLessonId && createdCount + associatedCount > 0) {
+          await markLessonPagesStale(tx, [existingLessonId])
         }
 
         return { lessonId, createdCount, associatedCount }
@@ -171,6 +200,9 @@ export async function POST(req: Request) {
       associated: associatedCount,
       lessonId
     })
+
+    // Warm the interactive lesson in the background so the learn page is a cache hit
+    if (lessonId) enqueuePageGeneration(lessonId, deck.id)
 
     return NextResponse.json({
       created: createdCount,
@@ -212,18 +244,23 @@ async function mergeContextAsync(lessonId: string, newContext: string) {
     }
 
     // Use AI to merge contexts
-    const response = await anthropic.messages.create({
-      model: CLAUDE_MODEL,
-      max_tokens: 4096,
-      messages: [{
-        role: "user",
-        content: `${MERGE_CONTEXT_PROMPT}\n\nExisting context:\n${lesson.notes}\n\nNew context:\n${newContext}`
-      }]
-    })
+    const userMessage = MERGE_CONTEXT_USER
+      .replace("{EXISTING_CONTEXT}", () => lesson.notes ?? "")
+      .replace("{NEW_CONTEXT}", () => newContext)
 
-    const content = response.content[0]
-    if (content.type === "text") {
-      const merged = stripMarkdownCodeBlock(content.text)
+    const response = await getAnthropic().messages.create({
+      model: CLAUDE_MODEL_SMART,
+      max_tokens: 4096,
+      thinking: { type: "adaptive" },
+      output_config: { effort: "low" },
+      system: cachedSystem(MERGE_CONTEXT_SYSTEM),
+      messages: [{ role: "user", content: userMessage }]
+    })
+    logUsage(logger, "background merge context", response.usage)
+
+    const textBlock = response.content.find((block) => block.type === "text")
+    if (textBlock) {
+      const merged = textBlock.text.trim()
       await prisma.lesson.update({
         where: { id: lessonId },
         data: { notes: merged }

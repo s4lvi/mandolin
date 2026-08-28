@@ -10,15 +10,26 @@ import type { Card as CardType, FaceMode } from "@/types"
 import { preloadVoices } from "@/lib/speech"
 import { useSpeak } from "@/hooks/use-speak"
 import { AnswerButtons } from "./answer-buttons"
-import { Quality } from "@/lib/srs"
+import { Quality, previewIntervalLabels, isNewCard } from "@/lib/srs"
+import { useReviewKeys, NewBadge } from "./review-keys"
 
 interface RecallCardProps {
   card: CardType
   faceMode: FaceMode
   onAnswer: (quality: Quality) => void
+  autoPlayAudio?: boolean
+  showHard?: boolean
+  disabled?: boolean
 }
 
-export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
+export function RecallCard({
+  card,
+  faceMode,
+  onAnswer,
+  autoPlayAudio = true,
+  showHard = true,
+  disabled
+}: RecallCardProps) {
   const [userInput, setUserInput] = useState("")
   const [submitted, setSubmitted] = useState(false)
   const [isCorrect, setIsCorrect] = useState(false)
@@ -34,15 +45,20 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
     setUserInput("")
     setSubmitted(false)
     setIsCorrect(false)
-    // Auto-play audio for the new card
-    const speakTimer = setTimeout(() => speak(card.hanzi), 300)
+    // Auto-play audio for the new card (never when the prompt is English —
+    // hearing the hanzi would give away the answer)
+    const shouldSpeak = autoPlayAudio && faceMode !== "english"
+    const speakTimer = shouldSpeak ? setTimeout(() => speak(card.hanzi), 300) : null
     const focusTimer = setTimeout(() => inputRef.current?.focus(), 400)
     return () => {
-      clearTimeout(speakTimer)
+      if (speakTimer) clearTimeout(speakTimer)
       clearTimeout(focusTimer)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [card.id])
+  }, [card.id, autoPlayAudio, faceMode])
+
+  const intervalLabels = previewIntervalLabels(card)
+  const isNew = isNewCard(card)
 
   // Determine what to prompt and what the expected answer is
   const getPromptAndAnswer = () => {
@@ -95,15 +111,19 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
   }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      if (submitted) {
-        // Second enter = self-grade as GOOD if correct, AGAIN if not
-        onAnswer(isCorrect ? Quality.GOOD : Quality.AGAIN)
-      } else {
-        handleSubmit()
-      }
+    if (e.key === "Enter" && !submitted) {
+      handleSubmit()
     }
   }
+
+  // After the answer is checked the input is gone: Enter self-grades
+  // (GOOD if correct, AGAIN if not) and 1–4 rate explicitly.
+  useReviewKeys({
+    enabled: !disabled,
+    revealed: submitted,
+    onEnterRevealed: () => onAnswer(isCorrect ? Quality.GOOD : Quality.AGAIN),
+    onRate: onAnswer
+  })
 
   if (submitted) {
     return (
@@ -161,7 +181,12 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
 
             {/* Self-grade buttons */}
             <p className="text-xs text-center text-muted-foreground mb-2">How well did you know this?</p>
-            <AnswerButtons onAnswer={onAnswer} />
+            <AnswerButtons
+              onAnswer={onAnswer}
+              disabled={disabled}
+              intervalLabels={intervalLabels}
+              showHard={showHard}
+            />
           </div>
         </CardContent>
       </Card>
@@ -170,7 +195,8 @@ export function RecallCard({ card, faceMode, onAnswer }: RecallCardProps) {
 
   return (
     <Card className="min-h-0">
-      <CardContent className="p-4 sm:p-6">
+      <CardContent className="relative p-4 sm:p-6">
+        {isNew && <NewBadge className="absolute top-3 left-3" />}
         <div className="text-center mb-8">
           <p className="text-xs text-muted-foreground mb-2">{promptLabel}</p>
           <div className="flex items-center justify-center gap-2">

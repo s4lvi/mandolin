@@ -95,7 +95,11 @@ function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="dialog-footer"
       className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
+        // Sticks to the bottom of the scrollable dialog so the confirm/cancel
+        // buttons stay reachable when the body is taller than the viewport.
+        // Negative margins + matching padding keep the footer flush with the
+        // content padding and paint a solid background over scrolled content.
+        "sticky bottom-0 z-10 -mx-6 -mb-6 px-6 pb-6 pt-2 bg-background flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
         className
       )}
       {...props}

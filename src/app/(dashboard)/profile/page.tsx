@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -19,7 +20,10 @@ import {
   FormDescription
 } from "@/components/ui/form"
 import { Separator } from "@/components/ui/separator"
-import { User, Lock, CreditCard, Loader2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { User, Lock, Loader2, SlidersHorizontal, BarChart3, Sparkles, ChevronRight } from "lucide-react"
+import { usePreferences, useUpdatePreferences } from "@/hooks/use-preferences"
 import { toast } from "sonner"
 
 // Profile update schema
@@ -47,6 +51,135 @@ interface UserProfile {
   name: string | null
   bio: string | null
   createdAt: string
+}
+
+/** Debounced numeric preference field: saves on blur / Enter, clamps to range. */
+function NumberPref({
+  id,
+  label,
+  description,
+  value,
+  min,
+  max,
+  onSave
+}: {
+  id: string
+  label: string
+  description?: string
+  value: number
+  min: number
+  max: number
+  onSave: (n: number) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const shown = draft ?? String(value)
+
+  const commit = () => {
+    if (draft === null) return
+    const n = Math.round(Number(draft))
+    setDraft(null)
+    if (!Number.isFinite(n)) return
+    const clamped = Math.min(max, Math.max(min, n))
+    if (clamped !== value) onSave(clamped)
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="space-y-0.5">
+        <Label htmlFor={id}>{label}</Label>
+        {description && <p className="text-xs text-muted-foreground">{description}</p>}
+      </div>
+      <Input
+        id={id}
+        type="number"
+        inputMode="numeric"
+        min={min}
+        max={max}
+        value={shown}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur() }}
+        className="w-24 text-right"
+      />
+    </div>
+  )
+}
+
+function StudySettingsCard() {
+  const { data: prefs } = usePreferences()
+  const update = useUpdatePreferences()
+  const reviewPrefs = prefs?.reviewPrefs
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
+
+  const save = (input: Parameters<typeof update.mutate>[0]) =>
+    update.mutate(input, {
+      onError: (err: Error) => toast.error(err.message),
+      onSuccess: () => toast.success("Saved")
+    })
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-2">
+          <SlidersHorizontal className="h-5 w-5" />
+          <CardTitle>Study settings</CardTitle>
+        </div>
+        <CardDescription>
+          Defaults for your daily goal and review sessions
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        <NumberPref
+          id="daily-goal"
+          label="Daily goal"
+          description="Cards to review each day"
+          value={prefs?.dailyGoal ?? 20}
+          min={1}
+          max={500}
+          onSave={(n) => save({ dailyGoal: n })}
+        />
+        <NumberPref
+          id="new-cards"
+          label="New cards per session"
+          description="Max never-reviewed cards introduced per review"
+          value={reviewPrefs?.newCardsPerSession ?? 6}
+          min={0}
+          max={50}
+          onSave={(n) => save({ reviewPrefs: { newCardsPerSession: n } })}
+        />
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="show-hard">Show Hard button on mobile</Label>
+            <p className="text-xs text-muted-foreground">Rate cards Again / Hard / Good / Easy on phones too</p>
+          </div>
+          <Switch
+            id="show-hard"
+            checked={reviewPrefs?.showHardButton ?? true}
+            onCheckedChange={(v) => save({ reviewPrefs: { showHardButton: v } })}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-4">
+          <div className="space-y-0.5">
+            <Label htmlFor="autoplay">Auto-play audio</Label>
+            <p className="text-xs text-muted-foreground">Play the hanzi pronunciation when a card appears</p>
+          </div>
+          <Switch
+            id="autoplay"
+            checked={reviewPrefs?.autoPlayAudio ?? true}
+            onCheckedChange={(v) => save({ reviewPrefs: { autoPlayAudio: v } })}
+          />
+        </div>
+        <Separator />
+        <div className="text-sm">
+          <p className="text-muted-foreground">Timezone</p>
+          <p className="font-medium">
+            {timezone}{" "}
+            <span className="text-xs text-muted-foreground font-normal">(detected automatically)</span>
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  )
 }
 
 export default function ProfilePage() {
@@ -321,26 +454,28 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Subscription (Placeholder) */}
+      {/* Study settings */}
+      <StudySettingsCard />
+
+      {/* Links that left the mobile tab bar */}
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            <CardTitle>Subscription</CardTitle>
-          </div>
-          <CardDescription>
-            Manage your subscription and billing
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-col items-center justify-center py-8 text-center">
-            <p className="text-muted-foreground mb-2">
-              Subscription features coming soon!
-            </p>
-            <p className="text-sm text-muted-foreground">
-              We&apos;re working on bringing you premium features and subscription plans.
-            </p>
-          </div>
+        <CardContent className="p-0 divide-y">
+          <Link href="/stats" className="flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors">
+            <BarChart3 className="h-5 w-5 text-primary" />
+            <div className="flex-1">
+              <p className="font-medium">Stats</p>
+              <p className="text-sm text-muted-foreground">Streaks, achievements & history</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
+          <Link href="/changelog" className="flex items-center gap-3 p-4 hover:bg-muted/50 transition-colors">
+            <Sparkles className="h-5 w-5 text-primary" />
+            <div className="flex-1">
+              <p className="font-medium">What&apos;s New</p>
+              <p className="text-sm text-muted-foreground">Release notes and recent changes</p>
+            </div>
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          </Link>
         </CardContent>
       </Card>
 

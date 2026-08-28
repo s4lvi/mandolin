@@ -15,7 +15,8 @@ export const createCardSchema = z.object({
   tags: z.array(tagNameSchema).max(50).optional()
 })
 
-export const updateCardSchema = createCardSchema.partial()
+// Lesson membership is managed via the card-lesson endpoints, not the card PUT
+export const updateCardSchema = createCardSchema.omit({ lessonId: true }).partial()
 
 export const bulkCreateCardsSchema = z.object({
   cards: z.array(createCardSchema).max(500),
